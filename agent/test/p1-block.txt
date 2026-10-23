@@ -1,0 +1,57 @@
+// -- Phase 1: the loop builds the encyclopedia from an empty disk ------------
+{
+  requestLog.length = 0; callsLog.length = 0;
+  searchLog.length = 0;
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p1');
+  // Run 1: nothing on disk -> editor creates the highest-level topic page and
+  // its empty subpages. Runs 2-3: the reviewer scores one page at a time,
+  // the editor fills the unscored ones.
+  const r = await agent(['--topic', 'Manufacturing', '--runs', '3'], { contentDir, notesDir, authorNotesDir });
+  console.log(`\n--- phase 1 (creation) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+  const mfg = path.join(contentDir, 'Manufacturing/Readme.md');
+  const elec = path.join(contentDir, 'Manufacturing/Electronics/Readme.md');
+  const bat = path.join(contentDir, 'Manufacturing/Electronics/Batteries.md');
+  check('p1: Manufacturing topic page created', exists(mfg));
+  check('p1: Manufacturing links to Electronics', content(mfg).includes('./Electronics/Readme.md'));
+  check('p1: Electronics topic page created', exists(elec));
+  check('p1: Batteries explanation page created', exists(bat));
+  check(
+    'p1: pages use LaTeXMarkdown syntax (backtick math, HTML tables, no pipe tables)',
+    content(bat).includes('$`E = mc^2`') &&
+      content(mfg).includes('<table>') &&
+      !content(mfg).includes('|---|') &&
+      !content(bat).includes('$E = mc^2$'),
+  );
+  const db = JSON.parse(content(path.join(path.dirname(contentDir), 'pages.json')));
+  check(
+    'p1: the page database tracks types, scores and review timestamps',
+    db.pages['Manufacturing/Readme.md']?.type === 'topic' &&
+      db.pages['Manufacturing/Electronics/Batteries.md']?.type === 'explanation' &&
+      db.pages['Manufacturing/Readme.md']?.score === 42 &&
+      db.pages['Manufacturing/Electronics/Readme.md']?.score === 42 &&
+      typeof db.pages['Manufacturing/Readme.md']?.reviewedAt === 'string' &&
+      db.pages['Manufacturing/Electronics/Batteries.md']?.score === null,
+    JSON.stringify(db),
+  );
+  check(
+    'p1: the task sequence matches the README algorithm',
+    taskCount('create-topic-page') === 2 &&
+      taskCount('create-explanation-page') === 1 &&
+      taskCount('evaluate-topic-page') === 2 &&
+      r.stdout.includes('no pages at all; creating the highest-level topic page') &&
+      r.stdout.includes('created the empty subpage Manufacturing/Electronics/Readme.md'),
+    requestLog.join(','),
+  );
+  check(
+    'p1: /v1/models is not called when OPENAI_HOST is set',
+    modelsLog.length === 0,
+    `models calls: ${modelsLog.length}`,
+  );
+  check(
+    'p1: prompts and style guide demand exactly one page per subject',
+    STYLE_GUIDE.includes('Never two pages for the same subject') &&
+      STYLE_GUIDE.includes('either all explanation pages, or all topic pages') &&
+      createTopicPagePrompt(['Manufacturing'])[1].content.includes('never give one subject two links'),
+  );
+}
