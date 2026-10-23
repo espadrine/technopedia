@@ -68,38 +68,57 @@ sometimes dithering.
 ## Automatic generation
 
 There should be an AI contributor agent.
+It should have a database of pages, with each page having a type, score and a timestamp indicating the latest time it has been reviewed.
 It should, in a loop:
 
-1. Pick a high-level topic, for instance: Manufacturing. If it is empty, determine if it is a topic page or an explanation page.
-   1. If it is a topic page (which is the case for Manufacturing),
-      1. If it doesn't exist: create it
+1. Initiate Reviewer mode.
+   1. Pick a page with the following priority:
+      1. if there is no page at all, move on to editor mode;
+      2. if a page exists on disk but not in the database, pick it and add it to the database;
+      3. otherwise, pick the page with the oldest review timestamp.
+   2. Produce an evaluation of the page.
+      If the page is a topic page, the evaluation must check:
+      - adherence to the rules,
+      - whether the categorization is the optimal one,
+      - whether there is a missing topic
+      If the page is an explanation page, the evaluation must check:
+      - adherence to the rules,
+      - clarity of the explanation, of how one section flows to the next, of the examples, intuitiveness and interactivity of the animations
+      - whether the section organization is the optimal one,
+      - whether there is a missing section
+      - whether there is overlap with another article
+      - whether the article repeats itself or can be more succinct
+      - fact-check the content using the Web and add authoritative sources if needed.
+      Use this review to highlight ways in which this article could be improved.
+      As part of this review, give the page a score from 0 to 100, which represents how much of the page should be reworked:
+      0 means all of it should be rewritten or deleted, 100 means it is perfect and needs no work.
+      Update the page's score as an exponential average: the latest score is worth 10% of the new score, and 90% of the old score.
+      (If the score is null, set it to the latest score.)
+      Add this review as one or multiple improvement notes.
+2. Initiate Editor mode.
+   1. Pick a page with the following priority:
+      1. if there is no page at all, create the highest-level topic page;
+      2. if a page exists on disk but not in the database, pick it and add it to the database;
+      3. if a page does not have a score, pick it;
+      4. otherwise, pick the page with the lowest score.
+   2. If it is a topic page (eg. Manufacturing),
+      1. If it is empty: create its content, with the links, and create the subpages corresponding to those links, leaving them empty.
+         Add it, along with its subpages, to the page database.
       2. If the page has more than 10 subtopics, categorize them into 2 groups,
          label each group, create one topic page for each group, and
          add those topic pages to the parent topic page, removing the old topic page.
          Then fill in the topic page.
-      3. Produce an evaluation of the page. The evaluation must check:
-         - adherence to the rules,
-         - whether the categorization is the optimal one,
-         - whether there is a missing topic
-         Use this review to highlight ways in which this article could be improved.
-         Add this review as one or multiple improvement notes.
-      4. If there is an improvement note left over on the page by previous agents or the author: Read it, address it, delete it (except don't delete it if it is an author note).
+      3. Read the author notes on all ancestor pages, read the agent notes on the current page,
+         address them, delete the agent notes.
+         If it creates a page, that page should be added to the database; if it deletes it, it should be removed from the database.
          If it deletes the page wholesale, it should update the parent topic page to remove the link to the deleted page, before concluding the work.
-      5. Pick a subtopic present in the topic page (eg. "Electronics"), and if that subtopic is a topic page, go to 1., otherwise, go to 2.
-   2. If it is an explanation page (for instance, "Batteries"),
-      1. If it doesn't exist, create it.
-      2. If it has over 10 sections, categorize them into 2 groups, label each group, create one explanation page for each group, and add those explanation pages to the original parent topic page.
-      3. Produce an evaluation of the page. The evaluation must check:
-         - adherence to the rules,
-         - clarity of the explanation, of how one section flows to the next, of the examples, intuitiveness and interactivity of the animations
-         - whether the section organization is the optimal one,
-         - whether there is a missing section
-         - whether there is overlap with another article
-         - whether the article repeats itself or can be more succinct
-         - Fact-check the content using the Web and add authoritative sources if needed.
-         Use this review to highlight ways in which this article could be improved.
-         Add this review as one or multiple improvement notes.
-      4. If there is an improvement note left over on the page by previous agents or the author: Read it, address it, delete it (except don't delete it if it is an author note).
+   3. If it is an explanation page (for instance, "Batteries"),
+      1. If it is empty, create its content.
+      2. If it has over 10 sections, categorize them into 2 groups, label each group, create one explanation page for each group, and add those explanation pages to the original parent topic page as new categories.
+      3. Read the author notes on all ancestor pages, read the agent notes on the current page,
+         address them, delete the agent notes.
+         If it creates a page, that page should be added to the database; if it deletes it, it should be removed from the database.
+         If it deletes the page wholesale, it should update the parent topic page to remove the link to the deleted page, before concluding the work.
 
 The agent has access to the following tools in order to perform its duties:
 - `web_search(query)`: searches the Web for the query and returns a list of relevant links and snippets.
