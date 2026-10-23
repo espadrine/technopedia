@@ -16,6 +16,9 @@ export class LlmError extends Error {
 }
 
 const RETRIES = 3;
+// How many times a non-JSON final answer is handed back to the model as a
+// user message (so it can adjust) before the task fails.
+const MAX_PARSE_RETRIES = 2;
 // Tool results fed back into the conversation are truncated to this size, so
 // that many tool rounds cannot exhaust the model's context window.
 const MAX_TOOL_RESULT_CHARS = 6000;
@@ -147,7 +150,7 @@ export class LlmClient {
     }
   }
 
-  async chat(messages, { temperature, maxTokens, label } = {}) {
+  async chat(messages, { temperature, maxTokens, label, json = false } = {}) {
     await this.resolveModel();
     const body = {
       messages,
@@ -155,6 +158,11 @@ export class LlmClient {
       stream: false,
     };
     if (this.config.reasoningFormat) body.reasoning_format = this.config.reasoningFormat;
+    // JSON mode (llama.cpp response_format json_object): the server constrains
+    // the grammar of the content, so the final answer is always valid JSON.
+    if (json) {
+      body.response_format = { type: 'json_object' };
+    }
     if (this.model && !this.omitModel) body.model = this.model;
     const tokens = maxTokens ?? this.config.maxTokens ?? this.autoMaxTokens;
     if (tokens) body.max_tokens = tokens;
@@ -236,9 +244,17 @@ export class LlmClient {
     const maxToolRounds = this.config.maxToolRounds ?? 100;
     const convo = [...messages];
     let rounds = 0;
+    let parseRetries = 0;
+    let forced = false;
     for (;;) {
-      const raw = await this.chat(convo, opts);
-      const parsed = this.parseJsonOrThrow(raw, opts.label);
+      const raw = await this.chat(convo, { ...opts, json: true });
+      let parsed = null;
+      let parseError = null;
+      try {
+        parsed = extractJson(raw);
+      } catch (err) {
+        parseError = err;
+      }
       const isToolRequest =
         tools !== null &&
         parsed !== null &&
@@ -246,38 +262,83 @@ export class LlmClient {
         !Array.isArray(parsed) &&
         typeof parsed.tool === 'string' &&
         tools.has(parsed.tool);
-      if (!isToolRequest) return parsed;
-      if (rounds >= maxToolRounds) {
+      if (isToolRequest) {
+        if (!forced && rounds >= maxToolRounds) {
+          this.logger(
+            `tool round limit (${maxToolRounds}) reached; forcing the final answer`,
+          );
+          this.transcribe({ kind: 'wrap-up', label: opts.label ?? null, rounds });
+          forced = true;
+          convo.push(this.assistantTurn(raw));
+          convo.push({
+            role: 'user',
+            content:
+              'Tool round limit reached. Do not use any more tools; reply with the final JSON answer now.',
+          });
+          continue;
+        }
+        if (forced) {
+          // The model still asks for a tool after the wrap-up: nudge it again,
+          // bounded, so a looping model cannot grow the conversation forever.
+          if (parseRetries >= MAX_PARSE_RETRIES) {
+            throw new LlmError('the model kept requesting tools after the forced wrap-up', {
+              kind: 'parse',
+            });
+          }
+          parseRetries += 1;
+          convo.push(this.assistantTurn(raw));
+          convo.push({
+            role: 'user',
+            content: 'Do not use any more tools; reply with the final JSON answer now.',
+          });
+          continue;
+        }
+        const result = await tools.exec(parsed.tool, parsed.args);
+        let value = JSON.stringify(result);
+        if (value.length > MAX_TOOL_RESULT_CHARS) {
+          value = JSON.stringify(
+            `${value.slice(0, MAX_TOOL_RESULT_CHARS)}\n... (tool result truncated to fit; narrow your next query)`,
+          );
+        }
+        this.transcribe({
+          kind: 'tool',
+          label: opts.label ?? null,
+          round: rounds + 1,
+          tool: parsed.tool,
+          args: parsed.args,
+          result: value,
+        });
+        convo.push(this.assistantTurn(raw));
+        convo.push({ role: 'user', content: `{"tool_result": ${value}}` });
+        rounds += 1;
+        continue;
+      }
+      if (parsed !== null) return parsed;
+      // The final answer was not valid JSON: give the error back to the model
+      // as the next user message, so it can adjust and do better instead of
+      // failing the run. Bounded: after MAX_PARSE_RETRIES corrections, fail
+      // with the full diagnostics.
+      if (parseRetries < MAX_PARSE_RETRIES) {
+        parseRetries += 1;
         this.logger(
-          `tool round limit (${maxToolRounds}) reached; forcing the final answer`,
+          `the model did not reply with valid JSON; asking it to correct itself (attempt ${parseRetries}/${MAX_PARSE_RETRIES})`,
         );
-        this.transcribe({ kind: 'wrap-up', label: opts.label ?? null, rounds });
+        this.transcribe({
+          kind: 'parse-retry',
+          label: opts.label ?? null,
+          attempt: parseRetries,
+          error: String(parseError?.message ?? parseError),
+          rawLength: raw.length,
+          raw,
+        });
         convo.push(this.assistantTurn(raw));
         convo.push({
           role: 'user',
-          content:
-            'Tool round limit reached. Do not use any more tools; reply with the final JSON answer now.',
+          content: `Your reply was not valid JSON (${String(parseError?.message ?? parseError)}). It must be exactly the JSON object the task describes, with no text before or after it. Reply with the JSON now.`,
         });
-        return this.parseJsonOrThrow(await this.chat(convo, opts), opts.label);
+        continue;
       }
-      const result = await tools.exec(parsed.tool, parsed.args);
-      let value = JSON.stringify(result);
-      if (value.length > MAX_TOOL_RESULT_CHARS) {
-        value = JSON.stringify(
-          `${value.slice(0, MAX_TOOL_RESULT_CHARS)}\n... (tool result truncated to fit; narrow your next query)`,
-        );
-      }
-      this.transcribe({
-        kind: 'tool',
-        label: opts.label ?? null,
-        round: rounds + 1,
-        tool: parsed.tool,
-        args: parsed.args,
-        result: value,
-      });
-      convo.push(this.assistantTurn(raw));
-      convo.push({ role: 'user', content: `{"tool_result": ${value}}` });
-      rounds += 1;
+      return this.parseJsonOrThrow(raw, opts.label);
     }
   }
 

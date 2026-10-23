@@ -21,6 +21,8 @@ export const callsLog = []; // every chat request, including tool-round continua
 // For each request: the reasoning_content of the assistant turns it carries
 // (the client must send the model's reasoning back on tool-round continuations).
 export const assistantReasoningLog = [];
+// response_format.type of each chat request (json mode).
+export const responseFormatLog = [];
 export const searchLog = []; // every /search query it receives
 export const modelsLog = []; // every /v1/models request it receives
 // Test knobs: when set, the matching task fails (HTTP 500) so tests can
@@ -99,6 +101,14 @@ function reply(task, firstUser, messages) {
       return { tool: 'delete_file', args: { path: 'Manufacturing/Junk.md' } };
     }
     return { done: true };
+  }
+  // Non-JSON recovery test: the first final answer is prose, the correction
+  // user message must make the model reply with valid JSON.
+  if (task === 'evaluate-explanation-page' && /BADJSON marker\./.test(firstUser)) {
+    if (messages.some((m) => m.content.startsWith('Your reply was not valid JSON'))) {
+      return { notes: ['Recovered after the JSON correction.'], score: 42, reasoning: 'mock' };
+    }
+    return 'RAW:Now I have a clear picture. I need to:\n\n1. Create Graphics.md\n2. Update the Readme (this is not JSON at all).';
   }
   if (task === 'evaluate-explanation-page' && /TOOLCASE header\./.test(firstUser)) {
     if (toolResults.length === 0) {
@@ -273,7 +283,9 @@ export function startMockServer(port = 39999) {
       let body = '';
       req.on('data', (chunk) => (body += chunk));
       req.on('end', () => {
-        const messages = JSON.parse(body).messages;
+        const bodyJson = JSON.parse(body);
+        responseFormatLog.push(bodyJson.response_format?.type ?? null);
+        const messages = bodyJson.messages;
         assistantReasoningLog.push(
           messages.filter((m) => m.role === 'assistant').map((m) => m.reasoning_content ?? null),
         );

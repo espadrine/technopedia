@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { requestLog, callsLog, modelsLog, searchLog, startMockServer, flags, assistantReasoningLog } from './mock-llm.js';
+import { requestLog, callsLog, modelsLog, searchLog, startMockServer, flags, assistantReasoningLog, responseFormatLog } from './mock-llm.js';
 import { pickModelAndBudget, LlmClient } from '../llm.js';
 import { runAgent } from '../agent.js';
 import { loadConfig } from '../config.js';
@@ -204,6 +204,7 @@ await startMockServer(PORT);
 {
   requestLog.length = 0; callsLog.length = 0;
   searchLog.length = 0;
+  responseFormatLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p2');
   seed(
     contentDir,
@@ -212,6 +213,12 @@ await startMockServer(PORT);
   );
   const r = await agent(['--runs', '1'], { contentDir, notesDir, authorNotesDir });
   console.log(`\n--- phase 2 (review then edit) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+  check(
+    'p2: every task request asks for JSON output (response_format json_object)',
+    responseFormatLog.length > 0 && responseFormatLog.every((type) => type === 'json_object'),
+    JSON.stringify(responseFormatLog),
+  );
 
   check(
     'p2: the only page is reviewed (1.2) and edited (2.3.3) in the same run',
@@ -831,6 +838,39 @@ await startMockServer(PORT);
     'p6i: a missing folder is a tool error, not an empty result',
     typeof missing.error === 'string' && missing.error.includes('does not exist'),
     JSON.stringify(missing),
+  );
+}
+
+// -- Phase 6j: a non-JSON reply is corrected inside the conversation ---------
+{
+  requestLog.length = 0; callsLog.length = 0;
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p6j');
+  seed(
+    contentDir,
+    'Manufacturing/Electronics.md',
+    '# Electronics\n\nBADJSON marker.\n\n## Section one\n\nRaw.\n',
+  );
+  const r = await agent(['--runs', '1'], {
+    contentDir,
+    notesDir,
+    authorNotesDir,
+    env: { TECHNOPEDIA_WEB_SEARCH_URL: 'off' },
+  });
+  console.log(`\n--- phase 6j (JSON correction) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+  check(
+    'p6j: the run recovers when the model replies with prose instead of JSON',
+    r.status === 0 &&
+      r.stdout.includes('asking it to correct itself') &&
+      !r.stdout.includes('failed:') &&
+      content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('notes-addressed'),
+    r.stderr.slice(0, 300),
+  );
+  check(
+    'p6j: the corrected review produced its notes (no duplicated evaluation)',
+    (r.stdout.match(/evaluating the page/g) ?? []).length === 1 &&
+      (r.stdout.match(/evaluation left 1 improvement note/g) ?? []).length === 1 &&
+      taskCount('address-notes') === 1,
+    r.stdout.slice(0, 400),
   );
 }
 
