@@ -1,0 +1,14 @@
+# docker compose up -> the Technopedia website on http://localhost:8080
+# (port 80 is used by another service on this machine; change the left side
+# of the mapping to serve elsewhere).
+#
+# The site is built inside the container from the current content/ at startup:
+# a clean build, with no state carried over. Refresh after the agent's changes
+# with: docker compose restart
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./content:/app/content:ro
