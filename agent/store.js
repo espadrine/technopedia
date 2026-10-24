@@ -140,8 +140,9 @@ export class Store {
   // -- Page database ---------------------------------------------------------
   //
   // README "Automatic generation": "a database of pages, with each page
-  // having a type, score and a timestamp indicating the latest time it has
-  // been reviewed." Persisted as JSON at pagesDb.
+  // having a type, score, a review timestamp indicating the latest time it
+  // has been reviewed, and an edit timestamp indicating the latest time it
+  // has been edited." Persisted as JSON at pagesDb.
 
   async loadPagesDb() {
     const raw = this.pagesDb ? await readIfPresent(this.pagesDb) : null;

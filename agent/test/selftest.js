@@ -985,11 +985,13 @@ await startMockServer(PORT);
       content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('notes-addressed'),
   );
   check(
-    'p7b: the resumed review recorded the score and timestamp in the database',
+    'p7b: the resumed run recorded the timestamps and reset the score (2.4)',
     (() => {
       const db = JSON.parse(content(pagesDb));
       const entry = db.pages['Manufacturing/Electronics.md'];
-      return entry?.score === 42 && typeof entry?.reviewedAt === 'string';
+      return entry?.score === null &&
+        typeof entry?.reviewedAt === 'string' &&
+        typeof entry?.editedAt === 'string';
     })(),
     content(pagesDb),
   );

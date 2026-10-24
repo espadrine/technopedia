@@ -2,20 +2,24 @@
 //
 // One run of the agent implements one iteration of the "Automatic generation"
 // loop described in the Technopedia README: Reviewer mode, then Editor mode,
-// each working from the page database (pages.json: type, score, latest review
-// timestamp per page). The outer loop (in index.js) repeats runs indefinitely
-// and resets the context to the base prompt on every loop: every LLM call
-// carries only the base system prompt and its task.
+// each working from the page database (pages.json: type, score, a review
+// timestamp indicating the latest time the page has been reviewed, and an
+// edit timestamp indicating the latest time it has been edited). The outer
+// loop (in index.js) repeats runs indefinitely and resets the context to the
+// base prompt on every loop: every LLM call carries only the base system
+// prompt and its task.
 //
 // 1. Reviewer mode.
 //    1. Pick a page: none at all -> move on to editor mode; a page on disk
-//       but not in the database -> add it; otherwise the page with the
-//       oldest review timestamp.
+//       but not in the database -> add it; pages with a null score -> the
+//       one amongst them with the oldest edit timestamp; otherwise the page
+//       with the oldest review timestamp.
 //    2. Evaluate the page (adherence to the rules, and per its type the
 //       categorization / clarity / overlap / fact-check checks). The review
 //       leaves one or multiple improvement notes and gives the page a score
 //       from 0 to 100 (how much of the page should be reworked), folded into
-//       the database as an exponential average (10% latest, 90% previous).
+//       the database as an exponential average (25% latest, 75% previous),
+//       and stamps the page's review timestamp.
 // 2. Editor mode.
 //    1. Pick a page: none at all -> create the highest-level topic page; a
 //       page on disk but not in the database -> add it; a page without a
@@ -27,6 +31,7 @@
 //    3. Explanation page: if it is empty, create its content. If it has over
 //       10 sections, split it into 2 group pages added to the parent topic
 //       page. Then address the notes.
+//    4. Reset the page's score to null and stamp its edit timestamp.
 //
 // The agent logs every step of the loop it is on (eg. "1.2", "2.2.3"),
 // following the numbering of the README. Pages created or deleted through
@@ -457,7 +462,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       entry.score = score;
       step('1.2', `scored ${rel}: ${score}`);
     } else {
-      entry.score = 0.1 * score + 0.9 * entry.score;
+      entry.score = 0.25 * score + 0.75 * entry.score;
       step('1.2', `scored ${rel}: ${entry.score.toFixed(1)} (this review: ${score}, previous: ${entry.score === score ? 'n/a' : 'see database'})`);
     }
     entry.reviewedAt = nowIso();
@@ -548,27 +553,36 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   const pickReviewerPage = async () => {
     const entries = Object.entries(db.pages).sort(([a], [b]) => (a < b ? -1 : 1));
     if (entries.length === 0) return null;
-    let best = null;
-    let bestKey = null;
+    const candidates = [];
     for (const [rel, entry] of entries) {
       // A page still empty (its content is created by the editor, 2.2.1 /
       // 2.3.1) has nothing to review yet: skip it until it is filled in.
       const content = await store.readPage(fileOf(rel)).catch(() => null);
       if (content === null || content.trim() === '') {
-        step('1.1.2', `skipping the empty page ${rel} (nothing to review yet)`);
+        step('1.1.3', `skipping the empty page ${rel} (nothing to review yet)`);
         continue;
       }
-      const key = entry.reviewedAt ?? '';
-      if (best === null || key < bestKey) {
-        best = rel;
-        bestKey = key;
-      }
+      candidates.push([rel, entry]);
     }
-    if (best === null) return null;
-    const entry = db.pages[best];
-    return entry.reviewedAt === null || entry.reviewedAt === undefined
-      ? { rel: best, step: '1.1.2', reason: 'on disk, not reviewed yet' }
-      : { rel: best, step: '1.1.3', reason: `oldest review (${entry.reviewedAt})` };
+    if (candidates.length === 0) return null;
+    const editTime = (entry) => entry.editedAt ?? entry.addedAt ?? '';
+    // 1.1.3: a page without a score has never been reviewed (or was just
+    // edited, 2.4): review the one amongst them that was edited the longest
+    // time ago.
+    const unscored = candidates.filter(([, entry]) => entry.score === null || entry.score === undefined);
+    if (unscored.length > 0) {
+      let best = unscored[0];
+      for (const candidate of unscored) {
+        if (editTime(candidate[1]) < editTime(best[1])) best = candidate;
+      }
+      return { rel: best[0], step: '1.1.3', reason: `no score yet, oldest edit (${editTime(best[1])})` };
+    }
+    // 1.1.4: otherwise the page reviewed the longest time ago.
+    let best = candidates[0];
+    for (const candidate of candidates) {
+      if ((candidate[1].reviewedAt ?? '') < (best[1].reviewedAt ?? '')) best = candidate;
+    }
+    return { rel: best[0], step: '1.1.4', reason: `oldest review (${best[1].reviewedAt ?? 'never'})` };
   };
 
   const pickEditorPage = () => {
@@ -588,6 +602,22 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       }
     }
     return { rel: best[0], step: '2.1.4', reason: `lowest score (${best[1].score.toFixed(1)})` };
+  };
+
+  // 2.4: after the editor concludes its work on a page, the page's score is
+  // reset to null (so the reviewer re-evaluates the edited page from scratch,
+  // 1.1.3) and its edit timestamp is updated to the current time. Skipped
+  // when the editor deleted the page: it is no longer in the database.
+  const editorConclude = async (rel) => {
+    const entry = db.pages[rel];
+    if (!entry) {
+      step('2.4', `${rel} was deleted; nothing to conclude`);
+      return;
+    }
+    entry.score = null;
+    entry.editedAt = nowIso();
+    await store.savePagesDb(db);
+    step('2.4', `reset the score of ${rel} to null and stamped its edit time`);
   };
 
   // 2.1.1: no page at all -> create the highest-level topic page (empty: its
@@ -637,7 +667,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   if (run.phase === 'edit' && run.page) {
     step('2', `resuming the run at step 2 on "${run.page}"`);
     await editPage(run.page);
-    if (db.pages[run.page]) db.pages[run.page].editedAt = nowIso();
+    await editorConclude(run.page);
     run.phase = null;
     run.page = null;
     await syncDb('2.1.2');
@@ -653,7 +683,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     run.phase = 'edit';
     run.page = pick.rel;
     await editPage(pick.rel);
-    if (db.pages[pick.rel]) db.pages[pick.rel].editedAt = nowIso();
+    await editorConclude(pick.rel);
     run.phase = null;
     run.page = null;
     // Pages may have been created or deleted through the tools: fold them

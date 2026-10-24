@@ -68,14 +68,16 @@ sometimes dithering.
 ## Automatic generation
 
 There should be an AI contributor agent.
-It should have a database of pages, with each page having a type, score and a timestamp indicating the latest time it has been reviewed.
+It should have a database of pages, with each page having a type, score, a review timestamp indicating the latest time it has been reviewed,
+and an edit timestampt indicating the latest time it has been edited.
 It should, in a loop:
 
 1. Initiate Reviewer mode.
    1. Pick a page with the following priority:
       1. if there is no page at all, move on to editor mode;
       2. if a page exists on disk but not in the database, pick it and add it to the database;
-      3. otherwise, pick the page with the oldest review timestamp.
+      3. if there are pages with a null score, pick the one amongst them with the oldest edit timestamp;
+      4. otherwise, pick the page with the oldest review timestamp.
    2. Produce an evaluation of the page.
       If the page is a topic page, the evaluation must check:
       - adherence to the rules,
@@ -92,8 +94,9 @@ It should, in a loop:
       Use this review to highlight ways in which this article could be improved.
       As part of this review, give the page a score from 0 to 100, which represents how much of the page should be reworked:
       0 means all of it should be rewritten or deleted, 100 means it is perfect and needs no work.
-      Update the page's score as an exponential average: the latest score is worth 10% of the new score, and 90% of the old score.
+      Update the page's score as an exponential average: the latest score is worth 25% of the new score, and 75% of the old score.
       (If the score is null, set it to the latest score.)
+      Update the page's review timestamp to the current time.
       Add this review as one or multiple improvement notes.
 2. Initiate Editor mode.
    1. Pick a page with the following priority:
@@ -119,6 +122,7 @@ It should, in a loop:
          address them, delete the agent notes.
          If it creates a page, that page should be added to the database; if it deletes it, it should be removed from the database.
          If it deletes the page wholesale, it should update the parent topic page to remove the link to the deleted page, before concluding the work.
+   4. Reset the page's score to null, and update the page's edit timestamp to the current time.
 
 The agent has access to the following tools in order to perform its duties:
 - `web_search(query)`: searches the Web for the query and returns a list of relevant links and snippets.
