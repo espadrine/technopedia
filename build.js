@@ -7,8 +7,14 @@
 // Output layout:
 //   content/<Topic>/Readme.md        -> dist/<Topic>/index.html
 //   content/<Topic>/<Page>.md        -> dist/<Topic>/<Page>.html
-//   assets (eg. *.simulation.html)   -> copied verbatim to the same place
-//   dist/index.html                  -> generated entry point
+//   assets (style.css, icon.svg, *.simulation.html) -> copied verbatim to
+//                                       the same place; the site-wide assets
+//   at the content root are shared by every page via relative links
+//   dist/index.html                  -> generated home page
+//
+// Each page is wrapped in the site chrome described in the README (semantic
+// elements, shared classes, no inline styles): a masthead with the topic
+// navigation, a <main> around the page content, and a footer.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -50,9 +56,26 @@ function rewriteLinks(markdown) {
   return markdown
     .replace(/\]\((\.{1,2}\/[^)#\s]*?\.md)\)/g, (full, href) => `](${hrefFor(href)})`)
     .replace(
-      /(<a\b[^>]*?\bhref=)(['"])(\.{1,2}\/[^'"#]*?\.md)\2/gi,
+      /(<a\b[^>]*?\bhref=)(['"])(\.{1,2}\/[^'"]*?\.md)\2/gi,
       (full, prefix, quote, href) => `${prefix}${quote}${hrefFor(href)}${quote}`,
     );
+}
+
+// latexmarkdown passes raw HTML through verbatim, so [text](./X.md) inside
+// the <td> of a categorization table would render as literal text instead
+// of a link. Turn those into real anchors on table rows, before the link
+// rewriting above sees them.
+function anchorsInHtmlRows(markdown) {
+  return markdown
+    .split('\n')
+    .map((line) => {
+      if (!/<t[dhr]/i.test(line)) return line;
+      return line.replace(
+        /\[([^\]]+)\]\((\.{1,2}\/[^)\s]+)\)/g,
+        (full, text, href) => `<a href="${href}">${text}</a>`,
+      );
+    })
+    .join('\n');
 }
 
 function outputFor(rel) {
@@ -73,6 +96,145 @@ function withTitle(html, markdown, fallback) {
   return html.replace('<title></title>', `<title>${title}</title>`);
 }
 
+// Site chrome (see site/style.css for the classes).
+function prefixFor(outFile) {
+  const depth = path.relative(DIST, outFile).split(path.sep).length - 1;
+  return '../'.repeat(depth);
+}
+
+function labelFor(topic) {
+  return escapeHtml(topic.replace(/-/g, ' '));
+}
+
+function mastheadHtml(prefix, topics, currentTopic) {
+  const links = topics
+    .map(
+      (topic) =>
+        `<li><a class="topic-link${topic === currentTopic ? ' current' : ''}" href="${prefix}${topic}/">${labelFor(topic)}</a></li>`,
+    )
+    .join('\n      ');
+  return `<header class="masthead">
+  <div class="masthead-inner">
+    <a class="brand" href="${prefix || './'}">
+      <span class="brand-shapes" aria-hidden="true">
+        <span class="shape shape--circle"></span>
+        <span class="shape shape--square"></span>
+        <span class="shape shape--triangle"></span>
+      </span>
+      <span class="brand-name">Technopedia</span>
+    </a>
+    <p class="brand-tagline">An encyclopedia of technologies</p>
+    <nav class="topic-nav" aria-label="Topics">
+      <ul>
+      ${links}
+      </ul>
+    </nav>
+  </div>
+  <div class="dither" aria-hidden="true"></div>
+</header>`;
+}
+
+function footerHtml(prefix) {
+  return `<footer class="colophon">
+  <div class="dither" aria-hidden="true"></div>
+  <div class="colophon-inner">
+    <span>Technopedia</span>
+    <span>Compiled from LaTeXMarkdown sources</span>
+    <a href="${prefix || './'}">Index</a>
+  </div>
+</footer>`;
+}
+
+// Wrap the rendered document in the chrome: html lang, viewport, stylesheet,
+// masthead, <main> and footer. `kind` is 'topic', 'entry' or 'home'.
+function decorate(html, { prefix, kind, topics, currentTopic, extraMain = '' }) {
+  let doc = html.replace('<!doctype html>', '<!doctype html>\n<html lang="en">');
+  const head = [
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<meta name="color-scheme" content="light">',
+    `<link rel="icon" href="${prefix}icon.svg">`,
+    `<link rel="stylesheet" href="${prefix}style.css">`,
+  ].join('\n  ');
+  doc = doc.replace('<head>', `<head>\n  ${head}`);
+  doc = doc.replace(
+    '<body>',
+    `<body>\n${mastheadHtml(prefix, topics, currentTopic)}\n<main class="page page--${kind}">${extraMain}`,
+  );
+  doc = doc.replace('</body>', `</main>\n${footerHtml(prefix)}\n</body>`);
+  return `${doc}\n</html>`;
+}
+
+function homeHtml(topics) {
+  const cards = topics
+    .map((topic, index) => {
+      const accent = ['red', 'blue', 'yellow', 'ink'][index % 4];
+      return `      <a class="topic-card accent-${accent}" href="./${topic}/">
+        <span class="topic-card-index">${String(index + 1).padStart(2, '0')}</span>
+        <span class="topic-card-name">${labelFor(topic)}</span>
+        <span class="topic-card-kind">Topic page</span>
+      </a>`;
+    })
+    .join('\n');
+  const body = `<section class="hero">
+  <p class="hero-kicker">Catalog of technologies</p>
+  <h1>Technopedia</h1>
+  <p class="lede">An encyclopedia focused on technologies: the fundamentals of each field, from first principles to applications, written by an autonomous contributor agent.</p>
+  <div class="hero-shapes" aria-hidden="true">
+    <span class="shape shape--circle"></span>
+    <span class="shape shape--square"></span>
+    <span class="shape shape--triangle"></span>
+  </div>
+</section>
+<nav class="topic-grid" aria-label="Topics">
+${cards}
+</nav>`;
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Technopedia</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="./icon.svg">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+${mastheadHtml('./', topics, null)}
+<main class="page page--home">
+${body}
+</main>
+${footerHtml('./')}
+</body>
+</html>
+`;
+}
+
+// Warn about local href/src targets that resolve outside the built set
+// (missing subpages, missing simulations, links escaping dist/).
+function checkLocalTargets(html, outFile, outputs, warnings) {
+  const targets = [...html.matchAll(/\b(?:href|src)="([^"]+)"/g)]
+    .map((match) => match[1])
+    .filter((target) => !/^(https?:|mailto:|data:|#)/.test(target));
+  for (const target of targets) {
+    let clean = target.split('#')[0];
+    try {
+      clean = decodeURIComponent(clean);
+    } catch {
+      // Leave percent sequences as-is if they do not decode.
+    }
+    const resolved = path.resolve(path.dirname(outFile), clean);
+    const rel = path.relative(DIST, resolved);
+    if (rel.startsWith('..')) {
+      warnings.push(`${path.relative(DIST, outFile)}: target escapes the site: ${target}`);
+      continue;
+    }
+    const file = path.extname(rel) === '' ? path.join(rel, 'index.html') : rel;
+    if (!outputs.has(file)) {
+      warnings.push(`${path.relative(DIST, outFile)}: target does not exist: ${target}`);
+    }
+  }
+}
+
 async function main() {
   // Start from a clean dist/: pages deleted or renamed in content/ (by the
   // agent) must not leave stale output behind. Only the contents are
@@ -81,38 +243,74 @@ async function main() {
   for (const entry of await fs.readdir(DIST)) {
     await fs.rm(path.join(DIST, entry), { recursive: true, force: true });
   }
+
   const files = await walk(CONTENT);
+
+  // High-level topics: the directories directly under content/ that have a
+  // topic page. They feed the navigation and the home page.
+  const topics = files
+    .map((file) => path.relative(CONTENT, file).split(path.sep).join('/'))
+    .filter((rel) => /\/Readme\.md$/i.test(rel) && rel.split('/').length === 2)
+    .map((rel) => rel.split('/')[0])
+    .sort();
+
+  // Everything that will exist under dist/, for the link check below.
+  const outputs = new Set();
+  for (const file of files) {
+    const rel = path.relative(CONTENT, file).split(path.sep).join('/');
+    outputs.add(/\.md$/i.test(rel) ? outputFor(rel) : rel);
+  }
+  outputs.add('index.html');
+
+  const warnings = [];
   let pages = 0;
-  let assets = 0;
+  let copied = 0;
+
   for (const file of files) {
     const rel = path.relative(CONTENT, file).split(path.sep).join('/');
     const out = path.join(DIST, /\.md$/i.test(rel) ? outputFor(rel) : rel);
     await fs.mkdir(path.dirname(out), { recursive: true });
-    if (/\.md$/i.test(rel)) {
-      const markdown = await fs.readFile(file, 'utf8');
-      const html = withTitle(latexmarkdown.renderHTMLDoc(rewriteLinks(markdown)), markdown, rel);
-      await fs.writeFile(out, html, 'utf8');
-      pages += 1;
-    } else {
+    if (!/\.md$/i.test(rel)) {
       await fs.copyFile(file, out);
-      assets += 1;
+      copied += 1;
+      continue;
     }
+    const source = await fs.readFile(file, 'utf8');
+    const isTopicPage = /(^|\/)readme\.md$/i.test(rel);
+    const kind = isTopicPage ? 'topic' : 'entry';
+    const stubNote =
+      source.replace(/^#\s+.+$/m, '').trim().length === 0
+        ? '\n<p class="stub-note">This page has not been written yet.</p>\n'
+        : '';
+    const html = withTitle(
+      latexmarkdown.renderHTMLDoc(rewriteLinks(anchorsInHtmlRows(source))),
+      source,
+      rel,
+    );
+    const doc = decorate(html, {
+      prefix: prefixFor(out),
+      kind,
+      topics,
+      currentTopic: rel.includes('/') ? rel.split('/')[0] : null,
+      extraMain: stubNote,
+    });
+    await fs.writeFile(out, doc, 'utf8');
+    checkLocalTargets(doc, out, outputs, warnings);
+    pages += 1;
   }
 
-  // Entry point: list the high-level topics.
-  const topics = files
-    .map((file) => path.relative(CONTENT, file).split(path.sep).join('/'))
-    .filter((rel) => /^Readme\.md$/i.test(rel) || /\/Readme\.md$/i.test(rel))
-    .filter((rel) => rel.split('/').length === 2)
-    .map((rel) => `- [${rel.split('/')[0]}](./${rel.split('/')[0]}/)`)
-    .sort();
+  // Home page.
   if (topics.length > 0) {
-    const entry = `# Technopedia\n\nAn encyclopedia focused on technologies.\n\n${topics.join('\n')}\n`;
-    const index = withTitle(latexmarkdown.renderHTMLDoc(entry), entry, 'Technopedia');
-    await fs.writeFile(path.join(DIST, 'index.html'), index, 'utf8');
+    const out = path.join(DIST, 'index.html');
+    const doc = homeHtml(topics);
+    await fs.writeFile(out, doc, 'utf8');
+    checkLocalTargets(doc, out, outputs, warnings);
   }
 
-  console.log(`built ${pages} page(s) and ${assets} asset(s) into dist/`);
+  console.log(`built ${pages} page(s) and ${copied} asset(s) into dist/`);
+  for (const warning of warnings) {
+    console.warn(`warning: ${warning}`);
+  }
 }
 
 main().catch((err) => {
