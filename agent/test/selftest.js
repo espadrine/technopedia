@@ -15,7 +15,7 @@ import { pickModelAndBudget, LlmClient } from '../llm.js';
 import { runAgent } from '../agent.js';
 import { loadConfig } from '../config.js';
 import { Store } from '../store.js';
-import { createTools } from '../tools.js';
+import { createTools, findMathProblems } from '../tools.js';
 import { makeRng } from '../util.js';
 import { STYLE_GUIDE } from '../style.js';
 import { createTopicPagePrompt } from '../prompts.js';
@@ -197,6 +197,14 @@ await startMockServer(PORT);
     STYLE_GUIDE.includes('Never two pages for the same subject') &&
       STYLE_GUIDE.includes('either all explanation pages, or all topic pages') &&
       createTopicPagePrompt(['Manufacturing'])[1].content.includes('never give one subject two links'),
+  );
+  check(
+    'p1: the style guide spells out the inline math delimiters and their pitfalls',
+    STYLE_GUIDE.includes('$`x \\in \\mathbb{R}`') &&
+      STYLE_GUIDE.includes('The closing delimiter of inline math is a backtick, never a dollar sign') &&
+      STYLE_GUIDE.includes('LaTeXMarkdown does NOT work inside raw HTML') &&
+      STYLE_GUIDE.includes('Inside HTML, write mathematics as'),
+    STYLE_GUIDE.split('\n').filter((l) => l.includes('math')).join(' | '),
   );
 }
 
@@ -871,6 +879,85 @@ await startMockServer(PORT);
       (r.stdout.match(/evaluation left 1 improvement note/g) ?? []).length === 1 &&
       taskCount('address-notes') === 1,
     r.stdout.slice(0, 400),
+  );
+}
+
+// -- Phase 6k: edit_file rejects known invalid LaTeXMarkdown math ------------
+{
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p6k');
+  const store = new Store({ contentDir, notesDir, authorNotesDir, logger: () => {} });
+  const tools = createTools({ config: { contentDir, webSearchUrl: 'off' }, store, logger: () => {} });
+
+  // Creating a file with the broken forms applies the edit but returns an
+  // error listing the offending lines.
+  const bad = await tools.exec('edit_file', {
+    path: 'Manufacturing/Electronics.md',
+    lineno_start: 1,
+    lineno_end: 1,
+    new_content: [
+      '# Electronics',
+      '',
+      'A **B-tree of order $`m$`$** is an $`m$`$-ary search tree.',
+      '',
+      'It costs $3.20 per unit.',
+      '',
+      '<table><tr><td>Order</td><td>$`m`</td></tr></table>',
+      '',
+      '$$E = mc^2$$',
+      '',
+      'It runs in $O(n)$ time.',
+      '',
+      'The escape $`e^{i\\pi}$` works.',
+    ].join('\n'),
+  });
+  check(
+    'p6k: an edit with invalid math returns an error naming the offending lines',
+    typeof bad.error === 'string' &&
+      bad.error.includes('invalid LaTeXMarkdown math') &&
+      /line 3/.test(bad.error) &&
+      bad.error.includes('another edit_file'),
+    JSON.stringify(bad).slice(0, 400),
+  );
+  const written = content(path.join(contentDir, 'Manufacturing/Electronics.md'));
+  check('p6k: the flagged edit was still applied to the file', written.includes('B-tree of order'), written.slice(0, 100));
+
+  // Repairing the whole file goes through without an error.
+  const good = await tools.exec('edit_file', {
+    path: 'Manufacturing/Electronics.md',
+    lineno_start: 1,
+    lineno_end: 13,
+    new_content: [
+      '# Electronics',
+      '',
+      'A **B-tree of order $`m`** is an $`m`-ary search tree.',
+      '',
+      'It costs $3.20 per unit and $5 to ship.',
+    ].join('\n'),
+  });
+  check('p6k: a repaired file passes the check (money dollars included)', good.error === undefined, JSON.stringify(good));
+
+  // Every known form is detected; the counts: line 3 (two), 7 (HTML), 9 ($$), 11 (plain).
+  const all = findMathProblems(
+    [
+      'ok $`m` here',
+      'a $`m$`$ and $`m`$ and $`m$` mixed',
+      '$$E$$',
+      'plain $L^p$ spaces',
+      '```math',
+      '$x$',
+      '```',
+      '<td>$`m`</td>',
+    ].join('\n'),
+  );
+  check(
+    'p6k: every known invalid form is detected, valid math and fences are not',
+    all.length === 7 &&
+      all.filter((p) => p.line === 2).length === 3 &&
+      all.some((p) => p.line === 3) &&
+      all.some((p) => p.line === 4) &&
+      all.some((p) => p.line === 6) &&
+      all.some((p) => p.line === 8),
+    JSON.stringify(all.map((p) => `${p.line}:${p.snippet}`)),
   );
 }
 

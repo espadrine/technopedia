@@ -17,6 +17,7 @@ export const TOOLS_GUIDE = `You have access to the following tools in order to p
 - find_files(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for files whose path (including the filename or parent folder name) matches the given pattern. Returns the matching files.
 - read_file(path): reads the content of the file at the given path and returns it as text. The path is relative to the content folder.
 - edit_file(path, lineno_start, lineno_end, new_content): edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file.
+  After each edit of a .md file, the result is checked for known invalid LaTeXMarkdown math (broken $\`...\`$ forms, \$\$ display math, math inside raw HTML). If any is found, the tool returns an error listing the offending lines: fix them with another edit_file.
 - delete_file(path): deletes the file at the given path.
 
 To use a tool, reply with exactly {"tool": "<name>", "args": {...}} and nothing
@@ -29,6 +30,93 @@ const GREP_LIMIT = 100;
 const READ_LIMIT = 50000;
 const RUN_JS_TIMEOUT = 5000;
 const RUN_JS_MEMORY = 64; // MB
+
+// Known invalid LaTeXMarkdown math forms (the style guide lists the valid
+// ones). edit_file checks its result against these and reports what it
+// finds so the agent can fix its own edit.
+const INLINE_MATH = '$`x` (a dollar sign, a backtick, the LaTeX, a closing backtick, nothing else)';
+
+export function findMathProblems(text) {
+  const problems = [];
+  const lines = text.split('\n');
+  let fence = null; // null | 'math' | 'other'
+  lines.forEach((line, i) => {
+    const lineno = i + 1;
+    const trimmed = line.trim();
+    if (/^`{3,}/.test(trimmed)) {
+      fence = fence === null ? (/^`{3,}\s*math\b/.test(trimmed) ? 'math' : 'other') : null;
+      return;
+    }
+    if (fence === 'other') return;
+    if (fence === 'math') {
+      if (/(?<!\\)\$/.test(line)) {
+        problems.push({
+          line: lineno,
+          snippet: trimmed.slice(0, 60),
+          problem: 'a $ inside a ```math block is invalid KaTeX; write the raw LaTeX without $ delimiters',
+        });
+      }
+      return;
+    }
+    const isMoneyLine = /\$[0-9]+\.[0-9]{2}/.test(line);
+    // Consume matches as they are found so a form is reported once, under
+    // its most specific name.
+    let rest = line;
+    const consume = (re, problem, predicate) => {
+      rest = rest.replace(re, (match, group1) => {
+        if (predicate && !predicate(match, group1)) return match;
+        problems.push({ line: lineno, snippet: match.slice(0, 60), problem });
+        return '\u0000';
+      });
+    };
+    consume(/\$`[^`]*\$`\$/, `a $ slipped inside the math: inline math is ${INLINE_MATH}`);
+    consume(/\$`[^`]*`\$/, `the trailing $ leaks into the page: inline math is ${INLINE_MATH}`);
+    consume(/\$`(?:[^`$\\]|\\[\s\S])*\$/, `the delimiters are mixed up: inline math is ${INLINE_MATH}`);
+    if (/^\s*</.test(line) && /\$`/.test(line)) {
+      problems.push({
+        line: lineno,
+        snippet: trimmed.slice(0, 60),
+        problem: 'math inside raw HTML does not render; write plain text (italic variables, Unicode symbols) or move the formula into a paragraph',
+      });
+    }
+    if (!isMoneyLine) {
+      // $x$ is only flagged when it clearly is math (LaTeX commands,
+      // sub/superscripts), so money like "$5" or "$3.20" is never reported.
+      consume(
+        /(?<!\\)\$([^$`\n]{1,60}?)\$/,
+        `$...$ without backticks is not LaTeXMarkdown inline math: use ${INLINE_MATH}`,
+        (match, content) => /[\\^_{}]/.test(content),
+      );
+      // $$ display math, outside of valid inline math and not escaped (\$).
+      const outsideMath = line.replace(/\$`[^`\n]*`/g, '\u0000');
+      if (/(?<!\\)\$\$/.test(outsideMath)) {
+        problems.push({
+          line: lineno,
+          snippet: trimmed.slice(0, 60),
+          problem: '$$ is not LaTeXMarkdown display math; use a fenced code block tagged math',
+        });
+      }
+    }
+  });
+  return problems;
+}
+
+// Runs after an edit_file has been written: the file keeps the edit, but a
+// known-invalid math form makes the tool return an error so the agent fixes
+// the file with another edit (README: the pages are LaTeXMarkdown, so broken
+// math is a broken page).
+function assertValidMath(rel, text) {
+  if (!/\.md$/i.test(rel)) return;
+  const problems = findMathProblems(text);
+  if (problems.length === 0) return;
+  const shown = problems
+    .slice(0, 3)
+    .map((p) => `line ${p.line} "${p.snippet}": ${p.problem}`);
+  const more = problems.length > shown.length ? ` (and ${problems.length - shown.length} more)` : '';
+  throw new Error(
+    `edit_file: wrote ${rel}, but it contains ${problems.length} invalid LaTeXMarkdown math form(s)${more}: ${shown.join('; ')}. Fix ${rel} with another edit_file.`,
+  );
+}
 
 async function walkFiles(dir, acc = []) {
   let entries;
@@ -202,6 +290,7 @@ export function createTools({ config, store, logger = () => {} }) {
         const created = String(new_content ?? '');
         await fs.mkdir(path.dirname(target), { recursive: true });
         await fs.writeFile(target, created, 'utf8');
+        assertValidMath(rel, created);
         return { file: rel, created: true, lines: created.split('\n').length };
       }
       const lines = text.split('\n');
@@ -213,6 +302,7 @@ export function createTools({ config, store, logger = () => {} }) {
       const replacement = String(new_content ?? '').split('\n');
       lines.splice(from - 1, to - from + 1, ...replacement);
       await fs.writeFile(target, lines.join('\n'), 'utf8');
+      assertValidMath(rel, lines.join('\n'));
       return { file: rel, replaced: [from, to], with: `${replacement.length} line(s)` };
     },
 
