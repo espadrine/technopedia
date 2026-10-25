@@ -947,16 +947,18 @@ await startMockServer(PORT);
       '$x$',
       '```',
       '<td>$`m`</td>',
+      'doubled $`m`` closer',
     ].join('\n'),
   );
   check(
     'p6k: every known invalid form is detected, valid math and fences are not',
-    all.length === 7 &&
+    all.length === 8 &&
       all.filter((p) => p.line === 2).length === 3 &&
       all.some((p) => p.line === 3) &&
       all.some((p) => p.line === 4) &&
       all.some((p) => p.line === 6) &&
-      all.some((p) => p.line === 8),
+      all.some((p) => p.line === 8) &&
+      all.some((p) => p.line === 9),
     JSON.stringify(all.map((p) => `${p.line}:${p.snippet}`)),
   );
 }

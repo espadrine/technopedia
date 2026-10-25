@@ -69,6 +69,7 @@ export function findMathProblems(text) {
         return '\u0000';
       });
     };
+    consume(/\$`[^`]*``/, `a doubled closing backtick: inline math is ${INLINE_MATH}`);
     consume(/\$`[^`]*\$`\$/, `a $ slipped inside the math: inline math is ${INLINE_MATH}`);
     consume(/\$`[^`]*`\$/, `the trailing $ leaks into the page: inline math is ${INLINE_MATH}`);
     consume(/\$`(?:[^`$\\]|\\[\s\S])*\$/, `the delimiters are mixed up: inline math is ${INLINE_MATH}`);

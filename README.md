@@ -21,23 +21,38 @@ A topic page must be very simple, giving:
   The categories must make it easy to separate concepts mentally, to teach a common topic in one place, and to search for a particular science for a specific purpose.
 - links to the corresponding topics which are either all explanation pages, or all topic pages.
 - all subtopics must be listed in a table, with one link per row, and each row is a distinct link corresponding to one of the categories.
+  The first column of the table is "Page", and contains the title of the subpage, which links to it.
 - all links to a subtopic must correspond to a page that really exists.
 - all topic pages must be referenced in a parent topic page.
 
 An explanation page must have:
-- a singular topic (eg. "B-tree")
-- an overview of the utility of what is explained
-- when there is an authoritative source for it (eg. academic paper, RFC), a widget with a link to the sources
-- the content, which should be structured into sections each corresponding to an idea/concept/theorem/pattern/etc.
-  Examples: different electronics components, different physics particles, different sorting algorithms.
-  - The content should be very terse at first. Like a cheatsheet. Only the raw information, theorem, formula, etc.
-  - For each idea/concept/theorem, there should be a folded section below it that explains it in more detail, with examples, diagrams, and links to authoritative sources.
-    It should make heavy use of links to other parts of the Technopedia when another concept is related or necessary to understand first.
-  - The deep explanation should include iframe simulations (eg. electronics schematics, physics simulations, ...), in order to showcase and enhance the examples, explanations, animations of the page.
-  - There should be plenty of graphs, diagrams, interactive animations.
-  - After the explanation, there should be a short section with an example problem, and a folded section on how to solve it, that the reader can unfold.
-- All links must correspond to a page that really exists.
-- All explanation pages must be referenced in a parent topic page.
+1. a singular topic (eg. "B-tree")
+2. an overview of the utility of what is explained
+3. when there is an authoritative source for it (eg. academic paper, RFC), a widget with a link to the sources
+4. the content, which should be structured into sections each corresponding to an idea/a pattern/a group of concepts/theorems/etc.
+   Examples: different electronics components, different physics particles, different sorting algorithms.
+   Each section should have a title, a definition, a tutorial.
+   1. The definition should be very terse. Like a cheatsheet. Only the raw information, theorem, formula, etc.
+      The goal is for the reader to remember what it is if they already know, and if they don't, to give them a first clue.
+      It can link to an explanation subpage that lists more details (for instance: the main page shows the list of types of compression algorithms,
+      eg. one section for "variable-size input to fixed-sized output", with LZ77 as example,
+      and we have a subpage listing LZ77, LZ78, LZW, etc.).
+   2. The tutorial should be in a folded block "DETAILS".
+      It explains the idea step-by-step: the goal is for the reader to understand everything, so it should flow from one explanation to the next with no sizable leap.
+      Each step should have:
+      1. a global explanation,
+      2. then a specific example,
+      3. intersperse diagrams, animations, interactive demos, iframe simulations (eg. electronics schematics, physics simulations, ...),
+         in order to showcase and enhance the examples.
+      4. then links to authoritative sources,
+      5. then an example problem (folded), with the solution (folded deeper in the fold).
+      It should also make heavy use of links to other parts of the Technopedia when another concept is related or necessary to understand first.
+   There should be plenty of graphs, diagrams, interactive animations.
+   Use either SVG or HTML + JS for diagrams; never ASCII art.
+   Each diagram should describe a single concept: do not use tabs in diagrams to switch between concepts.
+5. After the explanation, there should be a folded quizz section with an example problem, and a folded section on how to solve it, that the reader can unfold.
+All links must correspond to a page that really exists.
+All explanation pages must be referenced in a parent topic page.
 
 The system should reuse widgets and code when possible.
 For instance, code for an interactive electronics schematics should be reused for all related pages.

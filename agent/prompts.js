@@ -70,7 +70,8 @@ explanation pages, [Name](./Name.md), or all topic pages,
 [Name](./Name/Readme.md) (a topic page only when a subtopic is broad enough
 to deserve its own categorization, eg. Manufacturing -> Electronics). Never
 link both a topic page and an explanation page for the same subject, and
-never give one subject two links.
+never give one subject two links. The table\'s first column is "Page": it
+holds the title of the subpage, linking to it.
 
 Reply: {"markdown": "<the full page in Markdown>"}`,
     ),
@@ -88,9 +89,11 @@ export function createExplanationPagePrompt(segments) {
 Create the Technopedia explanation page for "${name}" (path: ${path}).
 It is an explanation page: follow the explanation page rules from the style
 guide. Start the page with a level-1 heading. Structure the content into
-sections, one per idea/concept/theorem/pattern. You may use web_search and
-web_fetch to ground the content, and run_js to try out the JavaScript of the
-simulation before embedding it.
+sections, one per idea/pattern/group of concepts/theorem: each section has a
+title, a terse cheatsheet-like definition, then a tutorial in a folded
+"DETAILS" block. End the page with the folded quizz section. You may use
+web_search and web_fetch to ground the content, and run_js to try out the
+JavaScript of the simulation before embedding it.
 
 Reply: {"markdown": "<the full page in Markdown>"}`,
     ),
@@ -276,6 +279,7 @@ ${findingsText}
 Produce an evaluation of this topic page. The evaluation must check:
 - adherence to the rules (from the style guide),
 - whether the categorization is the optimal one,
+- whether the categorization table's first column is "Page", holding the title of each subpage as a link to it,
 - whether there is a missing topic.
 
 Use find_files, grep, and read_file to inspect the rest of the encyclopedia
@@ -325,6 +329,9 @@ ${notesText}${findingsText}
 
 Produce an evaluation of this explanation page. The evaluation must check:
 - adherence to the rules (from the style guide),
+- whether each section has its title, terse definition, and tutorial in a folded DETAILS block, each tutorial step flowing with no sizable leap (global explanation, specific example, diagrams and simulations, authoritative sources, example problem with folded solution),
+- whether the diagrams are SVG or HTML+JS (never ASCII art) and each shows a single concept,
+- whether the page ends with the folded quizz section with its example problem and solution,
 - clarity of the explanation, of how one section flows to the next, of the examples, intuitiveness and interactivity of the animations,
 - whether the section organization is the optimal one,
 - whether there is a missing section,
