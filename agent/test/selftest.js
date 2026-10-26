@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { requestLog, callsLog, modelsLog, searchLog, startMockServer, flags, assistantReasoningLog, responseFormatLog } from './mock-llm.js';
+import { requestLog, callsLog, modelsLog, searchLog, startMockServer, flags, assistantReasoningLog, responseFormatLog, userLog } from './mock-llm.js';
 import { pickModelAndBudget, LlmClient } from '../llm.js';
 import { runAgent } from '../agent.js';
 import { loadConfig } from '../config.js';
@@ -328,6 +328,33 @@ await startMockServer(PORT);
   check(
     'p2c: the author note was in the review context and followed',
     content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('AUTHORNOTE-SEEN'),
+  );
+}
+
+// -- Phase 2d: a created page with invalid math is flagged by the lint ------
+{
+  requestLog.length = 0; callsLog.length = 0; userLog.length = 0;
+  flags.badMathCreation = true;
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p2d');
+  seed(contentDir, 'Manufacturing/Batteries.md', '');
+  const r = await agent(['--runs', '1'], { contentDir, notesDir, authorNotesDir });
+  flags.badMathCreation = false;
+  console.log(`\n--- phase 2d (creation-path math lint) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+  const page = content(path.join(contentDir, 'Manufacturing/Batteries.md'));
+  check(
+    'p2d: the whole-page creation path lints its markdown and reports the forms',
+    r.status === 0 &&
+      r.stdout.includes('was written with 2 invalid LaTeXMarkdown math form(s)') &&
+      r.stdout.includes('the delimiters are mixed up') &&
+      page.includes('Broken formula'),
+    r.stdout.slice(-400),
+  );
+  check(
+    'p2d: the math problems became agent notes and reached the editor',
+    userLog.some(
+      (u) => (u.match(/Fix the invalid LaTeXMarkdown math on line 5/g) ?? []).length === 2,
+    ),
+    userLog.filter((u) => u.includes('address-notes')).join(' ||| ').slice(0, 300),
   );
 }
 

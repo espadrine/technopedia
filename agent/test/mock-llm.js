@@ -16,8 +16,14 @@ const topicPage = (name, links) =>
 const explanationPage = (name) =>
   `# ${name}\n\nUtility of ${name}.\n\nRaw formula: $\`E = mc^2\`.\n\n<details><summary>Details</summary>\n\nExplained.\n\n</details>\n\n## Example problem\n\nDo the thing.\n\n<details><summary>Solution</summary>\n\nDone.\n\n</details>\n`;
 
+// A page with the known invalid math forms, for the creation-path lint test.
+const explanationPageBadMath = (name) =>
+  `# ${name}\n\nUtility of ${name}.\n\nBroken formula: $\`E = mc^2$\` and a leaky $\`x\`$.\n\n<details><summary>Details</summary>\n\nExplained.\n\n</details>\n`;
+
 export const requestLog = []; // one entry per task instance (first call only)
-export const callsLog = []; // every chat request, including tool-round continuations
+export const callsLog = [];
+// The first user message of every chat request (for assertions on prompts).
+export const userLog = []; // every chat request, including tool-round continuations
 // For each request: the reasoning_content of the assistant turns it carries
 // (the client must send the model's reasoning back on tool-round continuations).
 export const assistantReasoningLog = [];
@@ -27,7 +33,7 @@ export const searchLog = []; // every /search query it receives
 export const modelsLog = []; // every /v1/models request it receives
 // Test knobs: when set, the matching task fails (HTTP 500) so tests can
 // exercise interrupted runs and their resumption.
-export const flags = { failResumeEval: false };
+export const flags = { failResumeEval: false, badMathCreation: false };
 
 function reply(task, firstUser, messages) {
   // Interrupted-run test: every evaluation of the page carrying the RESUME
@@ -142,7 +148,9 @@ function reply(task, firstUser, messages) {
             : topicPage('Electronics', 'Concept: [Batteries](./Batteries.md).'),
       };
     case 'create-explanation-page':
-      return { markdown: explanationPage(last) };
+      return {
+        markdown: flags.badMathCreation ? explanationPageBadMath(last) : explanationPage(last),
+      };
     case 'split-topic-page':
       return {
         groups: [
@@ -293,6 +301,7 @@ export function startMockServer(port = 39999) {
         // The task lives in the first user message; the last one may be a
         // {"tool_result": ...} continuation of a tool round-trip.
         const firstUser = users[0]?.content ?? '';
+        userLog.push(firstUser);
         const task = firstUser.match(/TASK: ([\w-]+)/)?.[1] ?? 'unknown';
         // Log only the first request of a task instance: tool-round
         // continuations repeat the same task and would inflate the counts.

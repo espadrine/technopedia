@@ -40,7 +40,7 @@
 import path from 'node:path';
 
 import { LlmError } from './llm.js';
-import { createTools } from './tools.js';
+import { createTools, findMathProblems } from './tools.js';
 import { nowIso } from './util.js';
 import {
   DECISION_TEMPERATURE,
@@ -142,12 +142,32 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
 
   // Write the page if the answer contains markdown; returns the new content
   // or null when nothing should be written.
-  const applyMarkdown = async (markdown, file) => {
+  const applyMarkdown = async (markdown, file, stepId) => {
     const trimmed = String(markdown ?? '').trim();
     if (trimmed === '') return null;
     await store.writePage(file, `${trimmed}\n`);
+    await lintMarkdown(store.rel(file), trimmed, stepId);
     summary.pagesWritten.push(store.rel(file));
     return trimmed;
+  };
+
+  // The edit_file tool lints its own result; whole pages coming back from a
+  // task answer are written straight to disk, so lint them here. A problem
+  // becomes an agent note: the editor (possibly later in the same run)
+  // addresses it with an edit_file, which is itself linted.
+  const lintMarkdown = async (rel, markdown, stepId) => {
+    const problems = findMathProblems(`${String(markdown ?? '').trim()}\n`);
+    if (problems.length === 0) return;
+    const shown = problems.slice(0, 5);
+    for (const problem of shown) {
+      await store.appendNote(
+        rel,
+        'Math',
+        `Fix the invalid LaTeXMarkdown math on line ${problem.line}: "${problem.snippet}" — ${problem.problem}.`,
+      );
+      summary.notesAdded += 1;
+    }
+    step(stepId, `${rel} was written with ${problems.length} invalid LaTeXMarkdown math form(s); left ${shown.length} note(s)`);
   };
 
   const addNotes = async (file, notes, stepId) => {
@@ -269,6 +289,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
     for (const group of newPages) {
       await store.writePage(group.file, `${group.markdown}\n`);
+      await lintMarkdown(store.rel(group.file), group.markdown, '2.2.2');
       summary.pagesWritten.push(store.rel(group.file));
     }
     const added = newPages.map((group) => ({ name: slug(group.label), kind: 'topic' }));
@@ -278,7 +299,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         editParentLinksPrompt(parentSegments, content, { removeAll: true, add: added }),
         { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
       );
-      const updated = (await applyMarkdown(edited.markdown, file)) ?? content;
+      const updated = (await applyMarkdown(edited.markdown, file, '2.2.2')) ?? content;
       await ensureParentLinks(file, updated, added, '2.2.2');
     } else {
       const parentFile = store.topicPagePath(parentSegments);
@@ -293,7 +314,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
           }),
           { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
         );
-        const updated = (await applyMarkdown(edited.markdown, parentFile)) ?? parentContent;
+        const updated = (await applyMarkdown(edited.markdown, parentFile, '2.2.2')) ?? parentContent;
         await ensureParentLinks(parentFile, updated, added, '2.2.2');
       }
       await store.transferNotes(
@@ -322,6 +343,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
     for (const group of newPages) {
       await store.writePage(group.file, `${group.markdown}\n`);
+      await lintMarkdown(store.rel(group.file), group.markdown, '2.3.2');
       summary.pagesWritten.push(store.rel(group.file));
     }
     const parentFile = store.topicPagePath(parentSegments);
@@ -337,7 +359,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         }),
         { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
       );
-      const updated = (await applyMarkdown(edited.markdown, parentFile)) ?? parentContent;
+      const updated = (await applyMarkdown(edited.markdown, parentFile, '2.3.2')) ?? parentContent;
       await ensureParentLinks(parentFile, updated, added, '2.3.2');
     }
     await store.transferNotes(store.rel(file), newPages.map((group) => store.rel(group.file)), 'agent');
@@ -496,6 +518,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         const markdown = String(answer.markdown ?? '').trim();
         if (markdown === '') throw new LlmError('create-topic-page returned no page', { kind: 'parse' });
         await store.writePage(file, `${markdown}\n`);
+        await lintMarkdown(rel, markdown, '2.2.1');
         summary.pagesWritten.push(rel);
         for (const link of parsePageLinks(markdown)) {
           const subRel = path.posix.normalize(path.posix.join(path.posix.dirname(rel), link.href));
@@ -531,6 +554,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       const markdown = String(answer.markdown ?? '').trim();
       if (markdown === '') throw new LlmError('create-explanation-page returned no page', { kind: 'parse' });
       await store.writePage(file, `${markdown}\n`);
+      await lintMarkdown(rel, markdown, '2.3.1');
       summary.pagesWritten.push(rel);
       content = markdown;
     }
