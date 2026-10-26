@@ -106,6 +106,14 @@ function labelFor(topic) {
   return escapeHtml(topic.replace(/-/g, ' '));
 }
 
+// The Technopedia logo: content/technopedia.svg, a "TECH" wordmark in the
+// Bauhaus primaries. The asset pass copies it verbatim to the dist root, so
+// pages reference it with a depth-relative path. The width/height attributes
+// reserve the 4:3 box before the image loads; the CSS sets the display size.
+function logoImg(src, className, alt = '') {
+  return `<img class="${className}" src="${src}" alt="${alt}" width="790" height="558">`;
+}
+
 function mastheadHtml(prefix, topics, currentTopic) {
   const links = topics
     .map(
@@ -116,14 +124,10 @@ function mastheadHtml(prefix, topics, currentTopic) {
   return `<header class="masthead">
   <div class="masthead-inner">
     <a class="brand" href="${prefix || './'}">
-      <span class="brand-shapes" aria-hidden="true">
-        <span class="shape shape--circle"></span>
-        <span class="shape shape--square"></span>
-        <span class="shape shape--triangle"></span>
-      </span>
+      ${logoImg(`${prefix}icon.svg`, 'logo-plate')}
       <span class="brand-name">Technopedia</span>
     </a>
-    <p class="brand-tagline">An encyclopedia of technologies</p>
+    <p class="brand-tagline">The technologist’s encyclopedia</p>
     <nav class="topic-nav" aria-label="Topics">
       <ul>
       ${links}
@@ -139,7 +143,6 @@ function footerHtml(prefix) {
   <div class="dither" aria-hidden="true"></div>
   <div class="colophon-inner">
     <span>Technopedia</span>
-    <span>Compiled from LaTeXMarkdown sources</span>
     <a href="${prefix || './'}">Index</a>
   </div>
 </footer>`;
@@ -154,6 +157,9 @@ function decorate(html, { prefix, kind, topics, currentTopic, extraMain = '' }) 
     '<meta name="color-scheme" content="light">',
     `<link rel="icon" href="${prefix}icon.svg">`,
     `<link rel="stylesheet" href="${prefix}style.css">`,
+    '<link rel="preconnect" href="https://fonts.googleapis.com">',
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+    '<link href="https://fonts.googleapis.com/css2?family=Squada+One&display=swap" rel="stylesheet">',
   ].join('\n  ');
   doc = doc.replace('<head>', `<head>\n  ${head}`);
   doc = doc.replace(
@@ -165,9 +171,13 @@ function decorate(html, { prefix, kind, topics, currentTopic, extraMain = '' }) 
 }
 
 function homeHtml(topics) {
+  // Card accent tints: a few topics have a fixed tint, the others cycle
+  // through the palette so neighboring cards stay distinct.
+  const fixedAccents = { Manufacturing: 'green', Physics: 'blue' };
+  const cycledAccents = ['red', 'green', 'yellow', 'blue'];
   const cards = topics
     .map((topic, index) => {
-      const accent = ['red', 'blue', 'yellow', 'ink'][index % 4];
+      const accent = fixedAccents[topic] ?? cycledAccents[index % cycledAccents.length];
       return `      <a class="topic-card accent-${accent}" href="./${topic}/">
         <span class="topic-card-index">${String(index + 1).padStart(2, '0')}</span>
         <span class="topic-card-name">${labelFor(topic)}</span>
@@ -177,12 +187,12 @@ function homeHtml(topics) {
     .join('\n');
   const body = `<section class="hero">
   <p class="hero-kicker">Catalog of technologies</p>
-  <h1>Technopedia</h1>
-  <p class="lede">An encyclopedia focused on technologies: the fundamentals of each field, from first principles to applications, written by an autonomous contributor agent.</p>
-  <div class="hero-shapes" aria-hidden="true">
-    <span class="shape shape--circle"></span>
-    <span class="shape shape--square"></span>
-    <span class="shape shape--triangle"></span>
+  <h1 class="brand-name">
+    ${logoImg('./technopedia.svg', 'hero-logo')}
+    Technopedia
+  </h1>
+  <p class="lede">An encyclopedia focused on technologies: the fundamentals of each field, from first principles to applications.</p>
+  <div class="hero-mark" aria-hidden="true">
   </div>
 </section>
 <nav class="topic-grid" aria-label="Topics">
@@ -197,6 +207,9 @@ ${cards}
 <meta name="color-scheme" content="light">
 <link rel="icon" href="./icon.svg">
 <link rel="stylesheet" href="./style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Squada+One&display=swap" rel="stylesheet">
 </head>
 <body>
 ${mastheadHtml('./', topics, null)}

@@ -35,15 +35,14 @@ const NOT_FOUND = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>404 - Technopedia</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Squada+One&display=swap" rel="stylesheet">
 </head>
 <body><header class="masthead">
   <div class="masthead-inner">
     <a class="brand" href="/">
-      <span class="brand-shapes" aria-hidden="true">
-        <span class="shape shape--circle"></span>
-        <span class="shape shape--square"></span>
-        <span class="shape shape--triangle"></span>
-      </span>
+      <img class="logo-plate" src="/icon.svg" alt="" width="1024" height="768">
       <span class="brand-name">Technopedia</span>
     </a>
   </div>

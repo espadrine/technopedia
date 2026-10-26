@@ -16,6 +16,7 @@
   --ink: #17130c;
   --red: #ca2c1d;
   --blue: #27519e;
+  --green: #2e7d32;
   --yellow: #e6a417;
 
   /* Sizes. */
@@ -27,6 +28,7 @@
 
   /* Type. */
   --font-body: Georgia, 'Times New Roman', Times, serif;
+  --font-header: 'Squada One', Helvetica, Arial, sans-serif;
   --font-display: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', Menlo, Consolas, 'Courier New', monospace;
 }
@@ -61,18 +63,13 @@ summary:focus-visible {
   background-size: 6px 6px;
 }
 
-/* Geometric shapes (masthead brand, home hero). */
-.shape { display: inline-block; width: 0.85em; height: 0.85em; }
-.shape--circle { background: var(--red); border-radius: 50%; }
-.shape--square { background: var(--blue); }
-.shape--triangle {
-  width: 0;
-  height: 0;
-  background: none;
-  border-top: 0.7em solid transparent;
-  border-left: 0.45em solid var(--yellow);
-  border-bottom: 0.7em solid transparent;
+/* The logo (masthead brand, home hero, 404): the technopedia.svg wordmark,
+ * presented as a framed plate. */
+.logo-plate {
+  display: block;
+  height: auto;
 }
+.brand .logo-plate { height: 1rem; width: auto; flex: none; }
 
 /* Masthead. */
 .masthead { border-bottom: var(--rule); }
@@ -92,11 +89,11 @@ summary:focus-visible {
   gap: 0.6em;
   text-decoration: none;
 }
-.brand-shapes { display: inline-flex; gap: 0.28em; align-items: center; }
 .brand-name {
-  font-family: var(--font-display);
+  font-family: var(--font-header);
   font-weight: 800;
   font-size: 1.35rem;
+  color: #480807;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -204,8 +201,6 @@ main.page h3::before {
 
 main.page p { margin: 0 0 1.1rem; }
 
-main.page a { text-decoration-color: var(--red); text-decoration-thickness: 2px; }
-main.page a:hover { background: var(--ink); color: var(--paper); }
 main.page a[href^='http']::after {
   content: ' »';
   color: var(--red);
@@ -299,7 +294,6 @@ main.page iframe {
   box-shadow: var(--offset-shadow) var(--ink);
 }
 main.page figure { margin: 1.8rem 0; }
-main.page img { max-width: 100%; border: var(--rule); }
 main.page figcaption {
   padding-top: 0.4em;
   font-family: var(--font-mono);
@@ -363,26 +357,24 @@ main.page blockquote {
   letter-spacing: 0.2em;
   color: var(--red);
 }
-.hero h1 {
+section.hero h1 {
   margin-bottom: 1rem;
-  font-size: clamp(3rem, 9vw, 5.2rem);
+  font-family: var(--font-header);
+  font-size: clamp(3rem, 9vw, 6rem);
+  color: #480807;
+  border-bottom: 6px solid #480807;
 }
 .hero .lede {
   max-width: 38rem;
   font-size: 1.2rem;
 }
-.hero-shapes {
-  display: flex;
-  gap: 1.4rem;
+.hero-mark {
   margin: 2.2rem 0 1rem;
 }
-.hero-shapes .shape { width: 3.2rem; height: 3.2rem; }
-.hero-shapes .shape--triangle {
-  width: 0;
-  height: 0;
-  border-top: 2.6rem solid transparent;
-  border-left: 1.7rem solid var(--yellow);
-  border-bottom: 2.6rem solid transparent;
+.hero-logo {
+  display: block;
+  height: auto;
+  width: min(100%, 68%);
 }
 
 .topic-grid {
@@ -398,16 +390,24 @@ main.page blockquote {
   border-top: 8px solid var(--accent, var(--ink));
   text-decoration: none;
   box-shadow: var(--offset-shadow) var(--ink);
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, color 120ms ease;
 }
 .topic-card:hover {
+  background: var(--accent, var(--ink));
+  color: var(--paper);
   transform: translate(-3px, -3px);
-  box-shadow: 10px 10px 0 var(--accent, var(--ink));
+  border-top: 8px solid color-mix(in srgb, var(--accent), black 30%);
+  box-shadow: 10px 10px 0 var(--ink);
 }
+/* Keep every line readable on the accent background; ink text on the light
+ * yellow, paper text on the darker accents. */
+.topic-card:hover .topic-card-index { color: var(--paper); }
+.topic-card.accent-yellow:hover,
+.topic-card.accent-yellow:hover .topic-card-index { color: var(--ink); }
 .accent-red { --accent: var(--red); }
 .accent-blue { --accent: var(--blue); }
+.accent-green { --accent: var(--green); }
 .accent-yellow { --accent: var(--yellow); }
-.accent-ink { --accent: var(--ink); }
 .topic-card-index {
   display: block;
   font-family: var(--font-mono);
