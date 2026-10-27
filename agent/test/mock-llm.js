@@ -78,18 +78,20 @@ function reply(task, firstUser, messages) {
   // Tool flows: exercise the agent's tool round-trip deterministically.
   // "Loop tools" keeps requesting tools until the forced wrap-up, to test
   // the tool round limit. "EMPTYFIRST" returns an empty response once (the
-  // client must retry), then reads a large file whose result must be
-  // truncated on its way back into the conversation.
+  // client must retry), then reads a large file whose full content must come
+  // back into the conversation, untruncated.
   if (task === 'evaluate-explanation-page' && /EMPTYFIRST marker\./.test(firstUser)) {
     const ownCalls = callsLog.filter((t) => t === task).length;
     if (ownCalls === 1) return '';
     if (ownCalls === 2) return tc('read_file', { path: 'Manufacturing/Big.txt' });
     const lastToolResult =
       [...messages].reverse().find((m) => m.role === 'tool')?.content ?? '';
-    if (lastToolResult.includes('tool result truncated')) {
-      return { notes: ['Handled the truncated result.'], score: 42, reasoning: 'mock' };
+    // The file is ~12k chars: the whole thing must arrive, past the old
+    // 6000-char tool-result cap, with no truncation marker.
+    if (lastToolResult.length > 12000 && !lastToolResult.includes('truncated')) {
+      return { notes: ['Read the full large result.'], score: 42, reasoning: 'mock' };
     }
-    return 'RAW:this is not valid json, the truncation marker is missing';
+    return 'RAW:this is not valid json, the large result was truncated';
   }
   if (task === 'address-notes' && /delete the page/i.test(notesText)) {
     // Regression for the mid-visit ENOENT: the model deletes the very page

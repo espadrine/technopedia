@@ -777,7 +777,7 @@ await startMockServer(PORT);
   );
 }
 
-// -- Phase 6f: empty responses are retried, big tool results are truncated ----
+// -- Phase 6f: empty responses are retried, big tool results come back full ---
 {
   requestLog.length = 0; callsLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p6f');
@@ -793,7 +793,7 @@ await startMockServer(PORT);
     authorNotesDir,
     env: { TECHNOPEDIA_WEB_SEARCH_URL: 'off' },
   });
-  console.log(`\n--- phase 6f (empty reply + truncation) exit=${r.status} ---\n${r.stdout.slice(-500)}${r.stderr.slice(-300)}`);
+  console.log(`\n--- phase 6f (empty reply + full result) exit=${r.status} ---\n${r.stdout.slice(-500)}${r.stderr.slice(-300)}`);
 
   check(
     'p6f: an empty model response is retried, not fatal',
@@ -801,7 +801,7 @@ await startMockServer(PORT);
     `status=${r.status}, calls=${taskCount('evaluate-explanation-page')}`,
   );
   check(
-    'p6f: the large tool result was truncated back into the conversation',
+    'p6f: the large tool result came back into the conversation in full',
     r.status === 0 &&
       content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('notes-addressed'),
     r.stdout.slice(-300),
@@ -979,6 +979,15 @@ await startMockServer(PORT);
     'p6i: a missing file is a tool error, not an empty result',
     typeof missingFile.error === 'string' && missingFile.error.includes('does not exist'),
     JSON.stringify(missingFile),
+  );
+  // grep returns full lines: there is no per-line character cap.
+  const longLine = `# ${'x'.repeat(500)}`;
+  seed(contentDir, 'Manufacturing/Long.md', `${longLine}\n`);
+  const longGrep = await tools.exec('grep', { pattern: '^# ', file: 'Manufacturing/Long.md' });
+  check(
+    'p6i: grep returns the full text of long lines (no per-line cap)',
+    longGrep.matches.length === 1 && longGrep.matches[0].text === longLine,
+    `match text length=${longGrep.matches[0]?.text.length}`,
   );
 }
 
@@ -1424,6 +1433,111 @@ await startMockServer(PORT);
     TOOLS_GUIDE.includes('If lineno_start is omitted, it defaults to 1.') &&
       TOOLS_GUIDE.includes('If lineno_end is omitted, it defaults to the last line of the file.'),
     TOOLS_GUIDE.split('\n').filter((l) => l.includes('edit_file')).join(' | '),
+  );
+}
+
+// -- Phase 6p: read_file reads line ranges (lineno_start, n_lines) ------------
+{
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p6p');
+  const store = new Store({ contentDir, notesDir, authorNotesDir, logger: () => {} });
+  const tools = createTools({ config: { contentDir, webSearchUrl: 'off' }, store, logger: () => {} });
+
+  const lines = ['# Electronics', '', 'Intro.', '', 'Middle.', '', 'End.'];
+  seed(contentDir, 'Manufacturing/Electronics.md', lines.join('\n') + '\n');
+
+  // No range arguments: the whole file.
+  const whole = await tools.exec('read_file', { path: 'Manufacturing/Electronics.md' });
+  check(
+    'p6p: read_file without range arguments returns the whole file',
+    whole.error === undefined && whole.content === lines.join('\n') + '\n',
+    JSON.stringify(whole).slice(0, 200),
+  );
+
+  // lineno_start only: from that line to the end of the file.
+  const from = await tools.exec('read_file', { path: 'Manufacturing/Electronics.md', lineno_start: 5 });
+  check(
+    'p6p: lineno_start reads from that line to the end',
+    from.error === undefined && from.content === 'Middle.\n\nEnd.\n',
+    JSON.stringify(from),
+  );
+
+  // lineno_start + n_lines: exactly that many lines.
+  const range = await tools.exec('read_file', {
+    path: 'Manufacturing/Electronics.md',
+    lineno_start: 3,
+    n_lines: 2,
+  });
+  check(
+    'p6p: n_lines reads exactly that many lines from lineno_start',
+    range.error === undefined && range.content === 'Intro.\n',
+    JSON.stringify(range),
+  );
+
+  // n_lines only: the first lines of the file.
+  const head = await tools.exec('read_file', { path: 'Manufacturing/Electronics.md', n_lines: 1 });
+  check(
+    'p6p: n_lines alone reads the first lines',
+    head.error === undefined && head.content === '# Electronics',
+    JSON.stringify(head),
+  );
+
+  // A range reaching past the end of the file reads what exists.
+  const pastEnd = await tools.exec('read_file', {
+    path: 'Manufacturing/Electronics.md',
+    lineno_start: 7,
+    n_lines: 10,
+  });
+  check(
+    'p6p: a range past the end reads what exists',
+    pastEnd.error === undefined && pastEnd.content === 'End.\n',
+    JSON.stringify(pastEnd),
+  );
+
+  // lineno_start past the end of the file reads nothing.
+  const beyond = await tools.exec('read_file', { path: 'Manufacturing/Electronics.md', lineno_start: 99 });
+  check(
+    'p6p: lineno_start past the end of the file reads nothing',
+    beyond.error === undefined && beyond.content === '',
+    JSON.stringify(beyond),
+  );
+
+  // Invalid ranges are tool errors, not silent empty reads.
+  const badStart = await tools.exec('read_file', { path: 'Manufacturing/Electronics.md', lineno_start: 0 });
+  check(
+    'p6p: lineno_start 0 is a tool error',
+    typeof badStart.error === 'string' && badStart.error.includes('lineno_start'),
+    JSON.stringify(badStart),
+  );
+  const badCount = await tools.exec('read_file', { path: 'Manufacturing/Electronics.md', n_lines: 0 });
+  check(
+    'p6p: n_lines 0 is a tool error',
+    typeof badCount.error === 'string' && badCount.error.includes('n_lines'),
+    JSON.stringify(badCount),
+  );
+
+  // No size cap: a file well past the old 50k read limit comes back whole,
+  // and can be paged through with line ranges.
+  const bigLine = 'y'.repeat(60000);
+  seed(contentDir, 'Manufacturing/Huge.md', `# Huge\n\n${bigLine}\n`);
+  const huge = await tools.exec('read_file', { path: 'Manufacturing/Huge.md' });
+  check(
+    'p6p: read_file returns files larger than the old 50k limit in full',
+    huge.error === undefined && huge.content === `# Huge\n\n${bigLine}\n`,
+    `content length=${huge.content?.length}`,
+  );
+  const paged = await tools.exec('read_file', { path: 'Manufacturing/Huge.md', lineno_start: 3, n_lines: 1 });
+  check(
+    'p6p: a huge file can be paged through with lineno_start and n_lines',
+    paged.error === undefined && paged.content === bigLine,
+    `content length=${paged.content?.length}`,
+  );
+
+  check(
+    'p6p: the tools guide documents the read_file line range',
+    TOOLS_GUIDE.includes('read_file(path, lineno_start, n_lines)') &&
+      TOOLS_GUIDE.includes('defaulting to line 1') &&
+      TOOLS_GUIDE.includes('going all the way to the end'),
+    TOOLS_GUIDE.split('\n').filter((l) => l.includes('read_file')).join(' | '),
   );
 }
 

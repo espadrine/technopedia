@@ -19,9 +19,6 @@ const RETRIES = 3;
 // How many times a non-JSON final answer is handed back to the model as a
 // user message (so it can adjust) before the task fails.
 const MAX_PARSE_RETRIES = 2;
-// Tool results fed back into the conversation are truncated to this size, so
-// that many tool rounds cannot exhaust the model's context window.
-const MAX_TOOL_RESULT_CHARS = 6000;
 
 // Choose the model and token budget from a /v1/models listing.
 // llama.cpp's router mode lists every model it could load with a
@@ -381,11 +378,6 @@ export class LlmClient {
             value = JSON.stringify({ error: `unknown tool call: ${String(name)}` });
           } else {
             value = JSON.stringify(await tools.exec(name, args));
-          }
-          if (value.length > MAX_TOOL_RESULT_CHARS) {
-            value = JSON.stringify(
-              `${value.slice(0, MAX_TOOL_RESULT_CHARS)}\n... (tool result truncated to fit; narrow your next query)`,
-            );
           }
           this.transcribe({
             kind: 'tool',

@@ -16,16 +16,16 @@ export const TOOLS_GUIDE = `You have access to the following tools in order to p
 - run_js(code): runs the given JavaScript code in isolated-vm and returns the result. It only has the base JS syntax: it does not have require() etc. Use it only to do quick accurate computation, but you cannot access the file system with it. The value of the last expression is returned; "return" statements are also accepted.
 - grep(pattern, file, folder): searches the content (or the given file, or files inside the given folder) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).
 - find_files(pattern, folder): searches the content (or the given folder) for files whose path (including the filename or parent folder name, upto the content/ folder) matches the given pattern, a regular expression. Returns the matching files.
-- read_file(path): reads the content of the file at the given path and returns it as text. The path is relative to the content folder.
+- read_file(path, lineno_start, n_lines): reads the content of the file at the given path and returns it as text. If lineno_start is present, it starts reading the file from that line number (1-indexed), defaulting to line 1. If n_lines is present, it reads that many lines from the file, defaulting to going all the way to the end.
 - edit_file(path, lineno_start, lineno_end, new_content): edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. If lineno_start is omitted, it defaults to 1. If lineno_end is omitted, it defaults to the last line of the file. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file.
   After each edit of a .md file, the result is checked for known invalid LaTeXMarkdown math (broken $\`...\`$ forms, \$\$ display math, math inside raw HTML). If any is found, the tool returns an error listing the offending lines: fix them with another edit_file.
 - delete_file(path): deletes the file at the given path.
 - rename_file(path, new_path): changes the name of the file or its location in the hierarchy: moves the file or folder to new_path, creating the folders of new_path as needed. new_path must not exist yet.
 
 Call tools as many times as needed; each result comes back to you as a tool
-message. Large results are truncated to fit: narrow your next query instead
-of re-reading the same large content. When you are done, reply with the
-final JSON answer described in the task.`;
+message, in full. For large files, read them in ranges with lineno_start and
+n_lines instead of re-reading the same large content. When you are done,
+reply with the final JSON answer described in the task.`;
 
 // The same tools, declared to the model with the standard OpenAI-compatible
 // tools request parameter: function specs with JSON Schema parameters. The
@@ -122,11 +122,19 @@ export const TOOL_SPECS = [
     function: {
       name: 'read_file',
       description:
-        'Reads the content of the file at the given path and returns it as text. The path is relative to the content folder.',
+        'Reads the content of the file at the given path and returns it as text. If lineno_start is present, it starts reading the file from that line number (1-indexed), defaulting to line 1. If n_lines is present, it reads that many lines from the file, defaulting to going all the way to the end.',
       parameters: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'The path of the file, relative to the content folder.' },
+          lineno_start: {
+            type: 'integer',
+            description: 'The first line to read, 1-indexed. Defaults to 1.',
+          },
+          n_lines: {
+            type: 'integer',
+            description: 'How many lines to read. Defaults to going all the way to the end of the file.',
+          },
         },
         required: ['path'],
       },
@@ -195,7 +203,6 @@ export const TOOL_SPECS = [
 ];
 
 const GREP_LIMIT = 100;
-const READ_LIMIT = 50000;
 const RUN_JS_TIMEOUT = 5000;
 const RUN_JS_MEMORY = 64; // MB
 
@@ -419,7 +426,7 @@ export function createTools({ config, store, logger = () => {} }) {
             matches.push({
               file: path.relative(contentDir, target).split(path.sep).join('/'),
               line: i + 1,
-              text: lines[i].slice(0, 200),
+              text: lines[i],
             });
             if (matches.length >= GREP_LIMIT) {
               truncated = true;
@@ -441,14 +448,27 @@ export function createTools({ config, store, logger = () => {} }) {
       return { files };
     },
 
-    async read_file({ path: rawPath } = {}) {
+    async read_file({ path: rawPath, lineno_start: start, n_lines: nLines } = {}) {
       const { target, rel } = resolveInContent(rawPath);
       const text = await fs.readFile(target, 'utf8');
-      const truncated = text.length > READ_LIMIT;
-      return {
-        path: rel,
-        content: truncated ? `${text.slice(0, READ_LIMIT)}\n... (truncated)` : text,
-      };
+      const lines = text.split('\n');
+      // README: read_file(path, lineno_start, n_lines) — lineno_start
+      // defaults to line 1, n_lines defaults to the end of the file.
+      const from = Number(start ?? 1);
+      if (!Number.isInteger(from) || from < 1) {
+        throw new Error(`read_file: lineno_start ${from} is invalid`);
+      }
+      let selected;
+      if (nLines === undefined || nLines === null) {
+        selected = lines.slice(from - 1);
+      } else {
+        const n = Number(nLines);
+        if (!Number.isInteger(n) || n < 1) {
+          throw new Error(`read_file: n_lines ${n} is invalid`);
+        }
+        selected = lines.slice(from - 1, from - 1 + n);
+      }
+      return { path: rel, content: selected.join('\n') };
     },
 
     async edit_file({ path: rawPath, lineno_start: start, lineno_end: end, new_content } = {}) {
