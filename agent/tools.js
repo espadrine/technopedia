@@ -16,7 +16,7 @@ export const TOOLS_GUIDE = `You have access to the following tools in order to p
 - grep(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).
 - find_files(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for files whose path (including the filename or parent folder name) matches the given pattern. Returns the matching files.
 - read_file(path): reads the content of the file at the given path and returns it as text. The path is relative to the content folder.
-- edit_file(path, lineno_start, lineno_end, new_content): edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file.
+- edit_file(path, lineno_start, lineno_end, new_content): edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. If lineno_start is omitted, it defaults to 1. If lineno_end is omitted, it defaults to the last line of the file. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file.
   After each edit of a .md file, the result is checked for known invalid LaTeXMarkdown math (broken $\`...\`$ forms, \$\$ display math, math inside raw HTML). If any is found, the tool returns an error listing the offending lines: fix them with another edit_file.
 - delete_file(path): deletes the file at the given path.
 - rename_file(path, new_path): changes the name of the file or its location in the hierarchy: moves the file or folder to new_path, creating the folders of new_path as needed. new_path must not exist yet.
@@ -274,15 +274,18 @@ export function createTools({ config, store, logger = () => {} }) {
     async edit_file({ path: rawPath, lineno_start: start, lineno_end: end, new_content } = {}) {
       if (config.dryRun) throw new Error('edit_file: disabled in dry-run mode');
       const { target, rel } = resolveInContent(rawPath);
-      const from = Number(start);
-      const to = Number(end);
-      if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
-        throw new Error(`edit_file: line range ${from}-${to} is invalid`);
-      }
+      // README: an omitted lineno_start defaults to 1, an omitted lineno_end
+      // defaults to the last line of the file.
+      const from = Number(start ?? 1);
       const text = await fs.readFile(target, 'utf8').catch(() => null);
       // A file that does not exist yet is created by an edit at line 1; the
       // new content becomes the whole file (README: simulations and other
-      // page assets are created this way).
+      // page assets are created this way). A missing file's last line is 1.
+      const lastLine = text === null ? 1 : text.split('\n').length;
+      const to = Number(end ?? lastLine);
+      if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to < from) {
+        throw new Error(`edit_file: line range ${from}-${to} is invalid`);
+      }
       if (text === null) {
         if (from !== 1 || to !== 1) {
           throw new Error(

@@ -38,7 +38,8 @@ export const modelsLog = []; // every /v1/models request it receives
 // exercise interrupted runs and their resumption. fixLinkIntegrity makes the
 // mock actually handle the findings of the fix-link-integrity task (by
 // default it handles nothing, so the violations remain and are logged).
-export const flags = { failResumeEval: false, badMathCreation: false, fixLinkIntegrity: false };
+// fixBreadcrumbs does the same for the fix-breadcrumbs task.
+export const flags = { failResumeEval: false, badMathCreation: false, fixLinkIntegrity: false, fixBreadcrumbs: false };
 
 function reply(task, firstUser, messages) {
   // Interrupted-run test: every evaluation of the page carrying the RESUME
@@ -192,6 +193,71 @@ function reply(task, firstUser, messages) {
         })
         .join('\n');
       return { markdown: `${updated}\n` };
+    }
+    case 'fix-breadcrumbs': {
+      // By default the mock handles nothing: the missing breadcrumbs remain
+      // and the agent logs them. With the fixBreadcrumbs flag on, the mock
+      // fixes every finding with tool round-trips: a missing ancestor page
+      // is created (with a link to the next page of the chain), a page that
+      // exists but is not referenced gets its link added to its parent.
+      if (!flags.fixBreadcrumbs) return { done: true };
+      const pageRel = firstUser.match(/page file: (\S+)\)/)?.[1] ?? '';
+      const segs = pageRel.split('/');
+      const isTopicPage = /Readme\.md$/i.test(pageRel);
+      const ancestorCount = segs.length - 1 - (isTopicPage ? 1 : 0);
+      const chain = [];
+      for (let i = 1; i <= ancestorCount; i++) {
+        chain.push(`${segs.slice(0, i).join('/')}/Readme.md`);
+      }
+      chain.push(pageRel);
+      const missingPages = [...firstUser.matchAll(/^- the ancestor page (\S+) does not exist$/gm)].map(
+        (m) => m[1],
+      );
+      const missingLinks = [
+        ...firstUser.matchAll(/^- the page (\S+) is not referenced in its parent topic page (\S+)$/gm),
+      ].map((m) => ({ rel: m[1], parent: m[2] }));
+      const childNameOf = (rel) => {
+        const parts = rel.split('/');
+        return /Readme\.md$/i.test(rel) ? parts[parts.length - 2] : parts[parts.length - 1].replace(/\.md$/i, '');
+      };
+      const queue = [];
+      for (const rel of missingPages) {
+        const next = chain[chain.indexOf(rel) + 1];
+        if (!next) continue;
+        const href = `./${posix.relative(posix.dirname(rel), next)}`;
+        const ancestorName = rel.split('/').slice(-2, -1)[0] ?? rel.split('/').pop();
+        queue.push({
+          tool: 'edit_file',
+          args: {
+            path: rel,
+            lineno_start: 1,
+            lineno_end: 1,
+            new_content: `# ${ancestorName}\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[${childNameOf(next)}](${href})</td></tr>\n</table>\n`,
+          },
+        });
+      }
+      for (const m of missingLinks) {
+        const childHref = `./${posix.relative(posix.dirname(m.parent), m.rel)}`;
+        queue.push({ tool: 'read_file', args: { path: m.parent } });
+        queue.push({ appendLink: { parent: m.parent, href: childHref, name: childNameOf(m.rel) } });
+      }
+      const fix = queue[toolResults.length];
+      if (!fix) return { done: true };
+      if (fix.appendLink) {
+        const read = toolResults[toolResults.length - 1];
+        const lines = String(read?.content ?? '').split('\n');
+        const last = Math.max(1, lines.length);
+        return {
+          tool: 'edit_file',
+          args: {
+            path: fix.appendLink.parent,
+            lineno_start: last,
+            lineno_end: last,
+            new_content: `${lines[last - 1] ?? ''}\n- [${fix.appendLink.name}](${fix.appendLink.href})`,
+          },
+        };
+      }
+      return fix;
     }
     case 'fix-link-integrity': {
       // By default the mock handles nothing: the violations remain and the

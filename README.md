@@ -118,7 +118,12 @@ It should, in a loop:
    1. Pick a page with the following priority:
       1. if there is no page at all, create the highest-level topic page;
       2. otherwise, pick the page with the lowest score.
-   2. If it is a topic page (eg. Manufacturing),
+   2. Check the breadcrumbs of the page: the list of ancestor pages.
+      If there is one missing: give that information to the agent,
+      and ask it to make the page reachable from the top-level page,
+      by adding the right link in the right ancestor page,
+      or by creating the relevant missing ancestor pages (and adding them to the database).
+   3. If it is a topic page (eg. Manufacturing),
       1. If it is empty: create its content, with the links, and create the subpages corresponding to those links, leaving them empty.
          Add it, along with its subpages, to the page database.
       2. If the page has more than 10 subtopics, categorize them into 2 groups,
@@ -129,15 +134,15 @@ It should, in a loop:
          address them, delete the agent notes.
          If it creates a page, that page should be added to the database; if it deletes it, it should be removed from the database.
          If it deletes the page wholesale, it should update the parent topic page to remove the link to the deleted page, before concluding the work.
-   3. If it is an explanation page (for instance, "Batteries"),
+   4. If it is an explanation page (for instance, "Batteries"),
       1. If it is empty, create its content.
       2. If it has over 10 sections, categorize them into 2 groups, label each group, create one explanation page for each group, and add those explanation pages to the original parent topic page as new categories.
       3. Read the author notes on all ancestor pages, read the agent notes on the current page,
          address them, delete the agent notes.
          If it creates a page, that page should be added to the database; if it deletes it, it should be removed from the database.
          If it deletes the page wholesale, it should update the parent topic page to remove the link to the deleted page, before concluding the work.
-   4. The agent should now make sure there are no dead links nor unreachable pages, handling them as needed.
-   5. Reset the page's score to null, and update the page's edit timestamp to the current time.
+   5. The agent should now make sure there are no dead links nor unreachable pages, handling them as needed.
+   6. Reset the page's score to null, and update the page's edit timestamp to the current time.
 
 The agent has access to the following tools in order to perform its duties:
 - `web_search(query)`: searches the Web for the query and returns a list of relevant links and snippets.
@@ -146,7 +151,7 @@ The agent has access to the following tools in order to perform its duties:
 - `grep(pattern, folder)`: searches the content for a given regular expression and returns the matching files and lines (with line number, 1-indexed).
 - `find_files(pattern, folder)`: searches the content for files whose path (including the filename or parent folder name, upto the content/ folder) matches the given pattern. Returns the matching files.
 - `read_file(path)`: reads the content of the file at the given path and returns it as text.
-- `edit_file(path, lineno_start, lineno_end, new_content)`: edits the file at the given path, replacing the content from `lineno_start` to `lineno_end` (both included, 1-indexed) with `new_content`.
+- `edit_file(path, lineno_start, lineno_end, new_content)`: edits the file at the given path, replacing the content from `lineno_start` to `lineno_end` (both included, 1-indexed) with `new_content`. If `lineno_start` is omitted, it defaults to 1. If `lineno_end` is omitted, it defaults to the last line of the file.
 - `delete_file(path)`: deletes the file at the given path.
 - `rename_file(path, new_path)`: changes the name of the file or its location in the hierarchy.
 

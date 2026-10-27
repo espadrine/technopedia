@@ -27,21 +27,26 @@
 //       included), and the editor picks the lowest score amongst them. Pages
 //       found on disk but not in the database are folded in by the reconcile
 //       at the mode boundary (README 1.1.2).
-//    2. Topic page: if it is empty, create its content with its links and
+//    2. Check the breadcrumbs of the page (the list of ancestor pages): if
+//       one is missing, the agent is told and asked to make the page
+//       reachable from the top-level topic page, adding the right link in
+//       the right ancestor page or creating the missing ancestor pages (and
+//       adding them to the database).
+//    3. Topic page: if it is empty, create its content with its links and
 //       create the linked subpages (left empty). If it has more than 10
 //       subtopics, split it into 2 group pages. Then address the notes: the
 //       author notes of all ancestor pages and the agent notes on the page.
-//    3. Explanation page: if it is empty, create its content. If it has over
+//    4. Explanation page: if it is empty, create its content. If it has over
 //       10 sections, split it into 2 group pages added to the parent topic
 //       page. Then address the notes.
-//    4. Make sure there are no dead links nor unreachable pages in the whole
+//    5. Make sure there are no dead links nor unreachable pages in the whole
 //       encyclopedia, handling them as needed: a mechanical scan finds the
 //       violations, the model handles them with its tools, and whatever
 //       remains is logged (the reviewer flags the same violations per page
 //       on its next visit of the affected pages).
-//    5. Reset the page's score to null and stamp its edit timestamp.
+//    6. Reset the page's score to null and stamp its edit timestamp.
 //
-// The agent logs every step of the loop it is on (eg. "1.2", "2.2.3"),
+// The agent logs every step of the loop it is on (eg. "1.2", "2.3.3"),
 // following the numbering of the README. Pages created or deleted through
 // the tools are folded back into the database at the end of each mode.
 
@@ -59,6 +64,7 @@ import {
   editParentLinksPrompt,
   evaluateExplanationPagePrompt,
   evaluateTopicPagePrompt,
+  fixBreadcrumbsPrompt,
   fixLinkIntegrityPrompt,
   splitExplanationPagePrompt,
   splitTopicPagePrompt,
@@ -276,7 +282,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }
   };
 
-  // 2.2.2 split of an overgrown topic page. The two group pages are created
+  // 2.3.2 split of an overgrown topic page. The two group pages are created
   // filled in ("Then fill in the topic page"); the old page is replaced in
   // its parent (or rewritten as the parent itself when it is a high-level
   // topic), and its notes are transferred.
@@ -298,7 +304,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
     for (const group of newPages) {
       await store.writePage(group.file, `${group.markdown}\n`);
-      await lintMarkdown(store.rel(group.file), group.markdown, '2.2.2', task);
+      await lintMarkdown(store.rel(group.file), group.markdown, '2.3.2', task);
       summary.pagesWritten.push(store.rel(group.file));
     }
     const added = newPages.map((group) => ({ name: slug(group.label), kind: 'topic' }));
@@ -308,13 +314,13 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         editParentLinksPrompt(parentSegments, content, { removeAll: true, add: added }),
         { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
       );
-      const updated = (await applyMarkdown(edited.markdown, file, '2.2.2', task)) ?? content;
-      await ensureParentLinks(file, updated, added, '2.2.2', task);
+      const updated = (await applyMarkdown(edited.markdown, file, '2.3.2', task)) ?? content;
+      await ensureParentLinks(file, updated, added, '2.3.2', task);
     } else {
       const parentFile = store.topicPagePath(parentSegments);
       const parentContent = await store.readPage(parentFile).catch(() => null);
       if (parentContent === null) {
-        task.step('2.2.2', `warning: parent page ${store.rel(parentFile)} not found; split pages created anyway`);
+        task.step('2.3.2', `warning: parent page ${store.rel(parentFile)} not found; split pages created anyway`);
       } else {
         const edited = await llm.chatJson(
           editParentLinksPrompt(parentSegments, parentContent, {
@@ -323,8 +329,8 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
           }),
           { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
         );
-        const updated = (await applyMarkdown(edited.markdown, parentFile, '2.2.2', task)) ?? parentContent;
-        await ensureParentLinks(parentFile, updated, added, '2.2.2', task);
+        const updated = (await applyMarkdown(edited.markdown, parentFile, '2.3.2', task)) ?? parentContent;
+        await ensureParentLinks(parentFile, updated, added, '2.3.2', task);
       }
       await store.transferNotes(
         store.rel(file),
@@ -333,10 +339,10 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       await store.deletePage(file);
     }
     summary.splits.push(store.rel(file));
-    task.step('2.2.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
+    task.step('2.3.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
   };
 
-  // 2.3.2 split of an overgrown explanation page.
+  // 2.4.2 split of an overgrown explanation page.
   const splitExplanationPage = async (segments, file, content, task) => {
     const answer = await llm.chatJson(splitExplanationPagePrompt(segments, content), {
       temperature: PAGE_CREATION_TEMPERATURE,
@@ -352,13 +358,13 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
     for (const group of newPages) {
       await store.writePage(group.file, `${group.markdown}\n`);
-      await lintMarkdown(store.rel(group.file), group.markdown, '2.3.2', task);
+      await lintMarkdown(store.rel(group.file), group.markdown, '2.4.2', task);
       summary.pagesWritten.push(store.rel(group.file));
     }
     const parentFile = store.topicPagePath(parentSegments);
     const parentContent = await store.readPage(parentFile).catch(() => null);
     if (parentContent === null) {
-      task.step('2.3.2', `warning: parent topic page ${store.rel(parentFile)} not found; split pages created anyway`);
+      task.step('2.4.2', `warning: parent topic page ${store.rel(parentFile)} not found; split pages created anyway`);
     } else {
       const added = newPages.map((group) => ({ name: slug(group.label), kind: 'explanation' }));
       const edited = await llm.chatJson(
@@ -368,8 +374,8 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         }),
         { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
       );
-      const updated = (await applyMarkdown(edited.markdown, parentFile, '2.3.2', task)) ?? parentContent;
-      await ensureParentLinks(parentFile, updated, added, '2.3.2', task);
+      const updated = (await applyMarkdown(edited.markdown, parentFile, '2.4.2', task)) ?? parentContent;
+      await ensureParentLinks(parentFile, updated, added, '2.4.2', task);
     }
     await store.transferNotes(store.rel(file), newPages.map((group) => store.rel(group.file)), 'agent');
     await store.transferNotes(store.rel(file), newPages.map((group) => store.rel(group.file)), 'author');
@@ -381,10 +387,10 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       await store.deletePage(oldSimulation);
     }
     summary.splits.push(store.rel(file));
-    task.step('2.3.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
+    task.step('2.4.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
   };
 
-  // README 2.2.3 / 2.3.3: "If it deletes the page wholesale, it should update
+  // README 2.3.3 / 2.4.3: "If it deletes the page wholesale, it should update
   // the parent topic page to remove the link to the deleted page, before
   // concluding the work." The model is told to do it; this guarantees the
   // invariant: any link to the deleted page is stripped from the parent
@@ -409,7 +415,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }
   };
 
-  // 2.2.3 / 2.3.3: read the author notes of all ancestor pages (the page
+  // 2.3.3 / 2.4.3: read the author notes of all ancestor pages (the page
   // itself counts as its own ancestor) and the agent notes on the current
   // page, address them, and delete the agent notes. Author notes are never
   // deleted: they are standing instructions for every future visit.
@@ -500,7 +506,87 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     await store.savePagesDb(db);
   };
 
-  // -- 2.2 / 2.3: edit one page of the database ------------------------------
+  // -- 2.2: check the breadcrumbs of the edited page -------------------------
+
+  // 2.2: check the breadcrumbs of the page: the list of ancestor pages, from
+  // the top-level topic page down to the parent of the page. If one is
+  // missing, give that information to the agent and ask it to make the page
+  // reachable from the top-level topic page: add the right link in the right
+  // ancestor page, or create the missing ancestor pages (and add them to the
+  // database). Returns whether the agent was asked to handle findings.
+  const checkBreadcrumbs = async (rel, segments, task) => {
+    if (segments.length < 2) {
+      task.step('2.2', `${rel} is a top-level topic page; no breadcrumbs to check`);
+      return false;
+    }
+    // The breadcrumbs: every ancestor page from the top-level topic page down
+    // to the parent of the page, then the page itself (all the ancestors are
+    // topic pages).
+    const chain = [];
+    for (let i = 1; i < segments.length; i++) {
+      const segs = segments.slice(0, i);
+      chain.push({ rel: store.rel(store.topicPagePath(segs)), file: store.topicPagePath(segs), segs, kind: 'topic' });
+    }
+    chain.push({ rel, file: fileOf(rel), segs: segments, kind: store.pageTypeOf(rel) });
+    const find = async () => {
+      const findings = [];
+      for (let i = 0; i < chain.length; i++) {
+        const page = chain[i];
+        const parent = i === 0 ? null : chain[i - 1];
+        if ((await store.readOptional(page.file)) === null) {
+          findings.push({ kind: 'missing-page', rel: page.rel, parent: parent ? parent.rel : null });
+          continue;
+        }
+        // A missing ancestor breaks the chain below it: the link to the next
+        // page cannot be checked (creating the ancestor with the link is the
+        // fix), so only the pages below an existing parent are link-checked.
+        if (parent === null || (await store.readOptional(parent.file)) === null) continue;
+        const parentContent = await store.readPage(parent.file);
+        const href = `./${slug(page.segs[page.segs.length - 1])}${page.kind === 'topic' ? '/Readme.md' : '.md'}`;
+        if (!parentContent.includes(href)) {
+          findings.push({ kind: 'missing-link', rel: page.rel, parent: parent.rel });
+        }
+      }
+      return findings;
+    };
+    const findings = await find();
+    if (findings.length === 0) {
+      task.step('2.2', `the breadcrumbs of ${rel} are complete (${chain.map((c) => c.rel).join(' -> ')})`);
+      return false;
+    }
+    summary.actions.push('fix-breadcrumbs');
+    for (const f of findings) {
+      task.step(
+        '2.2',
+        f.kind === 'missing-page'
+          ? `missing breadcrumb: the ancestor page ${f.rel} does not exist`
+          : `missing breadcrumb: ${f.rel} is not referenced in its parent topic page ${f.parent}`,
+      );
+    }
+    if (config.dryRun) {
+      task.step('2.2', 'dry run: the missing breadcrumbs are logged, not handled');
+      return false;
+    }
+    await llm.chatJson(fixBreadcrumbsPrompt(rel, segments, findings), {
+      temperature: DECISION_TEMPERATURE,
+      tools: task.tools,
+      label: 'fix-breadcrumbs',
+    });
+    // The missing ancestor pages are added to the database once created.
+    await syncDb('2.2');
+    const remaining = await find();
+    if (remaining.length === 0) {
+      task.step('2.2', `handled: ${rel} is reachable from the top-level topic page`);
+    } else {
+      task.step(
+        '2.2',
+        `${remaining.length} missing breadcrumb(s) remain; the reviewer will flag them on the affected pages`,
+      );
+    }
+    return true;
+  };
+
+  // -- 2.3 / 2.4: edit one page of the database ------------------------------
 
   const editPage = async (rel, task) => {
     const entry = db.pages[rel] ?? { type: store.pageTypeOf(rel) };
@@ -514,11 +600,21 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     summary.topic = segments[0];
     summary.page = segments;
 
+    // 2.2: check the breadcrumbs of the page before working on it.
+    const breadcrumbsHandled = await checkBreadcrumbs(rel, segments, task);
+    if (breadcrumbsHandled) {
+      content = await store.readPage(file).catch(() => null);
+      if (content === null) {
+        task.step('2.2', `${rel} was deleted while its breadcrumbs were fixed; nothing more to edit`);
+        return;
+      }
+    }
+
     if (entry.type === 'topic') {
-      // 2.2.1: empty topic page -> create its content, with the links, and
+      // 2.3.1: empty topic page -> create its content, with the links, and
       // create the subpages corresponding to those links, leaving them empty.
       if (content.trim() === '') {
-        task.step('2.2.1', `creating the topic page ${rel}`);
+        task.step('2.3.1', `creating the topic page ${rel}`);
         const answer = await llm.chatJson(createTopicPagePrompt(segments), {
           temperature: PAGE_CREATION_TEMPERATURE,
           tools: task.tools,
@@ -527,34 +623,34 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         const markdown = String(answer.markdown ?? '').trim();
         if (markdown === '') throw new LlmError('create-topic-page returned no page', { kind: 'parse' });
         await store.writePage(file, `${markdown}\n`);
-        await lintMarkdown(rel, markdown, '2.2.1', task);
+        await lintMarkdown(rel, markdown, '2.3.1', task);
         summary.pagesWritten.push(rel);
         for (const link of parsePageLinks(markdown)) {
           const subRel = path.posix.normalize(path.posix.join(path.posix.dirname(rel), link.href));
           await store.writePage(fileOf(subRel), '');
           db.pages[subRel] = { type: store.pageTypeOf(subRel), score: null, reviewedAt: null, addedAt: nowIso() };
-          task.step('2.2.1', `created the empty subpage ${subRel}`);
+          task.step('2.3.1', `created the empty subpage ${subRel}`);
         }
         content = markdown;
       }
-      // 2.2.2
+      // 2.3.2
       if (parseSubtopicLinks(content).length > SPLIT_SUBTOPIC_LIMIT) {
-        task.step('2.2.2', `over ${SPLIT_SUBTOPIC_LIMIT} subtopics: splitting ${rel}`);
+        task.step('2.3.2', `over ${SPLIT_SUBTOPIC_LIMIT} subtopics: splitting ${rel}`);
         await splitTopicPage(segments, file, content, task);
         content = await store.readPage(file).catch(() => null);
         if (content === null) {
-          task.step('2.2.2', `${rel} was removed by the split`);
+          task.step('2.3.2', `${rel} was removed by the split`);
           return;
         }
       }
-      // 2.2.3
-      await addressNotes(segments, file, content, '2.2.3', task);
+      // 2.3.3
+      await addressNotes(segments, file, content, '2.3.3', task);
       return;
     }
 
-    // 2.3.1: empty explanation page -> create its content.
+    // 2.4.1: empty explanation page -> create its content.
     if (content.trim() === '') {
-      task.step('2.3.1', `creating the explanation page ${rel}`);
+      task.step('2.4.1', `creating the explanation page ${rel}`);
       const answer = await llm.chatJson(createExplanationPagePrompt(segments), {
         temperature: PAGE_CREATION_TEMPERATURE,
         tools: task.tools,
@@ -563,29 +659,29 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       const markdown = String(answer.markdown ?? '').trim();
       if (markdown === '') throw new LlmError('create-explanation-page returned no page', { kind: 'parse' });
       await store.writePage(file, `${markdown}\n`);
-      await lintMarkdown(rel, markdown, '2.3.1', task);
+      await lintMarkdown(rel, markdown, '2.4.1', task);
       summary.pagesWritten.push(rel);
       content = markdown;
     }
-    // 2.3.2
+    // 2.4.2
     if (countSections(content) > SPLIT_SECTION_LIMIT) {
-      task.step('2.3.2', `over ${SPLIT_SECTION_LIMIT} sections: splitting ${rel}`);
+      task.step('2.4.2', `over ${SPLIT_SECTION_LIMIT} sections: splitting ${rel}`);
       await splitExplanationPage(segments, file, content, task);
       content = await store.readPage(file).catch(() => null);
       if (content === null) {
-        task.step('2.3.2', `${rel} was removed by the split`);
+        task.step('2.4.2', `${rel} was removed by the split`);
         return;
       }
     }
-    // 2.3.3
-    await addressNotes(segments, file, content, '2.3.3', task);
+    // 2.4.3
+    await addressNotes(segments, file, content, '2.4.3', task);
   };
 
   // -- Page picking (README 1.1 and 2.1) ------------------------------------
 
   // The up-to-`count` best pages to review, in filter order (README 1.1.3 /
   // 1.1.4): pages without a score first (never reviewed, or just edited by
-  // 2.5), oldest edit first; then the pages reviewed the longest time ago.
+  // 2.6), oldest edit first; then the pages reviewed the longest time ago.
   // Empty pages are reviewed too: the review scores them (an empty page
   // needs its whole content written, so it scores low), which is what makes
   // them eligible for the editor (2.1.2 picks only scored pages).
@@ -673,7 +769,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     return { deadLinks, unreachable };
   };
 
-  // 2.4: after the editor's work on a page, make sure there are no dead
+  // 2.5: after the editor's work on a page, make sure there are no dead
   // links nor unreachable pages, handling them as needed. The mechanical
   // scan covers the whole encyclopedia (the editor's own work may have
   // created or deleted pages); the model handles the findings with its
@@ -685,24 +781,24 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     const before = await scanLinkIntegrity();
     const total = (s) => s.deadLinks.length + s.unreachable.length;
     if (total(before) === 0) {
-      task.step('2.4', 'no dead links nor unreachable pages');
+      task.step('2.5', 'no dead links nor unreachable pages');
       return;
     }
     summary.actions.push('fix-links');
-    task.step('2.4', `found ${before.deadLinks.length} dead link(s) and ${before.unreachable.length} unreachable page(s); handling them`);
+    task.step('2.5', `found ${before.deadLinks.length} dead link(s) and ${before.unreachable.length} unreachable page(s); handling them`);
     for (const d of before.deadLinks) {
-      task.step('2.4', `dead link: ${d.file} links to ${d.href} (the page does not exist)`);
+      task.step('2.5', `dead link: ${d.file} links to ${d.href} (the page does not exist)`);
     }
     for (const u of before.unreachable) {
       task.step(
-        '2.4',
+        '2.5',
         u.parentMissing
           ? `unreachable page: ${u.rel} has no parent topic page (${u.parent} does not exist)`
           : `unreachable page: ${u.rel} is not referenced in its parent topic page ${u.parent}`,
       );
     }
     if (config.dryRun) {
-      task.step('2.4', 'dry run: the violations are logged, not handled');
+      task.step('2.5', 'dry run: the violations are logged, not handled');
       return;
     }
     await llm.chatJson(fixLinkIntegrityPrompt(segments, before), {
@@ -712,33 +808,33 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     });
     const after = await scanLinkIntegrity();
     if (total(after) === 0) {
-      task.step('2.4', 'handled: no dead links nor unreachable pages remain');
+      task.step('2.5', 'handled: no dead links nor unreachable pages remain');
     } else {
       task.step(
-        '2.4',
+        '2.5',
         `${total(after)} violation(s) remain; the reviewer will flag them on the affected pages`,
       );
     }
   };
 
-  // 2.5: after the editor concludes its work on a page, the page's score is
+  // 2.6: after the editor concludes its work on a page, the page's score is
   // reset to null (so the reviewer re-evaluates the edited page from scratch,
   // 1.1.3) and its edit timestamp is updated to the current time. Skipped
   // when the editor deleted the page: it is no longer in the database.
   const editorConclude = async (rel, task) => {
     const entry = db.pages[rel];
     if (!entry) {
-      task.step('2.5', `${rel} was deleted; nothing to conclude`);
+      task.step('2.6', `${rel} was deleted; nothing to conclude`);
       return;
     }
     entry.score = null;
     entry.editedAt = nowIso();
     await store.savePagesDb(db);
-    task.step('2.5', `reset the score of ${rel} to null and stamped its edit time`);
+    task.step('2.6', `reset the score of ${rel} to null and stamped its edit time`);
   };
 
   // 2.1.1: no page at all -> create the highest-level topic page (empty: its
-  // content is created by 2.2.1 in the same run).
+  // content is created by 2.3.1 in the same run).
   const createRootTopicPage = async () => {
     const existing = new Set(Object.keys(db.pages));
     const chosen =
@@ -788,7 +884,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
               await reviewPage(rel, task);
             } else {
               await editPage(rel, task);
-              // 2.4 runs even when the visit deleted the page: the deletion
+              // 2.5 runs even when the visit deleted the page: the deletion
               // itself may have left dead links or unreachable pages behind.
               await ensureLinkIntegrity(segmentsOf(rel), task);
               await editorConclude(rel, task);
@@ -831,7 +927,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     await syncDb('2.1.2');
     if (Object.keys(db.pages).length === 0) {
       // 2.1.1: no page at all -> create the highest-level topic page (its
-      // content is created by 2.2.1 in the same run).
+      // content is created by 2.3.1 in the same run).
       const rel = await createRootTopicPage();
       await spawnBatch('edit', [rel]);
     } else {

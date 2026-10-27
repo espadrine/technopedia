@@ -244,7 +244,7 @@ await startMockServer(PORT);
   );
 
   check(
-    'p2: the only page is reviewed (1.2) and edited (2.3.3) in the same run',
+    'p2: the only page is reviewed (1.2) and edited (2.4.3) in the same run',
     r.status === 0 &&
       taskCount('evaluate-explanation-page') === 1 &&
       taskCount('address-notes') === 1 &&
@@ -266,10 +266,15 @@ await startMockServer(PORT);
     JSON.stringify(index),
   );
   check(
-    'p2: the link-integrity check runs after the edit (2.4) and logs what remains',
-    r.stdout.includes('step 2.4:') &&
+    'p2: the link-integrity check runs after the edit (2.5) and logs what remains',
+    r.stdout.includes('step 2.5:') &&
       r.stdout.includes('unreachable page: Manufacturing/Electronics.md has no parent topic page') &&
       r.stdout.includes('1 violation(s) remain'),
+    r.stdout.slice(-400),
+  );
+  check(
+    'p2: the breadcrumbs check runs before the edit (2.2) and logs the missing ancestor',
+    r.stdout.includes('step 2.2: missing breadcrumb: the ancestor page Manufacturing/Readme.md does not exist'),
     r.stdout.slice(-400),
   );
 }
@@ -710,9 +715,10 @@ await startMockServer(PORT);
     /step 1\.1\.2:/.test(r.stdout) &&
       /step 1\.2:/.test(r.stdout) &&
       /step 2\.1\.2:/.test(r.stdout) &&
-      /step 2\.3\.3:/.test(r.stdout) &&
-      /step 2\.4:/.test(r.stdout) &&
-      /step 2\.5:/.test(r.stdout),
+      /step 2\.2:/.test(r.stdout) &&
+      /step 2\.4\.3:/.test(r.stdout) &&
+      /step 2\.5:/.test(r.stdout) &&
+      /step 2\.6:/.test(r.stdout),
     r.stdout.slice(-500),
   );
 }
@@ -1050,7 +1056,7 @@ await startMockServer(PORT);
   );
 }
 
-// -- Phase 6l: dead links and unreachable pages are handled (2.4) ------------
+// -- Phase 6l: dead links and unreachable pages are handled (2.5) ------------
 {
   // 6l-1: a dead link, an unreachable page and an empty leftover page.
   {
@@ -1082,7 +1088,7 @@ await startMockServer(PORT);
       'p6l: the link-integrity step ran after the edit and handled the findings',
       r.status === 0 &&
         taskCount('fix-link-integrity') === 1 &&
-        r.stdout.includes('step 2.4: found 1 dead link(s) and 2 unreachable page(s); handling them') &&
+        r.stdout.includes('step 2.5: found 1 dead link(s) and 2 unreachable page(s); handling them') &&
         r.stdout.includes('handled: no dead links nor unreachable pages remain'),
       requestLog.join(','),
     );
@@ -1109,9 +1115,9 @@ await startMockServer(PORT);
       userLog.filter((u) => u.includes('fix-link-integrity')).join(' ||| ').slice(0, 300),
     );
     check(
-      'p6l: the editor pick is logged with the new 2.1.2 numbering and the run concludes at 2.5',
+      'p6l: the editor pick is logged with the new 2.1.2 numbering and the run concludes at 2.6',
       r.stdout.includes('step 2.1.2: picked page Manufacturing/Electronics/Readme.md for editing') &&
-        r.stdout.includes('step 2.5: reset the score'),
+        r.stdout.includes('step 2.6: reset the score'),
       r.stdout.slice(-400),
     );
     const index = readIndex(notesDir);
@@ -1231,6 +1237,156 @@ await startMockServer(PORT);
   );
 }
 
+// -- Phase 6n: the breadcrumbs of the edited page are checked (2.2) ----------
+{
+  // 6n-1: two ancestor topic pages are missing; the agent creates them (and
+  // adds them to the database), each linking the next page of the chain.
+  {
+    requestLog.length = 0; callsLog.length = 0; userLog.length = 0;
+    flags.fixBreadcrumbs = true;
+    const { contentDir, notesDir, authorNotesDir } = freshDirs('p6n1');
+    seed(contentDir, 'Manufacturing/Electronics/Batteries.md', '# Batteries\n\nUtility of batteries.\n');
+    const r = await agent(['--runs', '1'], {
+      contentDir,
+      notesDir,
+      authorNotesDir,
+      env: { TECHNOPEDIA_WEB_SEARCH_URL: 'off' },
+    });
+    flags.fixBreadcrumbs = false;
+    console.log(`\n--- phase 6n1 (missing ancestors) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+    check(
+      'p6n: the breadcrumbs check found the missing ancestors and handled them',
+      r.status === 0 &&
+        taskCount('fix-breadcrumbs') === 1 &&
+        r.stdout.includes('step 2.2: missing breadcrumb: the ancestor page Manufacturing/Readme.md does not exist') &&
+        r.stdout.includes(
+          'step 2.2: missing breadcrumb: the ancestor page Manufacturing/Electronics/Readme.md does not exist',
+        ) &&
+        r.stdout.includes(
+          'step 2.2: handled: Manufacturing/Electronics/Batteries.md is reachable from the top-level topic page',
+        ),
+      requestLog.join(','),
+    );
+    const mfg = content(path.join(contentDir, 'Manufacturing/Readme.md'));
+    const elec = content(path.join(contentDir, 'Manufacturing/Electronics/Readme.md'));
+    check(
+      'p6n: the missing ancestor pages were created, each linking the next page of the chain',
+      mfg.includes('./Electronics/Readme.md') && elec.includes('./Batteries.md'),
+      `${mfg} ||| ${elec}`,
+    );
+    check(
+      'p6n: the created ancestor pages were added to the page database',
+      (() => {
+        const db = JSON.parse(content(path.join(path.dirname(contentDir), 'pages.json')));
+        return (
+          db.pages['Manufacturing/Readme.md']?.score === null &&
+          db.pages['Manufacturing/Electronics/Readme.md']?.score === null
+        );
+      })(),
+      content(path.join(path.dirname(contentDir), 'pages.json')),
+    );
+    check(
+      'p6n: the findings reached the handling task',
+      userLog.some(
+        (u) =>
+          u.includes('TASK: fix-breadcrumbs') &&
+          u.includes('the ancestor page Manufacturing/Readme.md does not exist') &&
+          u.includes('the ancestor page Manufacturing/Electronics/Readme.md does not exist'),
+      ),
+      userLog.filter((u) => u.includes('fix-breadcrumbs')).join(' ||| ').slice(0, 300),
+    );
+  }
+  // 6n-2: the parent topic page exists but does not reference the page; the
+  // agent adds the right link in it.
+  {
+    requestLog.length = 0; callsLog.length = 0;
+    flags.fixBreadcrumbs = true;
+    const { contentDir, notesDir, authorNotesDir } = freshDirs('p6n2');
+    seed(contentDir, 'Manufacturing/Readme.md', '# Manufacturing\n\nOverview.\n');
+    seed(contentDir, 'Manufacturing/Electronics.md', '# Electronics\n\nUtility of Electronics.\n');
+    const r = await agent(['--runs', '1'], {
+      contentDir,
+      notesDir,
+      authorNotesDir,
+      env: { TECHNOPEDIA_WEB_SEARCH_URL: 'off' },
+    });
+    flags.fixBreadcrumbs = false;
+    console.log(`\n--- phase 6n2 (missing link) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+    const parent = content(path.join(contentDir, 'Manufacturing/Readme.md'));
+    check(
+      'p6n: a page not referenced in its parent was linked there',
+      r.status === 0 &&
+        taskCount('fix-breadcrumbs') === 1 &&
+        r.stdout.includes(
+          'step 2.2: missing breadcrumb: Manufacturing/Electronics.md is not referenced in its parent topic page Manufacturing/Readme.md',
+        ) &&
+        r.stdout.includes('step 2.2: handled: Manufacturing/Electronics.md is reachable from the top-level topic page') &&
+        parent.includes('./Electronics.md'),
+      parent,
+    );
+  }
+}
+
+// -- Phase 6o: edit_file defaults the omitted line numbers --------------------
+{
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p6o');
+  const store = new Store({ contentDir, notesDir, authorNotesDir, logger: () => {} });
+  const tools = createTools({ config: { contentDir, webSearchUrl: 'off' }, store, logger: () => {} });
+
+  seed(contentDir, 'Manufacturing/Electronics.md', ['# Electronics', '', 'Intro.', '', 'End.'].join('\n') + '\n');
+
+  // lineno_end omitted: it defaults to the last line of the file.
+  const tail = await tools.exec('edit_file', {
+    path: 'Manufacturing/Electronics.md',
+    lineno_start: 5,
+    new_content: 'Replaced tail.',
+  });
+  const afterTail = content(path.join(contentDir, 'Manufacturing/Electronics.md')).split('\n');
+  check(
+    'p6o: an omitted lineno_end defaults to the last line of the file',
+    tail.error === undefined && afterTail.length === 5 && afterTail[4] === 'Replaced tail.',
+    `${JSON.stringify(tail)} ||| ${afterTail.join(' | ')}`,
+  );
+
+  // Both omitted: the whole file (lines 1 to last) is replaced.
+  const whole = await tools.exec('edit_file', { path: 'Manufacturing/Electronics.md', new_content: '# New' });
+  check(
+    'p6o: omitted line numbers replace the whole file',
+    whole.error === undefined && content(path.join(contentDir, 'Manufacturing/Electronics.md')) === '# New',
+    JSON.stringify(whole),
+  );
+
+  // A file that does not exist yet is created when both are omitted.
+  const created = await tools.exec('edit_file', { path: 'Manufacturing/New.md', new_content: '# New\n' });
+  check(
+    'p6o: a missing file is created when both line numbers are omitted',
+    created.created === true && content(path.join(contentDir, 'Manufacturing/New.md')) === '# New\n',
+    JSON.stringify(created),
+  );
+
+  // An explicit range past the last line is still rejected.
+  const bad = await tools.exec('edit_file', {
+    path: 'Manufacturing/New.md',
+    lineno_start: 3,
+    lineno_end: 99,
+    new_content: 'x',
+  });
+  check(
+    'p6o: a range past the last line is still an error',
+    typeof bad.error === 'string' && bad.error.includes('the file has 2 lines'),
+    JSON.stringify(bad),
+  );
+
+  check(
+    'p6o: the tools guide documents the edit_file defaults',
+    TOOLS_GUIDE.includes('If lineno_start is omitted, it defaults to 1.') &&
+      TOOLS_GUIDE.includes('If lineno_end is omitted, it defaults to the last line of the file.'),
+    TOOLS_GUIDE.split('\n').filter((l) => l.includes('edit_file')).join(' | '),
+  );
+}
+
 // -- Phase 7: no --runs loops indefinitely ------------------------------------
 {
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p7');
@@ -1343,7 +1499,7 @@ await startMockServer(PORT);
       content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('notes-addressed'),
   );
   check(
-    'p7b: the resumed run recorded the timestamps and reset the score (2.5)',
+    'p7b: the resumed run recorded the timestamps and reset the score (2.6)',
     (() => {
       const db = JSON.parse(content(pagesDb));
       const entry = db.pages['Manufacturing/Electronics.md'];

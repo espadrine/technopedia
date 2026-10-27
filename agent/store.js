@@ -212,7 +212,7 @@ export class Store {
   // Bring the database in sync with the disk: pages that exist but have no
   // entry are added (README 1.1.2: "if a page exists on disk but not in the
   // database, pick it and add it to the database"); entries of pages that no
-  // longer exist are removed (README 2.2.3 / 2.3.3: "if it deletes it, it
+  // longer exist are removed (README 2.3.3 / 2.4.3: "if it deletes it, it
   // should be removed from the database").
   async reconcilePages(db) {
     const onDisk = new Set(await this.listDiskPages());

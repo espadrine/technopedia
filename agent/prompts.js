@@ -255,7 +255,52 @@ Reply: {"done": true}`,
   ];
 }
 
-// README 2.4: after the editor's work on a page, make sure there are no dead
+// README 2.2: before working on a page, check its breadcrumbs (the list of
+// ancestor pages). When one is missing, the agent is given the findings and
+// asked to make the page reachable from the top-level topic page.
+export function fixBreadcrumbsPrompt(rel, segments, findings) {
+  const listed = findings.map((f) =>
+    f.kind === 'missing-page'
+      ? `- the ancestor page ${f.rel} does not exist`
+      : `- the page ${f.rel} is not referenced in its parent topic page ${f.parent}`,
+  );
+  return [
+    sysTools('You are the autonomous contributor agent of Technopedia, fixing the breadcrumbs of a page.'),
+    user(
+      `TASK: fix-breadcrumbs
+
+The editor picked the page "${segments.join(' / ')}" for editing (page file: ${rel}).
+
+Its breadcrumbs — the list of ancestor pages, from the top-level topic page
+down to the parent of the page — are broken: the page is not reachable from
+the top-level topic page.
+
+Findings:
+${listed.join('\n')}
+
+Make the page reachable from the top-level topic page:
+- Add the right link in the right ancestor page: edit the ancestor topic
+  page that should reference the next page of the chain (edit_file), listing
+  the subtopic in its categorization table when it has one. A topic page is
+  linked as [Name](./Name/Readme.md), an explanation page as
+  [Name](./Name.md).
+- Or create the relevant missing ancestor pages: edit_file at line 1 of the
+  missing file (new_content becomes the whole file), each linking the next
+  page of the chain, down to the edited page. Leave a page empty when you
+  have nothing to write in it yet: the editor fills empty pages. The created
+  ancestor pages are added to the page database.
+- Do not change anything else: never break a link or a reference that is not
+  listed above, and do not modify the edited page itself.
+
+Read a file with read_file when you need its exact line numbers before
+editing it.
+
+Reply: {"done": true}`,
+    ),
+  ];
+}
+
+// README 2.5: after the editor's work on a page, make sure there are no dead
 // links nor unreachable pages. The findings come from a mechanical scan of
 // the whole encyclopedia; the model handles them with its tools.
 export function fixLinkIntegrityPrompt(segments, findings) {
