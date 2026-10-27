@@ -12,7 +12,7 @@ import { fetchWebPage, searchWeb } from './web.js';
 export const TOOLS_GUIDE = `You have access to the following tools in order to perform your duties:
 - web_search(query): searches the Web for the query and returns a list of relevant links and snippets.
 - web_fetch(url): fetches the content of the given URL and returns it as text.
-- run_js(code): runs the given JavaScript code in isolated-vm and returns the result. The value of the last expression is returned; "return" statements are also accepted.
+- run_js(code): runs the given JavaScript code in isolated-vm and returns the result. It only has the base JS syntax: it does not have require() etc. Use it only to do quick accurate computation, but you cannot access the file system with it. The value of the last expression is returned; "return" statements are also accepted.
 - grep(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).
 - find_files(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for files whose path (including the filename or parent folder name) matches the given pattern. Returns the matching files.
 - read_file(path): reads the content of the file at the given path and returns it as text. The path is relative to the content folder.
