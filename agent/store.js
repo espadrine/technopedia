@@ -135,6 +135,19 @@ export class Store {
     this.pagesDb = pagesDb;
     this.dryRun = dryRun;
     this.logger = logger;
+    // Serializes the read-modify-write cycles on the shared files (the notes
+    // index, the page database): reviewers and editors running in parallel
+    // must not lose each other's updates.
+    this.writeLock = Promise.resolve();
+  }
+
+  withWriteLock(fn) {
+    const result = this.writeLock.then(fn);
+    this.writeLock = result.then(
+      () => {},
+      () => {},
+    );
+    return result;
   }
 
   // -- Page database ---------------------------------------------------------
@@ -160,8 +173,12 @@ export class Store {
       this.logger(`(dry run) would update the page database`);
       return;
     }
-    await fs.mkdir(path.dirname(this.pagesDb), { recursive: true });
-    await fs.writeFile(this.pagesDb, `${JSON.stringify(db, null, 2)}\n`, 'utf8');
+    // Serialize and snapshot inside the lock: parallel workers share the db
+    // object, so the last write must carry every update made before it.
+    return this.withWriteLock(async () => {
+      await fs.mkdir(path.dirname(this.pagesDb), { recursive: true });
+      await fs.writeFile(this.pagesDb, `${JSON.stringify(db, null, 2)}\n`, 'utf8');
+    });
   }
 
   // Type of a page from its path: <...>/Readme.md is a topic page, any other
@@ -348,54 +365,62 @@ export class Store {
   }
 
   async appendNote(pageRel, title, body, kind = 'agent') {
-    const file = this.noteFilePath(pageRel, kind);
-    const section = `## ${nowIso()} — ${title}\n\n${body.trim()}\n\n`;
-    if (this.dryRun) {
-      this.logger(`(dry run) would add a ${kind} note on ${pageRel}: ${title}`);
-      return;
-    }
-    const dir = this.notesDirFor(kind);
-    await fs.mkdir(dir, { recursive: true });
-    await fs.appendFile(file, section, 'utf8');
-    const index = await this.readNotesIndex(kind);
-    const entry = index.pages[pageRel] ?? { count: 0 };
-    entry.count += 1;
-    entry.updated = nowIso();
-    index.pages[pageRel] = entry;
-    await this.writeNotesIndex(index, kind);
-    this.logger(`added ${kind} note on ${pageRel}: ${title}`);
+    // The per-page file append and the index.json update are one
+    // read-modify-write cycle: keep them atomic under parallel workers.
+    return this.withWriteLock(async () => {
+      const file = this.noteFilePath(pageRel, kind);
+      const section = `## ${nowIso()} — ${title}\n\n${body.trim()}\n\n`;
+      if (this.dryRun) {
+        this.logger(`(dry run) would add a ${kind} note on ${pageRel}: ${title}`);
+        return;
+      }
+      const dir = this.notesDirFor(kind);
+      await fs.mkdir(dir, { recursive: true });
+      await fs.appendFile(file, section, 'utf8');
+      const index = await this.readNotesIndex(kind);
+      const entry = index.pages[pageRel] ?? { count: 0 };
+      entry.count += 1;
+      entry.updated = nowIso();
+      index.pages[pageRel] = entry;
+      await this.writeNotesIndex(index, kind);
+      this.logger(`added ${kind} note on ${pageRel}: ${title}`);
+    });
   }
 
   // Remove the given (1-based) note indexes; drops the file and its index
   // entry when no notes remain. Only ever used on agent notes: author notes
   // are never deleted.
   async resolveNotes(pageRel, indexes) {
-    const file = this.noteFilePath(pageRel);
-    const notes = await this.readNotes(pageRel);
-    if (notes.length === 0) return;
-    const drop = new Set(indexes);
-    const kept = notes.filter((note) => !drop.has(note.index));
-    if (this.dryRun) {
-      this.logger(`(dry run) would resolve ${drop.size} improvement note(s) on ${pageRel}`);
-      return;
-    }
-    if (kept.length === 0) {
-      await fs.rm(file, { force: true });
+    // Same read-modify-write cycle as appendNote: atomic under parallel
+    // workers.
+    return this.withWriteLock(async () => {
+      const file = this.noteFilePath(pageRel);
+      const notes = await this.readNotes(pageRel);
+      if (notes.length === 0) return;
+      const drop = new Set(indexes);
+      const kept = notes.filter((note) => !drop.has(note.index));
+      if (this.dryRun) {
+        this.logger(`(dry run) would resolve ${drop.size} improvement note(s) on ${pageRel}`);
+        return;
+      }
+      if (kept.length === 0) {
+        await fs.rm(file, { force: true });
+        const index = await this.readNotesIndex();
+        delete index.pages[pageRel];
+        await this.writeNotesIndex(index);
+        this.logger(`resolved all improvement notes on ${pageRel}`);
+        return;
+      }
+      const content = kept.map((note) => `## ${note.title}\n\n${note.body}\n`).join('\n');
+      await fs.writeFile(file, content, 'utf8');
       const index = await this.readNotesIndex();
-      delete index.pages[pageRel];
+      const entry = index.pages[pageRel] ?? {};
+      entry.count = kept.length;
+      entry.updated = nowIso();
+      index.pages[pageRel] = entry;
       await this.writeNotesIndex(index);
-      this.logger(`resolved all improvement notes on ${pageRel}`);
-      return;
-    }
-    const content = kept.map((note) => `## ${note.title}\n\n${note.body}\n`).join('\n');
-    await fs.writeFile(file, content, 'utf8');
-    const index = await this.readNotesIndex();
-    const entry = index.pages[pageRel] ?? {};
-    entry.count = kept.length;
-    entry.updated = nowIso();
-    index.pages[pageRel] = entry;
-    await this.writeNotesIndex(index);
-    this.logger(`resolved ${drop.size} improvement note(s) on ${pageRel}`);
+      this.logger(`resolved ${drop.size} improvement note(s) on ${pageRel}`);
+    });
   }
 
   // Move all notes of a deleted page to other pages (used when a page is

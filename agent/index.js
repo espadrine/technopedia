@@ -8,21 +8,23 @@
 // and starts over. Use --runs N to stop after N runs instead.
 //
 // Environment:
-//   OPENAI_HOST     LLM server, OpenAI-compatible (llama.cpp-server)
+//   TECHNOPEDIA_HOST     LLM server, OpenAI-compatible (llama.cpp-server)
 //                   default: http://localhost:9931
-//   OPENAI_MODEL    model name to request, used verbatim
-//   OPENAI_HOST     when set (without OPENAI_MODEL), no model field is sent
+//   TECHNOPEDIA_MODEL    model name to request, used verbatim
+//   TECHNOPEDIA_HOST     when set (without TECHNOPEDIA_MODEL), no model field is sent
 //                   and the server uses its default; when neither is set,
 //                   the agent asks the server /v1/models once at startup and
 //                   picks the biggest loaded model (meta.size), deriving the
 //                   completion budget from its meta.n_ctx (the actual
 //                   runtime context; context_length is only the fallback)
-//   OPENAI_TEMPERATURE, OPENAI_MAX_TOKENS, OPENAI_TIMEOUT_MS
-//   OPENAI_REASONING_FORMAT  sent verbatim as reasoning_format to the server
+//   TECHNOPEDIA_TEMPERATURE, TECHNOPEDIA_MAX_TOKENS, TECHNOPEDIA_TIMEOUT_MS
+//   TECHNOPEDIA_REASONING_FORMAT  sent verbatim as reasoning_format to the server
 //                   (eg "deepseek": reasoning arrives in
 //                   message.reasoning_content, which the agent logs in the
 //                   debug transcript when --debug is on)
-//   OPENAI_DEBUG    set to 1 to log every LLM interaction (see --debug)
+//   TECHNOPEDIA_DEBUG    set to 1 to log every LLM interaction (see --debug)
+//   TECHNOPEDIA_PARALLELISM  reviewers and editors each work on N pages in
+//                   parallel, one worker per page (default: 1)
 //   TECHNOPEDIA_CONTENT_DIR  default: <repo>/content
 //   TECHNOPEDIA_NOTES_DIR    default: <repo>/notes (agent notes)
 //   TECHNOPEDIA_AUTHOR_NOTES_DIR default: <repo>/author-notes (author notes)
@@ -80,7 +82,7 @@ Options:
   -h, --help      Show this help
 
 Environment:
-  OPENAI_HOST     OpenAI-compatible LLM server (default: http://localhost:9931)`;
+  TECHNOPEDIA_HOST     OpenAI-compatible LLM server (default: http://localhost:9931)`;
 
 export async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
@@ -146,7 +148,7 @@ export async function main(argv = process.argv.slice(2)) {
       });
       networkRetries = 0;
       runState = null;
-      const page = summary.page ? summary.page.join(' / ') : '(none)';
+      const page = summary.pages.length > 0 ? summary.pages.join(', ') : '(none)';
       const action = summary.actions.length > 0 ? `, actions: ${summary.actions.join(', ')}` : '';
       const splits = summary.splits.length > 0 ? `, ${summary.splits.length} split(s)` : '';
       console.log(
@@ -173,7 +175,7 @@ export async function main(argv = process.argv.slice(2)) {
         }
         console.error(
           `Could not reach the LLM server at ${config.host}. ` +
-            'Is llama.cpp-server running? Set OPENAI_HOST to override.',
+            'Is llama.cpp-server running? Set TECHNOPEDIA_HOST to override.',
         );
         return 1;
       }

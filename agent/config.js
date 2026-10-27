@@ -1,7 +1,7 @@
 // Configuration for the Technopedia AI contributor agent.
 //
 // The agent talks to an OpenAI-compatible server (typically llama.cpp-server)
-// whose address is given by OPENAI_HOST, defaulting to localhost on the
+// whose address is given by TECHNOPEDIA_HOST, defaulting to localhost on the
 // llama.cpp standard port 9931.
 
 import path from 'node:path';
@@ -17,26 +17,38 @@ export function normalizeHost(raw) {
   return host;
 }
 
+// How many pages the reviewer phase and the editor phase work on at once
+// (one worker per page). Anything that is not a positive integer falls back
+// to 1: a sequential run.
+function parseParallelism(raw) {
+  const n = Math.floor(Number(raw ?? 1));
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
 export function loadConfig(overrides = {}) {
   return {
     root: ROOT,
-    host: normalizeHost(overrides.openaiHost ?? process.env.OPENAI_HOST),
+    host: normalizeHost(overrides.technopediaHost ?? process.env.TECHNOPEDIA_HOST),
     // Model served by the host; auto-detected from /v1/models when unset.
-    model: overrides.model ?? process.env.OPENAI_MODEL ?? null,
+    model: overrides.model ?? process.env.TECHNOPEDIA_MODEL ?? null,
     // Ask the server which model it has loaded (and its context length):
-    // only when neither OPENAI_MODEL nor OPENAI_HOST are set.
+    // only when neither TECHNOPEDIA_MODEL nor TECHNOPEDIA_HOST are set.
     autoResolveModel:
-      !(overrides.model ?? process.env.OPENAI_MODEL) &&
-      !(overrides.openaiHost ?? process.env.OPENAI_HOST),
-    temperature: Number(overrides.temperature ?? process.env.OPENAI_TEMPERATURE ?? 0.7),
+      !(overrides.model ?? process.env.TECHNOPEDIA_MODEL) &&
+      !(overrides.technopediaHost ?? process.env.TECHNOPEDIA_HOST),
+    temperature: Number(overrides.temperature ?? process.env.TECHNOPEDIA_TEMPERATURE ?? 0.7),
     // llama.cpp servers with reasoning models put the chain of thought in
     // message.reasoning_content; reasoning_format (eg "deepseek") requests
     // that split when set (the server's --reasoning setting also enables it).
-    reasoningFormat: overrides.reasoningFormat ?? process.env.OPENAI_REASONING_FORMAT ?? null,
+    reasoningFormat: overrides.reasoningFormat ?? process.env.TECHNOPEDIA_REASONING_FORMAT ?? null,
     maxTokens:
       overrides.maxTokens ??
-      (process.env.OPENAI_MAX_TOKENS ? Number(process.env.OPENAI_MAX_TOKENS) : undefined),
-    timeoutMs: Number(overrides.timeoutMs ?? process.env.OPENAI_TIMEOUT_MS ?? 300000),
+      (process.env.TECHNOPEDIA_MAX_TOKENS ? Number(process.env.TECHNOPEDIA_MAX_TOKENS) : undefined),
+    timeoutMs: Number(overrides.timeoutMs ?? process.env.TECHNOPEDIA_TIMEOUT_MS ?? 300000),
+    // Reviewers and editors each work on this many pages in parallel, one
+    // worker per page (TECHNOPEDIA_PARALLELISM); 1 keeps each phase
+    // sequential.
+    parallelism: parseParallelism(overrides.parallelism ?? process.env.TECHNOPEDIA_PARALLELISM),
     // Web search for fact-checking. null: DuckDuckGo HTML; 'off': disabled;
     // otherwise a URL template with "{q}", returning JSON results.
     webSearchUrl: overrides.webSearchUrl ?? process.env.TECHNOPEDIA_WEB_SEARCH_URL ?? null,
@@ -62,8 +74,8 @@ export function loadConfig(overrides = {}) {
     maxDepth: Number(overrides.maxDepth ?? process.env.AGENT_MAX_DEPTH ?? 6),
     dryRun: overrides.dryRun ?? false,
     // Full-interaction transcript: every request, raw response, finish reason
-    // and tool round-trip, appended as JSON lines (--debug / OPENAI_DEBUG=1).
-    debug: overrides.debug ?? process.env.OPENAI_DEBUG === '1',
+    // and tool round-trip, appended as JSON lines (--debug / TECHNOPEDIA_DEBUG=1).
+    debug: overrides.debug ?? process.env.TECHNOPEDIA_DEBUG === '1',
     debugLogPath:
       overrides.debugLogPath ??
       process.env.TECHNOPEDIA_DEBUG_LOG ??

@@ -44,7 +44,7 @@
     requestLog.join(','),
   );
   check(
-    'p1: /v1/models is not called when OPENAI_HOST is set',
+    'p1: /v1/models is not called when TECHNOPEDIA_HOST is set',
     modelsLog.length === 0,
     `models calls: ${modelsLog.length}`,
   );

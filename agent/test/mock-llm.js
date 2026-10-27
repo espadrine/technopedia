@@ -6,7 +6,7 @@
 //
 // It can also be started standalone, to try the agent end-to-end offline:
 //   node agent/test/mock-llm.js            # listens on http://127.0.0.1:39999
-//   OPENAI_HOST=http://127.0.0.1:39999 node agent/index.js --topic Manufacturing
+//   TECHNOPEDIA_HOST=http://127.0.0.1:39999 node agent/index.js --topic Manufacturing
 
 import http from 'node:http';
 

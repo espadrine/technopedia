@@ -98,6 +98,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   const summary = {
     topic: null,
     page: null,
+    pages: [],
     actions: [],
     pagesWritten: [],
     notesAdded: 0,
@@ -107,8 +108,6 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
 
   // Log with the step of the loop the agent is on (README numbering).
   const step = (id, message) => logger(`step ${id}: ${message}`);
-
-  const tools = createTools({ config, store, logger });
 
   // The page database of this run. Reconciled with the disk at every mode
   // boundary, so pages created or deleted through the tools (and pages
@@ -141,12 +140,13 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   };
 
   // Write the page if the answer contains markdown; returns the new content
-  // or null when nothing should be written.
-  const applyMarkdown = async (markdown, file, stepId) => {
+  // or null when nothing should be written. `task` is the worker context
+  // ({ step, tools }) of the reviewer or editor performing the write.
+  const applyMarkdown = async (markdown, file, stepId, task) => {
     const trimmed = String(markdown ?? '').trim();
     if (trimmed === '') return null;
     await store.writePage(file, `${trimmed}\n`);
-    await lintMarkdown(store.rel(file), trimmed, stepId);
+    await lintMarkdown(store.rel(file), trimmed, stepId, task);
     summary.pagesWritten.push(store.rel(file));
     return trimmed;
   };
@@ -155,7 +155,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   // task answer are written straight to disk, so lint them here. A problem
   // becomes an agent note: the editor (possibly later in the same run)
   // addresses it with an edit_file, which is itself linted.
-  const lintMarkdown = async (rel, markdown, stepId) => {
+  const lintMarkdown = async (rel, markdown, stepId, task) => {
     const problems = findMathProblems(`${String(markdown ?? '').trim()}\n`);
     if (problems.length === 0) return;
     const shown = problems.slice(0, 5);
@@ -167,16 +167,16 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       );
       summary.notesAdded += 1;
     }
-    step(stepId, `${rel} was written with ${problems.length} invalid LaTeXMarkdown math form(s); left ${shown.length} note(s)`);
+    task.step(stepId, `${rel} was written with ${problems.length} invalid LaTeXMarkdown math form(s); left ${shown.length} note(s)`);
   };
 
-  const addNotes = async (file, notes, stepId) => {
+  const addNotes = async (file, notes, stepId, task) => {
     for (const note of notes) {
       await store.appendNote(store.rel(file), 'Evaluation', note);
       summary.notesAdded += 1;
     }
     if (notes.length > 0) {
-      step(stepId, `evaluation left ${notes.length} improvement note(s) on ${store.rel(file)}`);
+      task.step(stepId, `evaluation left ${notes.length} improvement note(s) on ${store.rel(file)}`);
     }
   };
 
@@ -216,44 +216,44 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
 
   // 1.2: evaluation of a page -> improvement notes + score. The page's notes
   // (in particular the author's) are part of the review context.
-  const evaluateTopicPage = async (segments, file, content) => {
+  const evaluateTopicPage = async (segments, file, content, task) => {
     summary.actions.push('evaluate');
     const findings = await topicFindings(segments, file, content);
-    if (findings.length > 0) step('1.2', `structural findings: ${findings.join('; ')}`);
-    step('1.2', `evaluating the topic page ${store.rel(file)}`);
+    if (findings.length > 0) task.step('1.2', `structural findings: ${findings.join('; ')}`);
+    task.step('1.2', `evaluating the topic page ${store.rel(file)}`);
     const authorNotes = await store.readNotes(store.rel(file), 'author');
     const agentNotes = await store.readNotes(store.rel(file));
     const answer = await llm.chatJson(
       evaluateTopicPagePrompt(segments, content, findings, authorNotes, agentNotes),
       {
         temperature: DECISION_TEMPERATURE,
-        tools,
+        tools: task.tools,
         label: 'evaluate-topic-page',
       },
     );
-    await addNotes(file, parseNotes(answer), '1.2');
+    await addNotes(file, parseNotes(answer), '1.2', task);
     return parseScore(answer.score);
   };
 
-  const evaluateExplanationPage = async (segments, file, content) => {
+  const evaluateExplanationPage = async (segments, file, content, task) => {
     summary.actions.push('evaluate');
     const findings = await explanationFindings(segments, file, content);
-    if (findings.length > 0) step('1.2', `structural findings: ${findings.join('; ')}`);
-    step('1.2', `evaluating the page ${store.rel(file)}`);
+    if (findings.length > 0) task.step('1.2', `structural findings: ${findings.join('; ')}`);
+    task.step('1.2', `evaluating the page ${store.rel(file)}`);
     const authorNotes = await store.readNotes(store.rel(file), 'author');
     const agentNotes = await store.readNotes(store.rel(file));
     const answer = await llm.chatJson(
       evaluateExplanationPagePrompt(segments, content, findings, authorNotes, agentNotes),
-      { temperature: DECISION_TEMPERATURE, tools, label: 'evaluate-explanation-page' },
+      { temperature: DECISION_TEMPERATURE, tools: task.tools, label: 'evaluate-explanation-page' },
     );
-    await addNotes(file, parseNotes(answer), '1.2');
+    await addNotes(file, parseNotes(answer), '1.2', task);
     return parseScore(answer.score);
   };
 
   // Guarantee the invariant of a split: the parent page links the new pages.
   // The LLM edits the parent, but may miss a link; the agent appends the
   // missing ones itself so no created page is ever unlisted.
-  const ensureParentLinks = async (file, pageContent, links, stepId) => {
+  const ensureParentLinks = async (file, pageContent, links, stepId, task) => {
     let updated = pageContent;
     for (const link of links) {
       const href = `./${slug(link.name)}${link.kind === 'topic' ? '/Readme.md' : '.md'}`;
@@ -262,8 +262,8 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       }
     }
     if (updated !== pageContent) {
-      step(stepId, `appended missing link(s) to ${store.rel(file)}`);
-      await applyMarkdown(updated, file);
+      task.step(stepId, `appended missing link(s) to ${store.rel(file)}`);
+      await applyMarkdown(updated, file, stepId, task);
     }
   };
 
@@ -271,10 +271,10 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   // filled in ("Then fill in the topic page"); the old page is replaced in
   // its parent (or rewritten as the parent itself when it is a high-level
   // topic), and its notes are transferred.
-  const splitTopicPage = async (segments, file, content) => {
+  const splitTopicPage = async (segments, file, content, task) => {
     const answer = await llm.chatJson(splitTopicPagePrompt(segments, content), {
       temperature: PAGE_CREATION_TEMPERATURE,
-      tools,
+      tools: task.tools,
       label: 'split-topic-page',
     });
     const groups = parseGroups(answer, 'split-topic-page');
@@ -289,7 +289,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
     for (const group of newPages) {
       await store.writePage(group.file, `${group.markdown}\n`);
-      await lintMarkdown(store.rel(group.file), group.markdown, '2.2.2');
+      await lintMarkdown(store.rel(group.file), group.markdown, '2.2.2', task);
       summary.pagesWritten.push(store.rel(group.file));
     }
     const added = newPages.map((group) => ({ name: slug(group.label), kind: 'topic' }));
@@ -299,13 +299,13 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         editParentLinksPrompt(parentSegments, content, { removeAll: true, add: added }),
         { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
       );
-      const updated = (await applyMarkdown(edited.markdown, file, '2.2.2')) ?? content;
-      await ensureParentLinks(file, updated, added, '2.2.2');
+      const updated = (await applyMarkdown(edited.markdown, file, '2.2.2', task)) ?? content;
+      await ensureParentLinks(file, updated, added, '2.2.2', task);
     } else {
       const parentFile = store.topicPagePath(parentSegments);
       const parentContent = await store.readPage(parentFile).catch(() => null);
       if (parentContent === null) {
-        step('2.2.2', `warning: parent page ${store.rel(parentFile)} not found; split pages created anyway`);
+        task.step('2.2.2', `warning: parent page ${store.rel(parentFile)} not found; split pages created anyway`);
       } else {
         const edited = await llm.chatJson(
           editParentLinksPrompt(parentSegments, parentContent, {
@@ -314,8 +314,8 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
           }),
           { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
         );
-        const updated = (await applyMarkdown(edited.markdown, parentFile, '2.2.2')) ?? parentContent;
-        await ensureParentLinks(parentFile, updated, added, '2.2.2');
+        const updated = (await applyMarkdown(edited.markdown, parentFile, '2.2.2', task)) ?? parentContent;
+        await ensureParentLinks(parentFile, updated, added, '2.2.2', task);
       }
       await store.transferNotes(
         store.rel(file),
@@ -324,14 +324,14 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       await store.deletePage(file);
     }
     summary.splits.push(store.rel(file));
-    step('2.2.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
+    task.step('2.2.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
   };
 
   // 2.3.2 split of an overgrown explanation page.
-  const splitExplanationPage = async (segments, file, content) => {
+  const splitExplanationPage = async (segments, file, content, task) => {
     const answer = await llm.chatJson(splitExplanationPagePrompt(segments, content), {
       temperature: PAGE_CREATION_TEMPERATURE,
-      tools,
+      tools: task.tools,
       label: 'split-explanation-page',
     });
     const groups = parseGroups(answer, 'split-explanation-page');
@@ -343,13 +343,13 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
     for (const group of newPages) {
       await store.writePage(group.file, `${group.markdown}\n`);
-      await lintMarkdown(store.rel(group.file), group.markdown, '2.3.2');
+      await lintMarkdown(store.rel(group.file), group.markdown, '2.3.2', task);
       summary.pagesWritten.push(store.rel(group.file));
     }
     const parentFile = store.topicPagePath(parentSegments);
     const parentContent = await store.readPage(parentFile).catch(() => null);
     if (parentContent === null) {
-      step('2.3.2', `warning: parent topic page ${store.rel(parentFile)} not found; split pages created anyway`);
+      task.step('2.3.2', `warning: parent topic page ${store.rel(parentFile)} not found; split pages created anyway`);
     } else {
       const added = newPages.map((group) => ({ name: slug(group.label), kind: 'explanation' }));
       const edited = await llm.chatJson(
@@ -359,8 +359,8 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         }),
         { temperature: DECISION_TEMPERATURE, label: 'edit-parent-links' },
       );
-      const updated = (await applyMarkdown(edited.markdown, parentFile, '2.3.2')) ?? parentContent;
-      await ensureParentLinks(parentFile, updated, added, '2.3.2');
+      const updated = (await applyMarkdown(edited.markdown, parentFile, '2.3.2', task)) ?? parentContent;
+      await ensureParentLinks(parentFile, updated, added, '2.3.2', task);
     }
     await store.transferNotes(store.rel(file), newPages.map((group) => store.rel(group.file)), 'agent');
     await store.transferNotes(store.rel(file), newPages.map((group) => store.rel(group.file)), 'author');
@@ -372,7 +372,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       await store.deletePage(oldSimulation);
     }
     summary.splits.push(store.rel(file));
-    step('2.3.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
+    task.step('2.3.2', `split ${store.rel(file)} into: ${groups.map((g) => g.label).join(', ')}`);
   };
 
   // README 2.2.3 / 2.3.3: "If it deletes the page wholesale, it should update
@@ -380,7 +380,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   // concluding the work." The model is told to do it; this guarantees the
   // invariant: any link to the deleted page is stripped from the parent
   // (the anchor is replaced by its text, so the row survives).
-  const removeDeletedPageLink = async (segments, stepId) => {
+  const removeDeletedPageLink = async (segments, stepId, task) => {
     if (segments.length < 2) return;
     const name = slug(segments[segments.length - 1]);
     const hrefs = [`./${name}/Readme.md`, `./${name}.md`];
@@ -396,7 +396,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }
     if (updated !== parent) {
       await store.writePage(parentFile, updated);
-      step(stepId, `removed the link to the deleted page from ${store.rel(parentFile)}`);
+      task.step(stepId, `removed the link to the deleted page from ${store.rel(parentFile)}`);
     }
   };
 
@@ -404,7 +404,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   // itself counts as its own ancestor) and the agent notes on the current
   // page, address them, and delete the agent notes. Author notes are never
   // deleted: they are standing instructions for every future visit.
-  const addressNotes = async (segments, file, content, stepId) => {
+  const addressNotes = async (segments, file, content, stepId, task) => {
     const rel = store.rel(file);
     const authorNotes = [];
     for (let i = 1; i < segments.length; i++) {
@@ -422,7 +422,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       return { hadNotes: false, content, deleted: false };
     }
     summary.actions.push('address-notes');
-    step(
+    task.step(
       stepId,
       `addressing ${authorNotes.length} author note(s) and ${agentNotes.length} agent note(s) on ${rel}`,
     );
@@ -438,7 +438,7 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         store.rel(store.simulationPath(segments)),
         segments.length > 1 ? store.rel(store.topicPagePath(segments.slice(0, -1))) : null,
       ),
-      { temperature: DECISION_TEMPERATURE, tools, label: 'address-notes' },
+      { temperature: DECISION_TEMPERATURE, tools: task.tools, label: 'address-notes' },
     );
     // Every edit went through edit_file: the files on disk are the result.
     // The model may have deleted the page itself (delete_file) when it
@@ -446,46 +446,46 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     // cleaned up and the walk does not continue on a vanished page.
     const reread = await store.readPage(file).catch(() => null);
     if (reread === null) {
-      step(stepId, `${rel} was deleted during the visit`);
-      await removeDeletedPageLink(segments, stepId);
+      task.step(stepId, `${rel} was deleted during the visit`);
+      await removeDeletedPageLink(segments, stepId, task);
     }
     const updated = reread ?? content;
     if ((await store.readOptional(store.simulationPath(segments))) !== existingSimulation) {
-      step(stepId, `wrote simulation ${store.rel(store.simulationPath(segments))}`);
+      task.step(stepId, `wrote simulation ${store.rel(store.simulationPath(segments))}`);
     }
     if (agentNotes.length > 0) {
       await store.resolveNotes(rel, agentNotes.map((note) => note.index));
     }
     summary.notesResolved += agentNotes.length;
     if (authorNotes.length > 0) {
-      step(stepId, `${authorNotes.length} author note(s) kept on ${rel}`);
+      task.step(stepId, `${authorNotes.length} author note(s) kept on ${rel}`);
     }
     return { hadNotes: true, content: updated, deleted: reread === null };
   };
 
   // -- 1.2: review one page of the database ---------------------------------
 
-  const reviewPage = async (rel) => {
+  const reviewPage = async (rel, task) => {
     const entry = db.pages[rel];
     const content = await store.readPage(fileOf(rel)).catch(() => null);
     if (entry === undefined || content === null) {
-      step('1.2', `${rel} no longer exists; skipping its review`);
+      task.step('1.2', `${rel} no longer exists; skipping its review`);
       return;
     }
     const segments = segmentsOf(rel);
     summary.actions.push('review');
     summary.topic = segments[0];
     const score = await (entry.type === 'topic'
-      ? evaluateTopicPage(segments, fileOf(rel), content)
-      : evaluateExplanationPage(segments, fileOf(rel), content));
+      ? evaluateTopicPage(segments, fileOf(rel), content, task)
+      : evaluateExplanationPage(segments, fileOf(rel), content, task));
     if (score === null) {
-      step('1.2', `no valid score returned for ${rel}; keeping its previous score`);
+      task.step('1.2', `no valid score returned for ${rel}; keeping its previous score`);
     } else if (entry.score === null || entry.score === undefined) {
       entry.score = score;
-      step('1.2', `scored ${rel}: ${score}`);
+      task.step('1.2', `scored ${rel}: ${score}`);
     } else {
       entry.score = 0.25 * score + 0.75 * entry.score;
-      step('1.2', `scored ${rel}: ${entry.score.toFixed(1)} (this review: ${score}, previous: ${entry.score === score ? 'n/a' : 'see database'})`);
+      task.step('1.2', `scored ${rel}: ${entry.score.toFixed(1)} (this review: ${score}, previous: ${entry.score === score ? 'n/a' : 'see database'})`);
     }
     entry.reviewedAt = nowIso();
     await store.savePagesDb(db);
@@ -493,13 +493,13 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
 
   // -- 2.2 / 2.3: edit one page of the database ------------------------------
 
-  const editPage = async (rel) => {
+  const editPage = async (rel, task) => {
     const entry = db.pages[rel] ?? { type: store.pageTypeOf(rel) };
     const segments = segmentsOf(rel);
     const file = fileOf(rel);
     let content = await store.readPage(file).catch(() => null);
     if (content === null) {
-      step('2', `${rel} no longer exists; nothing to edit`);
+      task.step('2', `${rel} no longer exists; nothing to edit`);
       return;
     }
     summary.topic = segments[0];
@@ -509,74 +509,77 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       // 2.2.1: empty topic page -> create its content, with the links, and
       // create the subpages corresponding to those links, leaving them empty.
       if (content.trim() === '') {
-        step('2.2.1', `creating the topic page ${rel}`);
+        task.step('2.2.1', `creating the topic page ${rel}`);
         const answer = await llm.chatJson(createTopicPagePrompt(segments), {
           temperature: PAGE_CREATION_TEMPERATURE,
-          tools,
+          tools: task.tools,
           label: 'create-topic-page',
         });
         const markdown = String(answer.markdown ?? '').trim();
         if (markdown === '') throw new LlmError('create-topic-page returned no page', { kind: 'parse' });
         await store.writePage(file, `${markdown}\n`);
-        await lintMarkdown(rel, markdown, '2.2.1');
+        await lintMarkdown(rel, markdown, '2.2.1', task);
         summary.pagesWritten.push(rel);
         for (const link of parsePageLinks(markdown)) {
           const subRel = path.posix.normalize(path.posix.join(path.posix.dirname(rel), link.href));
           await store.writePage(fileOf(subRel), '');
           db.pages[subRel] = { type: store.pageTypeOf(subRel), score: null, reviewedAt: null, addedAt: nowIso() };
-          step('2.2.1', `created the empty subpage ${subRel}`);
+          task.step('2.2.1', `created the empty subpage ${subRel}`);
         }
         content = markdown;
       }
       // 2.2.2
       if (parseSubtopicLinks(content).length > SPLIT_SUBTOPIC_LIMIT) {
-        step('2.2.2', `over ${SPLIT_SUBTOPIC_LIMIT} subtopics: splitting ${rel}`);
-        await splitTopicPage(segments, file, content);
+        task.step('2.2.2', `over ${SPLIT_SUBTOPIC_LIMIT} subtopics: splitting ${rel}`);
+        await splitTopicPage(segments, file, content, task);
         content = await store.readPage(file).catch(() => null);
         if (content === null) {
-          step('2.2.2', `${rel} was removed by the split`);
+          task.step('2.2.2', `${rel} was removed by the split`);
           return;
         }
       }
       // 2.2.3
-      await addressNotes(segments, file, content, '2.2.3');
+      await addressNotes(segments, file, content, '2.2.3', task);
       return;
     }
 
     // 2.3.1: empty explanation page -> create its content.
     if (content.trim() === '') {
-      step('2.3.1', `creating the explanation page ${rel}`);
+      task.step('2.3.1', `creating the explanation page ${rel}`);
       const answer = await llm.chatJson(createExplanationPagePrompt(segments), {
         temperature: PAGE_CREATION_TEMPERATURE,
-        tools,
+        tools: task.tools,
         label: 'create-explanation-page',
       });
       const markdown = String(answer.markdown ?? '').trim();
       if (markdown === '') throw new LlmError('create-explanation-page returned no page', { kind: 'parse' });
       await store.writePage(file, `${markdown}\n`);
-      await lintMarkdown(rel, markdown, '2.3.1');
+      await lintMarkdown(rel, markdown, '2.3.1', task);
       summary.pagesWritten.push(rel);
       content = markdown;
     }
     // 2.3.2
     if (countSections(content) > SPLIT_SECTION_LIMIT) {
-      step('2.3.2', `over ${SPLIT_SECTION_LIMIT} sections: splitting ${rel}`);
-      await splitExplanationPage(segments, file, content);
+      task.step('2.3.2', `over ${SPLIT_SECTION_LIMIT} sections: splitting ${rel}`);
+      await splitExplanationPage(segments, file, content, task);
       content = await store.readPage(file).catch(() => null);
       if (content === null) {
-        step('2.3.2', `${rel} was removed by the split`);
+        task.step('2.3.2', `${rel} was removed by the split`);
         return;
       }
     }
     // 2.3.3
-    await addressNotes(segments, file, content, '2.3.3');
+    await addressNotes(segments, file, content, '2.3.3', task);
   };
 
   // -- Page picking (README 1.1 and 2.1) ------------------------------------
 
-  const pickReviewerPage = async () => {
+  // The up-to-`count` best pages to review, in filter order (README 1.1.3 /
+  // 1.1.4): pages without a score first (never reviewed, or just edited by
+  // 2.4), oldest edit first; then the pages reviewed the longest time ago.
+  const pickReviewerPages = async (count) => {
     const entries = Object.entries(db.pages).sort(([a], [b]) => (a < b ? -1 : 1));
-    if (entries.length === 0) return null;
+    if (entries.length === 0) return [];
     const candidates = [];
     for (const [rel, entry] of entries) {
       // A page still empty (its content is created by the editor, 2.2.1 /
@@ -588,60 +591,65 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       }
       candidates.push([rel, entry]);
     }
-    if (candidates.length === 0) return null;
+    if (candidates.length === 0) return [];
     const editTime = (entry) => entry.editedAt ?? entry.addedAt ?? '';
-    // 1.1.3: a page without a score has never been reviewed (or was just
-    // edited, 2.4): review the one amongst them that was edited the longest
-    // time ago.
-    const unscored = candidates.filter(([, entry]) => entry.score === null || entry.score === undefined);
-    if (unscored.length > 0) {
-      let best = unscored[0];
-      for (const candidate of unscored) {
-        if (editTime(candidate[1]) < editTime(best[1])) best = candidate;
-      }
-      return { rel: best[0], step: '1.1.3', reason: `no score yet, oldest edit (${editTime(best[1])})` };
-    }
-    // 1.1.4: otherwise the page reviewed the longest time ago.
-    let best = candidates[0];
-    for (const candidate of candidates) {
-      if ((candidate[1].reviewedAt ?? '') < (best[1].reviewedAt ?? '')) best = candidate;
-    }
-    return { rel: best[0], step: '1.1.4', reason: `oldest review (${best[1].reviewedAt ?? 'never'})` };
+    const hasScore = (entry) => entry.score !== null && entry.score !== undefined;
+    // Oldest first; ties keep the alphabetical order of the entries.
+    const oldestFirst = (keyFn) => (a, b) => {
+      const ka = keyFn(a[1]);
+      const kb = keyFn(b[1]);
+      return ka < kb ? -1 : ka > kb ? 1 : a[0] < b[0] ? -1 : 1;
+    };
+    const unscored = candidates.filter(([, entry]) => !hasScore(entry)).sort(oldestFirst(editTime));
+    const scored = candidates.filter(([, entry]) => hasScore(entry)).sort(oldestFirst((entry) => entry.reviewedAt ?? ''));
+    return [...unscored, ...scored].slice(0, count).map(([rel, entry]) => ({
+      rel,
+      step: hasScore(entry) ? '1.1.4' : '1.1.3',
+      reason: hasScore(entry)
+        ? `oldest review (${entry.reviewedAt ?? 'never'})`
+        : `no score yet, oldest edit (${editTime(entry)})`,
+    }));
   };
 
-  const pickEditorPage = () => {
+  // The up-to-`count` best pages to edit, in filter order (README 2.1.3 /
+  // 2.1.4): pages without a score first (they have content to create or
+  // notes to address), then the lowest score, ties broken by the least
+  // recently edited page so equally-scored pages do not starve.
+  const pickEditorPages = (count) => {
     const entries = Object.entries(db.pages).sort(([a], [b]) => (a < b ? -1 : 1));
-    if (entries.length === 0) return null;
-    const unscored = entries.filter(([, entry]) => entry.score === null || entry.score === undefined);
-    if (unscored.length > 0) {
-      return { rel: unscored[0][0], step: '2.1.3', reason: 'no score yet' };
-    }
-    // The lowest score wins; ties are broken by the least recently edited
-    // page, so equally-scored pages do not starve.
-    let best = entries[0];
-    for (const entry of entries) {
-      const older = (entry[1].editedAt ?? '') < (best[1].editedAt ?? '');
-      if (entry[1].score < best[1].score || (entry[1].score === best[1].score && older)) {
-        best = entry;
-      }
-    }
-    return { rel: best[0], step: '2.1.4', reason: `lowest score (${best[1].score.toFixed(1)})` };
+    if (entries.length === 0) return [];
+    const hasScore = (entry) => entry.score !== null && entry.score !== undefined;
+    const unscored = entries.filter(([, entry]) => !hasScore(entry));
+    const scored = entries
+      .filter(([, entry]) => hasScore(entry))
+      .sort((a, b) => {
+        if (a[1].score !== b[1].score) return a[1].score - b[1].score;
+        const ea = a[1].editedAt ?? '';
+        const eb = b[1].editedAt ?? '';
+        if (ea !== eb) return ea < eb ? -1 : 1;
+        return a[0] < b[0] ? -1 : 1;
+      });
+    return [...unscored, ...scored].slice(0, count).map(([rel, entry]) => ({
+      rel,
+      step: hasScore(entry) ? '2.1.4' : '2.1.3',
+      reason: hasScore(entry) ? `lowest score (${entry.score.toFixed(1)})` : 'no score yet',
+    }));
   };
 
   // 2.4: after the editor concludes its work on a page, the page's score is
   // reset to null (so the reviewer re-evaluates the edited page from scratch,
   // 1.1.3) and its edit timestamp is updated to the current time. Skipped
   // when the editor deleted the page: it is no longer in the database.
-  const editorConclude = async (rel) => {
+  const editorConclude = async (rel, task) => {
     const entry = db.pages[rel];
     if (!entry) {
-      step('2.4', `${rel} was deleted; nothing to conclude`);
+      task.step('2.4', `${rel} was deleted; nothing to conclude`);
       return;
     }
     entry.score = null;
     entry.editedAt = nowIso();
     await store.savePagesDb(db);
-    step('2.4', `reset the score of ${rel} to null and stamped its edit time`);
+    task.step('2.4', `reset the score of ${rel} to null and stamped its edit time`);
   };
 
   // 2.1.1: no page at all -> create the highest-level topic page (empty: its
@@ -665,51 +673,84 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
 
   // The checkpoint state: an interrupted run resumes at the phase it was in
   // (see index.js: transient network failures retry the run instead of
-  // restarting it from scratch).
+  // restarting it from scratch). With several workers in flight the
+  // checkpoint is the batch (run.pages) plus the pages that already finished
+  // (run.done): a retry resumes with the pages that did not complete.
   const run = state ?? {};
 
-  if (run.phase === 'review' && run.page) {
-    step('1', `resuming the run at step 1.2 on "${run.page}"`);
-    await reviewPage(run.page);
+  // Spawn one worker per page, all in flight at once (TECHNOPEDIA_PARALLELISM;
+  // with the default of 1 each phase is sequential, as before). Each worker
+  // gets its own logger and tools, tagged with the page's short name so its
+  // log lines stay attributable when several workers interleave. A failed
+  // batch keeps its checkpoint: the retry resumes with the pending pages.
+  const spawnBatch = async (phase, rels) => {
+    run.phase = phase;
+    run.pages = rels;
+    run.done = Array.isArray(run.done) ? run.done : [];
+    const pending = rels.filter((rel) => !run.done.includes(rel));
+    const errors = [];
+    await Promise.all(
+      pending.map((rel) => {
+        const tag = config.parallelism > 1 ? `[${segmentsOf(rel).pop()}] ` : '';
+        const taskLogger = (line) => logger(`${tag}${line}`);
+        const task = {
+          step: (id, message) => taskLogger(`step ${id}: ${message}`),
+          tools: createTools({ config, store, logger: taskLogger }),
+        };
+        return (async () => {
+          try {
+            if (phase === 'review') {
+              await reviewPage(rel, task);
+            } else {
+              await editPage(rel, task);
+              await editorConclude(rel, task);
+            }
+            run.done.push(rel);
+            if (!summary.pages.includes(rel)) summary.pages.push(rel);
+          } catch (err) {
+            errors.push(err);
+          }
+        })();
+      }),
+    );
+    if (errors.length > 0) throw errors[0];
     run.phase = null;
-    run.page = null;
+    run.pages = null;
+    run.done = null;
+  };
+
+  if (run.phase === 'review' && Array.isArray(run.pages)) {
+    step('1', `resuming the run at step 1.2 on: ${run.pages.join(', ')}`);
+    await spawnBatch('review', run.pages);
   } else {
     await syncDb('1.1.2');
-    const pick = await pickReviewerPage();
-    if (pick === null) {
+    const picks = await pickReviewerPages(config.parallelism);
+    if (picks.length === 0) {
       step('1.1.1', 'no pages at all; moving on to editor mode');
     } else {
-      step(pick.step, `picked page ${pick.rel} for review (${pick.reason})`);
-      run.phase = 'review';
-      run.page = pick.rel;
-      await reviewPage(pick.rel);
-      run.phase = null;
-      run.page = null;
+      for (const pick of picks) {
+        step(pick.step, `picked page ${pick.rel} for review (${pick.reason})`);
+      }
+      await spawnBatch('review', picks.map((pick) => pick.rel));
     }
   }
 
-  if (run.phase === 'edit' && run.page) {
-    step('2', `resuming the run at step 2 on "${run.page}"`);
-    await editPage(run.page);
-    await editorConclude(run.page);
-    run.phase = null;
-    run.page = null;
+  if (run.phase === 'edit' && Array.isArray(run.pages)) {
+    step('2', `resuming the run at step 2 on: ${run.pages.join(', ')}`);
+    await spawnBatch('edit', run.pages);
     await syncDb('2.1.2');
   } else {
     await syncDb('2.1.2');
-    let pick = pickEditorPage();
-    if (pick === null) {
+    let picks = pickEditorPages(config.parallelism);
+    if (picks.length === 0) {
       const rel = await createRootTopicPage();
-      pick = { rel };
+      picks = [{ rel }];
     } else {
-      step(pick.step, `picked page ${pick.rel} for editing (${pick.reason})`);
+      for (const pick of picks) {
+        step(pick.step, `picked page ${pick.rel} for editing (${pick.reason})`);
+      }
     }
-    run.phase = 'edit';
-    run.page = pick.rel;
-    await editPage(pick.rel);
-    await editorConclude(pick.rel);
-    run.phase = null;
-    run.page = null;
+    await spawnBatch('edit', picks.map((pick) => pick.rel));
     // Pages may have been created or deleted through the tools: fold them
     // back into the database.
     await syncDb('2.1.2');

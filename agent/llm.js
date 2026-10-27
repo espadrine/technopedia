@@ -107,17 +107,29 @@ export class LlmClient {
   }
 
   // Resolve the model once, at setup. Auto-resolution (asking the server
-  // which model it has loaded) only happens when neither OPENAI_MODEL nor
-  // OPENAI_HOST are set: explicitly configured servers are used as-is.
+  // which model it has loaded) only happens when neither TECHNOPEDIA_MODEL nor
+  // TECHNOPEDIA_HOST are set: explicitly configured servers are used as-is.
   // With several models listed and none loaded, the agent fails with the
   // available ids instead of guessing (guessing made routers load the
   // wrong model).
   async resolveModel() {
     if (this.modelResolved) return;
+    // Cache the in-flight resolution: parallel workers may all enter here
+    // before the first one finishes, and each must await the same result.
+    if (!this.modelResolvePromise) {
+      this.modelResolvePromise = this.doResolveModel().catch((err) => {
+        this.modelResolvePromise = null; // a later call may retry
+        throw err;
+      });
+    }
+    return this.modelResolvePromise;
+  }
+
+  async doResolveModel() {
     this.modelResolved = true;
-    if (this.model !== null) return; // OPENAI_MODEL: use verbatim.
+    if (this.model !== null) return; // TECHNOPEDIA_MODEL: use verbatim.
     if (!this.config.autoResolveModel) {
-      this.omitModel = true; // OPENAI_HOST set: let the server pick its model.
+      this.omitModel = true; // TECHNOPEDIA_HOST set: let the server pick its model.
       return;
     }
     let entries = null;
@@ -139,7 +151,7 @@ export class LlmClient {
     const pick = pickModelAndBudget(entries);
     if (pick.model === null) {
       throw new LlmError(
-        `the server lists several models and none is loaded; load one first, or set OPENAI_MODEL to one of: ${pick.noneLoaded.join(', ')}`,
+        `the server lists several models and none is loaded; load one first, or set TECHNOPEDIA_MODEL to one of: ${pick.noneLoaded.join(', ')}`,
         { kind: 'http' },
       );
     }
@@ -186,18 +198,24 @@ export class LlmClient {
         const data = await res.json();
         const message = data?.choices?.[0]?.message;
         const content = message?.content;
-        this.lastFinishReason = data?.choices?.[0]?.finish_reason ?? null;
-        this.lastUsage = data?.usage ?? null;
+        // Per-call response state, kept in locals: parallel workers have
+        // chat calls in flight at once, and each must see only its own
+        // response (the last* fields stay as diagnostics only).
+        const finishReason = data?.choices?.[0]?.finish_reason ?? null;
+        const usage = data?.usage ?? null;
         // Reasoning-capable models served by llama.cpp (with --reasoning on)
         // deliver the chain of thought separately from the content.
-        this.lastReasoning =
+        const reasoning =
           typeof message?.reasoning_content === 'string' ? message.reasoning_content : null;
+        this.lastFinishReason = finishReason;
+        this.lastUsage = usage;
+        this.lastReasoning = reasoning;
         if (typeof content !== 'string' || content.trim() === '') {
           this.transcribe({
             kind: 'empty-response',
             label: label ?? null,
-            finishReason: this.lastFinishReason,
-            usage: this.lastUsage,
+            finishReason,
+            usage,
           });
           lastError = new LlmError(
             'LLM returned an empty response (the conversation may have exceeded the model context window)',
@@ -211,12 +229,12 @@ export class LlmClient {
         this.transcribe({
           kind: 'chat',
           label: label ?? null,
-          finishReason: this.lastFinishReason,
-          usage: this.lastUsage,
-          reasoning: this.lastReasoning,
+          finishReason,
+          usage,
+          reasoning,
           response: content,
         });
-        return content;
+        return { content, reasoning, finishReason, usage };
       } catch (err) {
         if (err instanceof LlmError) {
           lastError = err;
@@ -247,7 +265,8 @@ export class LlmClient {
     let parseRetries = 0;
     let forced = false;
     for (;;) {
-      const raw = await this.chat(convo, { ...opts, json: true });
+      const reply = await this.chat(convo, { ...opts, json: true });
+      const raw = reply.content;
       let parsed = null;
       let parseError = null;
       try {
@@ -269,7 +288,7 @@ export class LlmClient {
           );
           this.transcribe({ kind: 'wrap-up', label: opts.label ?? null, rounds });
           forced = true;
-          convo.push(this.assistantTurn(raw));
+          convo.push(this.assistantTurn(raw, reply.reasoning));
           convo.push({
             role: 'user',
             content:
@@ -286,7 +305,7 @@ export class LlmClient {
             });
           }
           parseRetries += 1;
-          convo.push(this.assistantTurn(raw));
+          convo.push(this.assistantTurn(raw, reply.reasoning));
           convo.push({
             role: 'user',
             content: 'Do not use any more tools; reply with the final JSON answer now.',
@@ -308,7 +327,7 @@ export class LlmClient {
           args: parsed.args,
           result: value,
         });
-        convo.push(this.assistantTurn(raw));
+        convo.push(this.assistantTurn(raw, reply.reasoning));
         convo.push({ role: 'user', content: `{"tool_result": ${value}}` });
         rounds += 1;
         continue;
@@ -331,14 +350,14 @@ export class LlmClient {
           rawLength: raw.length,
           raw,
         });
-        convo.push(this.assistantTurn(raw));
+        convo.push(this.assistantTurn(raw, reply.reasoning));
         convo.push({
           role: 'user',
           content: `Your reply was not valid JSON (${String(parseError?.message ?? parseError)}). It must be exactly the JSON object the task describes, with no text before or after it. Reply with the JSON now.`,
         });
         continue;
       }
-      return this.parseJsonOrThrow(raw, opts.label);
+      return this.parseJsonOrThrow(raw, opts.label, reply);
     }
   }
 
@@ -347,18 +366,18 @@ export class LlmClient {
   // continues the chain of thought instead of starting it from scratch.
   // Servers that do not preserve it (llama.cpp without --reasoning-preserve)
   // simply ignore the field.
-  assistantTurn(raw) {
+  assistantTurn(raw, reasoning = null) {
     return {
       role: 'assistant',
       content: raw,
-      ...(this.lastReasoning === null ? {} : { reasoning_content: this.lastReasoning }),
+      ...(reasoning === null ? {} : { reasoning_content: reasoning }),
     };
   }
 
   // Parse a final answer, and when it is not valid JSON say WHY: whether the
   // server cut the response off (finish_reason=length) or the model simply
   // emitted malformed JSON. The full raw response goes to the transcript.
-  parseJsonOrThrow(raw, label) {
+  parseJsonOrThrow(raw, label, reply) {
     try {
       return extractJson(raw);
     } catch (err) {
@@ -366,16 +385,16 @@ export class LlmClient {
       this.transcribe({
         kind: 'parse-error',
         label: label ?? null,
-        finishReason: this.lastFinishReason,
-        usage: this.lastUsage,
-        reasoning: this.lastReasoning,
+        finishReason: reply.finishReason,
+        usage: reply.usage,
+        reasoning: reply.reasoning,
         rawLength: raw.length,
         raw,
       });
-      const cut = this.lastFinishReason === 'length';
+      const cut = reply.finishReason === 'length';
       const why = cut
         ? 'the response was cut off by the token limit, finish_reason=length'
-        : `finish_reason=${this.lastFinishReason ?? 'unknown'}`;
+        : `finish_reason=${reply.finishReason ?? 'unknown'}`;
       throw new LlmError(
         `LLM did not return valid JSON (${why}, ${raw.length} chars): ${raw.trim().slice(0, 300)}`,
         { kind: 'parse' },

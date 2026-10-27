@@ -51,7 +51,7 @@ function agent(args, { contentDir, notesDir, authorNotesDir, env = {} }) {
     const child = spawn('node', [path.join(ROOT, 'agent/index.js'), ...args], {
       env: {
         ...process.env,
-        OPENAI_HOST: `http://127.0.0.1:${PORT}`,
+        TECHNOPEDIA_HOST: `http://127.0.0.1:${PORT}`,
         TECHNOPEDIA_CONTENT_DIR: contentDir,
         TECHNOPEDIA_NOTES_DIR: notesDir,
         TECHNOPEDIA_AUTHOR_NOTES_DIR: authorNotesDir,
@@ -122,7 +122,7 @@ await startMockServer(PORT);
     { id: 'b', status: { value: 'unloaded' }, meta: { size: 2 }, context_length: 9 },
   ]);
   check(
-    'p0: nothing loaded -> no model, with the ids listed for OPENAI_MODEL',
+    'p0: nothing loaded -> no model, with the ids listed for TECHNOPEDIA_MODEL',
     noneLoaded.model === null && noneLoaded.noneLoaded.join(',') === 'a,b',
     JSON.stringify(noneLoaded),
   );
@@ -188,7 +188,7 @@ await startMockServer(PORT);
     requestLog.join(','),
   );
   check(
-    'p1: /v1/models is not called when OPENAI_HOST is set',
+    'p1: /v1/models is not called when TECHNOPEDIA_HOST is set',
     modelsLog.length === 0,
     `models calls: ${modelsLog.length}`,
   );
@@ -996,7 +996,7 @@ await startMockServer(PORT);
   const child = spawn('node', [path.join(ROOT, 'agent/index.js'), '--interval', '0'], {
     env: {
       ...process.env,
-      OPENAI_HOST: `http://127.0.0.1:${PORT}`,
+      TECHNOPEDIA_HOST: `http://127.0.0.1:${PORT}`,
       TECHNOPEDIA_CONTENT_DIR: contentDir,
       TECHNOPEDIA_NOTES_DIR: notesDir,
       TECHNOPEDIA_WEB_SEARCH_URL: `http://127.0.0.1:${PORT}/search?q={q}`,
@@ -1048,7 +1048,7 @@ await startMockServer(PORT);
   );
   const pagesDb = path.join(TEST, 'p7b', 'pages.json');
   const config = loadConfig({
-    openaiHost: `http://127.0.0.1:${PORT}`,
+    technopediaHost: `http://127.0.0.1:${PORT}`,
     contentDir,
     notesDir,
     authorNotesDir,
@@ -1071,7 +1071,8 @@ await startMockServer(PORT);
     'p7b: the interrupted run throws with a checkpoint at the interrupted review',
     threw !== null &&
       state.phase === 'review' &&
-      state.page === 'Manufacturing/Electronics.md',
+      Array.isArray(state.pages) &&
+      state.pages.join(',') === 'Manufacturing/Electronics.md',
     JSON.stringify(state),
   );
 
@@ -1081,7 +1082,7 @@ await startMockServer(PORT);
   check(
     'p7b: the retry resumes at the checkpoint and completes the run',
     state.phase === null &&
-      state.page === null &&
+      state.pages === null &&
       summary.page?.join('/') === 'Manufacturing/Electronics' &&
       lines.some((l) => l.includes('resuming the run at step 1.2')),
     JSON.stringify(state),
@@ -1136,7 +1137,7 @@ await startMockServer(PORT);
     contentDir,
     notesDir,
     authorNotesDir,
-    env: { OPENAI_HOST: 'http://127.0.0.1:1' },
+    env: { TECHNOPEDIA_HOST: 'http://127.0.0.1:1' },
   });
   console.log(`\n--- phase 9 (unreachable server) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
   check(
@@ -1198,6 +1199,93 @@ await startMockServer(PORT);
     'p10: transcript entries carry the task label',
     labels.has('create-topic-page') || labels.has('determine-type'),
     [...labels].join(','),
+  );
+}
+
+// -- Phase 11: TECHNOPEDIA_PARALLELISM runs reviewers and editors in parallel
+{
+  requestLog.length = 0; callsLog.length = 0;
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p11');
+  // One topic page listing three explanation pages, all with content: the
+  // reviewer phase picks the three explanation pages; the editor phase picks
+  // the topic page (no score yet) plus the two explanation pages the review
+  // just scored (Gamma is left with its notes for a later run).
+  seed(
+    contentDir,
+    'Manufacturing/Readme.md',
+    '# Manufacturing\n\nOverview.\n\n## Classes\n\n<table>\n<tr><th>Class</th><th>Trait</th></tr>\n<tr><td><a href="./Alpha.md">Alpha</a></td><td>First</td></tr>\n<tr><td><a href="./Beta.md">Beta</a></td><td>Second</td></tr>\n<tr><td><a href="./Gamma.md">Gamma</a></td><td>Third</td></tr>\n</table>\n',
+  );
+  for (const name of ['Alpha', 'Beta', 'Gamma']) {
+    seed(contentDir, `Manufacturing/${name}.md`, `# ${name}\n\nUtility of ${name}.\n\n## Example\n\nDo the thing.\n`);
+  }
+  const r = await agent(['--runs', '1'], {
+    contentDir,
+    notesDir,
+    authorNotesDir,
+    env: { TECHNOPEDIA_PARALLELISM: '3' },
+  });
+  console.log(`\n--- phase 11 (parallelism) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+  check(
+    'p11: the reviewer phase reviews N pages in one run',
+    r.status === 0 && taskCount('evaluate-explanation-page') === 3,
+    requestLog.join(','),
+  );
+  check(
+    'p11: the editor phase edits N pages in one run',
+    r.status === 0 &&
+      taskCount('address-notes') === 2 &&
+      r.stdout.includes('picked page Manufacturing/Readme.md for editing') &&
+      r.stdout.includes('picked page Manufacturing/Alpha.md for editing') &&
+      r.stdout.includes('picked page Manufacturing/Beta.md for editing'),
+    requestLog.join(','),
+  );
+  check(
+    'p11: parallel workers are tagged with their page in the log',
+    r.stdout.includes('[Alpha]') &&
+      r.stdout.includes('[Beta]') &&
+      r.stdout.includes('[Gamma]') &&
+      r.stdout.includes('[Manufacturing]'),
+    r.stdout,
+  );
+  check(
+    'p11: the parallel run addressed the notes of the edited pages only',
+    content(path.join(contentDir, 'Manufacturing/Alpha.md')).includes('notes-addressed') &&
+      content(path.join(contentDir, 'Manufacturing/Beta.md')).includes('notes-addressed') &&
+      Object.keys(readIndex(notesDir).pages).join(',') === 'Manufacturing/Gamma.md',
+    JSON.stringify(readIndex(notesDir)),
+  );
+  check(
+    'p11: the page database reflects the parallel run',
+    (() => {
+      const db = JSON.parse(content(path.join(path.dirname(contentDir), 'pages.json')));
+      const gamma = db.pages['Manufacturing/Gamma.md'];
+      const alpha = db.pages['Manufacturing/Alpha.md'];
+      const readme = db.pages['Manufacturing/Readme.md'];
+      return (
+        gamma?.score === 42 &&
+        typeof gamma?.reviewedAt === 'string' &&
+        alpha?.score === null &&
+        typeof alpha?.editedAt === 'string' &&
+        readme?.score === null &&
+        typeof readme?.editedAt === 'string'
+      );
+    })(),
+    content(path.join(path.dirname(contentDir), 'pages.json')),
+  );
+
+  // The default (1) stays sequential: no worker tags in the log.
+  requestLog.length = 0; callsLog.length = 0;
+  const solo = freshDirs('p11b');
+  seed(solo.contentDir, 'Manufacturing/Electronics.md', '# Electronics\n\nIntro.\n');
+  const r2 = await agent(['--runs', '1'], solo);
+  check(
+    'p11: the default parallelism keeps the run sequential (no worker tags)',
+    r2.status === 0 &&
+      taskCount('evaluate-explanation-page') === 1 &&
+      taskCount('address-notes') === 1 &&
+      !r2.stdout.includes('[Electronics]'),
+    r2.stdout,
   );
 }
 
