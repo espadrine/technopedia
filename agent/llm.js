@@ -76,6 +76,45 @@ export function pickModelAndBudget(entries) {
   };
 }
 
+// Normalize the response message of a reasoning-capable model. llama.cpp
+// (with --reasoning on) keeps content a plain string and delivers the chain
+// of thought in message.reasoning_content. Mistral's reasoning models (eg
+// mistral-large-4, which reasons by default) instead return content as a
+// list of chunks: thinking chunks (type "thinking", the trace in a nested
+// list of text chunks), then text chunks (type "text"). The text becomes
+// the content, the trace becomes the reasoning, and the original chunks are
+// kept so tool round-trips can echo them back (Mistral's docs recommend
+// sending thinking chunks back on later turns).
+function splitMessage(message) {
+  const raw = message?.content;
+  if (!Array.isArray(raw)) {
+    return {
+      content: raw,
+      reasoning:
+        typeof message?.reasoning_content === 'string' ? message.reasoning_content : null,
+      chunks: null,
+    };
+  }
+  const texts = [];
+  const thinkings = [];
+  for (const chunk of raw) {
+    if (chunk?.type === 'text' && typeof chunk.text === 'string') {
+      texts.push(chunk.text);
+    } else if (chunk?.type === 'thinking') {
+      const trace = Array.isArray(chunk.thinking) ? chunk.thinking : [chunk.thinking];
+      for (const part of trace) {
+        if (typeof part === 'string') thinkings.push(part);
+        else if (typeof part?.text === 'string') thinkings.push(part.text);
+      }
+    }
+  }
+  return {
+    content: texts.join(''),
+    reasoning: thinkings.length > 0 ? thinkings.join('\n') : null,
+    chunks: raw,
+  };
+}
+
 export class LlmClient {
   constructor(config, logger = () => {}) {
     this.config = config;
@@ -89,6 +128,14 @@ export class LlmClient {
     this.lastUsage = null;
     this.lastReasoning = null;
     this.debugStream = null;
+  }
+
+  // Request headers: a JSON content type, plus the bearer token when an API
+  // key is configured (the Mistral API requires one; llama.cpp does not).
+  headers() {
+    const headers = { 'content-type': 'application/json' };
+    if (this.config.apiKey) headers.authorization = `Bearer ${this.config.apiKey}`;
+    return headers;
   }
 
   // Append one JSON line to the debug transcript. Best-effort: transcript
@@ -135,6 +182,7 @@ export class LlmClient {
     let entries = null;
     try {
       const res = await fetch(`${this.config.host}/v1/models`, {
+        headers: this.headers(),
         signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
@@ -170,6 +218,7 @@ export class LlmClient {
       stream: false,
     };
     if (this.config.reasoningFormat) body.reasoning_format = this.config.reasoningFormat;
+    if (this.config.reasoningEffort) body.reasoning_effort = this.config.reasoningEffort;
     // JSON mode (llama.cpp response_format json_object): the server constrains
     // the grammar of the content, so the final answer is always valid JSON.
     if (json) {
@@ -185,7 +234,7 @@ export class LlmClient {
       try {
         const res = await fetch(`${this.config.host}/v1/chat/completions`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: this.headers(),
           body: JSON.stringify(body),
           signal: this.config.timeoutMs ? AbortSignal.timeout(this.config.timeoutMs) : undefined,
         });
@@ -197,16 +246,17 @@ export class LlmClient {
         }
         const data = await res.json();
         const message = data?.choices?.[0]?.message;
-        const content = message?.content;
         // Per-call response state, kept in locals: parallel workers have
         // chat calls in flight at once, and each must see only its own
         // response (the last* fields stay as diagnostics only).
         const finishReason = data?.choices?.[0]?.finish_reason ?? null;
         const usage = data?.usage ?? null;
-        // Reasoning-capable models served by llama.cpp (with --reasoning on)
-        // deliver the chain of thought separately from the content.
-        const reasoning =
-          typeof message?.reasoning_content === 'string' ? message.reasoning_content : null;
+        // Reasoning-capable models deliver the chain of thought separately
+        // from the answer: llama.cpp (with --reasoning on) in
+        // message.reasoning_content, Mistral's reasoning models (eg
+        // mistral-large-4, which reasons by default) as thinking chunks in
+        // a content list. splitMessage normalizes both shapes.
+        const { content, reasoning, chunks } = splitMessage(message);
         this.lastFinishReason = finishReason;
         this.lastUsage = usage;
         this.lastReasoning = reasoning;
@@ -234,7 +284,7 @@ export class LlmClient {
           reasoning,
           response: content,
         });
-        return { content, reasoning, finishReason, usage };
+        return { content, reasoning, chunks, finishReason, usage };
       } catch (err) {
         if (err instanceof LlmError) {
           lastError = err;
@@ -288,7 +338,7 @@ export class LlmClient {
           );
           this.transcribe({ kind: 'wrap-up', label: opts.label ?? null, rounds });
           forced = true;
-          convo.push(this.assistantTurn(raw, reply.reasoning));
+          convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
           convo.push({
             role: 'user',
             content:
@@ -305,7 +355,7 @@ export class LlmClient {
             });
           }
           parseRetries += 1;
-          convo.push(this.assistantTurn(raw, reply.reasoning));
+          convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
           convo.push({
             role: 'user',
             content: 'Do not use any more tools; reply with the final JSON answer now.',
@@ -327,7 +377,7 @@ export class LlmClient {
           args: parsed.args,
           result: value,
         });
-        convo.push(this.assistantTurn(raw, reply.reasoning));
+        convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
         convo.push({ role: 'user', content: `{"tool_result": ${value}}` });
         rounds += 1;
         continue;
@@ -350,7 +400,7 @@ export class LlmClient {
           rawLength: raw.length,
           raw,
         });
-        convo.push(this.assistantTurn(raw, reply.reasoning));
+        convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
         convo.push({
           role: 'user',
           content: `Your reply was not valid JSON (${String(parseError?.message ?? parseError)}). It must be exactly the JSON object the task describes, with no text before or after it. Reply with the JSON now.`,
@@ -362,11 +412,15 @@ export class LlmClient {
   }
 
   // The assistant turn replayed in a tool round-trip keeps the model's own
-  // reasoning (reasoning_content) alongside its content, so the next call
-  // continues the chain of thought instead of starting it from scratch.
-  // Servers that do not preserve it (llama.cpp without --reasoning-preserve)
-  // simply ignore the field.
-  assistantTurn(raw, reasoning = null) {
+  // reasoning, so the next call continues the chain of thought instead of
+  // starting it from scratch: as reasoning_content for llama.cpp (servers
+  // that do not preserve it simply ignore the field), or as the original
+  // thinking chunks for Mistral's reasoning models, which want them echoed
+  // back in their own shape.
+  assistantTurn(raw, reasoning = null, chunks = null) {
+    if (chunks !== null) {
+      return { role: 'assistant', content: chunks };
+    }
     return {
       role: 'assistant',
       content: raw,

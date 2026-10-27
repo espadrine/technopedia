@@ -36,15 +36,21 @@ export function loadConfig(overrides = {}) {
     autoResolveModel:
       !(overrides.model ?? process.env.TECHNOPEDIA_MODEL) &&
       !(overrides.technopediaHost ?? process.env.TECHNOPEDIA_HOST),
-    temperature: Number(overrides.temperature ?? process.env.TECHNOPEDIA_TEMPERATURE ?? 0.7),
+    // Bearer token for the LLM server, sent as an Authorization header on
+    // every request (the Mistral API requires one; a local llama.cpp-server
+    // does not). MISTRAL_API_KEY is honored as a fallback.
+    apiKey: overrides.apiKey ?? process.env.TECHNOPEDIA_API_KEY ?? process.env.MISTRAL_API_KEY ?? null,
+    temperature: Number(overrides.temperature ?? 0.7),
     // llama.cpp servers with reasoning models put the chain of thought in
     // message.reasoning_content; reasoning_format (eg "deepseek") requests
     // that split when set (the server's --reasoning setting also enables it).
-    reasoningFormat: overrides.reasoningFormat ?? process.env.TECHNOPEDIA_REASONING_FORMAT ?? null,
-    maxTokens:
-      overrides.maxTokens ??
-      (process.env.TECHNOPEDIA_MAX_TOKENS ? Number(process.env.TECHNOPEDIA_MAX_TOKENS) : undefined),
-    timeoutMs: Number(overrides.timeoutMs ?? process.env.TECHNOPEDIA_TIMEOUT_MS ?? 300000),
+    reasoningFormat: overrides.reasoningFormat ?? null,
+    // Mistral's reasoning models (mistral-large-4 reasons by default) take
+    // reasoning_effort: "none" skips the thinking trace, "high" includes it.
+    // Sent verbatim when set; servers that do not know the field ignore it.
+    reasoningEffort: overrides.reasoningEffort ?? process.env.TECHNOPEDIA_REASONING_EFFORT ?? null,
+    maxTokens: overrides.maxTokens,
+    timeoutMs: Number(overrides.timeoutMs ?? 300000),
     // Reviewers and editors each work on this many pages in parallel, one
     // worker per page (TECHNOPEDIA_PARALLELISM); 1 keeps each phase
     // sequential.
@@ -71,7 +77,6 @@ export function loadConfig(overrides = {}) {
       overrides.pagesDb ?? process.env.TECHNOPEDIA_PAGES_DB ?? path.join(ROOT, 'pages.json'),
     // High-level topics, from the Technopedia README.
     topics: ['Physics', 'Mathematics', 'Computer Science', 'Manufacturing'],
-    maxDepth: Number(overrides.maxDepth ?? process.env.AGENT_MAX_DEPTH ?? 6),
     dryRun: overrides.dryRun ?? false,
     // Full-interaction transcript: every request, raw response, finish reason
     // and tool round-trip, appended as JSON lines (--debug / TECHNOPEDIA_DEBUG=1).

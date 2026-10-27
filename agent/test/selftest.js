@@ -1396,6 +1396,8 @@ await startMockServer(PORT);
       TECHNOPEDIA_HOST: `http://127.0.0.1:${PORT}`,
       TECHNOPEDIA_CONTENT_DIR: contentDir,
       TECHNOPEDIA_NOTES_DIR: notesDir,
+      TECHNOPEDIA_AUTHOR_NOTES_DIR: authorNotesDir,
+      TECHNOPEDIA_PAGES_DB: path.join(path.dirname(contentDir), 'pages.json'),
       TECHNOPEDIA_WEB_SEARCH_URL: `http://127.0.0.1:${PORT}/search?q={q}`,
       TECHNOPEDIA_WEB_TIMEOUT_MS: '5000',
     },

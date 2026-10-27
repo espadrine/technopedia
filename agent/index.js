@@ -10,18 +10,19 @@
 // Environment:
 //   TECHNOPEDIA_HOST     LLM server, OpenAI-compatible (llama.cpp-server)
 //                   default: http://localhost:9931
-//   TECHNOPEDIA_MODEL    model name to request, used verbatim
-//   TECHNOPEDIA_HOST     when set (without TECHNOPEDIA_MODEL), no model field is sent
+//                   when set (without TECHNOPEDIA_MODEL), no model field is sent
 //                   and the server uses its default; when neither is set,
 //                   the agent asks the server /v1/models once at startup and
 //                   picks the biggest loaded model (meta.size), deriving the
 //                   completion budget from its meta.n_ctx (the actual
 //                   runtime context; context_length is only the fallback)
-//   TECHNOPEDIA_TEMPERATURE, TECHNOPEDIA_MAX_TOKENS, TECHNOPEDIA_TIMEOUT_MS
-//   TECHNOPEDIA_REASONING_FORMAT  sent verbatim as reasoning_format to the server
-//                   (eg "deepseek": reasoning arrives in
-//                   message.reasoning_content, which the agent logs in the
-//                   debug transcript when --debug is on)
+//   TECHNOPEDIA_MODEL    model name to request, used verbatim
+//   TECHNOPEDIA_API_KEY  bearer token for the LLM server, sent as an
+//                   Authorization header on every request (the Mistral API
+//                   requires one; MISTRAL_API_KEY is honored as a fallback)
+//   TECHNOPEDIA_REASONING_EFFORT  sent verbatim as reasoning_effort (Mistral:
+//                   "none" skips the thinking trace, "high" includes it;
+//                   mistral-large-4 reasons by default)
 //   TECHNOPEDIA_DEBUG    set to 1 to log every LLM interaction (see --debug)
 //   TECHNOPEDIA_PARALLELISM  reviewers and editors each work on N pages in
 //                   parallel, one worker per page (default: 1)
@@ -29,7 +30,6 @@
 //   TECHNOPEDIA_NOTES_DIR    default: <repo>/notes (agent notes)
 //   TECHNOPEDIA_AUTHOR_NOTES_DIR default: <repo>/author-notes (author notes)
 //   TECHNOPEDIA_PAGES_DB     default: <repo>/pages.json (the page database)
-//   AGENT_MAX_DEPTH          default: 6
 
 import { loadConfig } from './config.js';
 import { LlmClient, LlmError } from './llm.js';
