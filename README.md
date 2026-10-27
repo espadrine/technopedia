@@ -51,8 +51,8 @@ An explanation page must have:
    Use either SVG or HTML + JS for diagrams; never ASCII art.
    Each diagram should describe a single concept: do not use tabs in diagrams to switch between concepts.
 5. After the explanation, there should be a folded quizz section with an example problem, and a folded section on how to solve it, that the reader can unfold.
-All links must correspond to a page that really exists.
-All explanation pages must be referenced in a parent topic page.
+No dead links: All links must correspond to a page that really exists.
+No unreachable pages: All explanation pages must be referenced in a parent topic page.
 
 The system should reuse widgets and code when possible.
 For instance, code for an interactive electronics schematics should be reused for all related pages.
@@ -117,9 +117,7 @@ It should, in a loop:
 2. Initiate Editor mode.
    1. Pick a page with the following priority:
       1. if there is no page at all, create the highest-level topic page;
-      2. if a page exists on disk but not in the database, pick it and add it to the database;
-      3. if a page does not have a score, pick it;
-      4. otherwise, pick the page with the lowest score.
+      2. otherwise, pick the page with the lowest score.
    2. If it is a topic page (eg. Manufacturing),
       1. If it is empty: create its content, with the links, and create the subpages corresponding to those links, leaving them empty.
          Add it, along with its subpages, to the page database.
@@ -138,7 +136,8 @@ It should, in a loop:
          address them, delete the agent notes.
          If it creates a page, that page should be added to the database; if it deletes it, it should be removed from the database.
          If it deletes the page wholesale, it should update the parent topic page to remove the link to the deleted page, before concluding the work.
-   4. Reset the page's score to null, and update the page's edit timestamp to the current time.
+   4. The agent should now make sure there are no dead links nor unreachable pages, handling them as needed.
+   5. Reset the page's score to null, and update the page's edit timestamp to the current time.
 
 The agent has access to the following tools in order to perform its duties:
 - `web_search(query)`: searches the Web for the query and returns a list of relevant links and snippets.
@@ -149,6 +148,7 @@ The agent has access to the following tools in order to perform its duties:
 - `read_file(path)`: reads the content of the file at the given path and returns it as text.
 - `edit_file(path, lineno_start, lineno_end, new_content)`: edits the file at the given path, replacing the content from `lineno_start` to `lineno_end` (both included, 1-indexed) with `new_content`.
 - `delete_file(path)`: deletes the file at the given path.
+- `rename_file(path, new_path)`: changes the name of the file or its location in the hierarchy.
 
 The agent should have reasoning on, and preserve reasoning and the message history between calls, for instance after using tool calls.
 Reset the context to the base prompt on every loop however.

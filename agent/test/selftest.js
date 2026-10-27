@@ -15,7 +15,7 @@ import { pickModelAndBudget, LlmClient } from '../llm.js';
 import { runAgent } from '../agent.js';
 import { loadConfig } from '../config.js';
 import { Store } from '../store.js';
-import { createTools, findMathProblems } from '../tools.js';
+import { createTools, findMathProblems, TOOLS_GUIDE } from '../tools.js';
 import { makeRng } from '../util.js';
 import { STYLE_GUIDE } from '../style.js';
 import { createTopicPagePrompt } from '../prompts.js';
@@ -147,10 +147,11 @@ await startMockServer(PORT);
   requestLog.length = 0; callsLog.length = 0;
   searchLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p1');
-  // Run 1: nothing on disk -> editor creates the highest-level topic page and
-  // its empty subpages. Runs 2-3: the reviewer scores one page at a time,
-  // the editor fills the unscored ones.
-  const r = await agent(['--topic', 'Manufacturing', '--runs', '3'], { contentDir, notesDir, authorNotesDir });
+  // Run 1: nothing on disk -> the editor creates the highest-level topic page
+  // and its empty subpages. Each later run: the reviewer scores the oldest
+  // unscored page (empty pages included), and the editor works on the
+  // lowest-scored page — never on a page without a score.
+  const r = await agent(['--topic', 'Manufacturing', '--runs', '5'], { contentDir, notesDir, authorNotesDir });
   console.log(`\n--- phase 1 (creation) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
 
   const mfg = path.join(contentDir, 'Manufacturing/Readme.md');
@@ -169,23 +170,37 @@ await startMockServer(PORT);
   );
   const db = JSON.parse(content(path.join(path.dirname(contentDir), 'pages.json')));
   check(
-    'p1: the page database tracks types, scores and review timestamps',
+    'p1: the page database tracks types, review and edit timestamps (each page reviewed, then edited)',
     db.pages['Manufacturing/Readme.md']?.type === 'topic' &&
+      db.pages['Manufacturing/Electronics/Readme.md']?.type === 'topic' &&
       db.pages['Manufacturing/Electronics/Batteries.md']?.type === 'explanation' &&
-      db.pages['Manufacturing/Readme.md']?.score === 42 &&
-      db.pages['Manufacturing/Electronics/Readme.md']?.score === 42 &&
-      typeof db.pages['Manufacturing/Readme.md']?.reviewedAt === 'string' &&
-      db.pages['Manufacturing/Electronics/Batteries.md']?.score === null,
+      [
+        'Manufacturing/Readme.md',
+        'Manufacturing/Electronics/Readme.md',
+        'Manufacturing/Electronics/Batteries.md',
+      ].every(
+        (rel) =>
+          db.pages[rel]?.score === null &&
+          typeof db.pages[rel]?.reviewedAt === 'string' &&
+          typeof db.pages[rel]?.editedAt === 'string',
+      ),
     JSON.stringify(db),
   );
   check(
     'p1: the task sequence matches the README algorithm',
     taskCount('create-topic-page') === 2 &&
       taskCount('create-explanation-page') === 1 &&
-      taskCount('evaluate-topic-page') === 2 &&
+      taskCount('evaluate-topic-page') === 3 &&
+      taskCount('evaluate-explanation-page') === 1 &&
       r.stdout.includes('no pages at all; creating the highest-level topic page') &&
-      r.stdout.includes('created the empty subpage Manufacturing/Electronics/Readme.md'),
+      r.stdout.includes('created the empty subpage Manufacturing/Electronics/Readme.md') &&
+      r.stdout.includes('created the empty subpage Manufacturing/Electronics/Batteries.md'),
     requestLog.join(','),
+  );
+  check(
+    'p1: the editor never picks a page without a score',
+    !r.stdout.includes('lowest score (null'),
+    r.stdout.split('\n').filter((l) => l.includes('for editing')).join(' | '),
   );
   check(
     'p1: /v1/models is not called when TECHNOPEDIA_HOST is set',
@@ -249,6 +264,13 @@ await startMockServer(PORT);
     'p2: the notes queue is empty after the visit',
     Object.keys(index.pages).length === 0,
     JSON.stringify(index),
+  );
+  check(
+    'p2: the link-integrity check runs after the edit (2.4) and logs what remains',
+    r.stdout.includes('step 2.4:') &&
+      r.stdout.includes('unreachable page: Manufacturing/Electronics.md has no parent topic page') &&
+      r.stdout.includes('1 violation(s) remain'),
+    r.stdout.slice(-400),
   );
 }
 
@@ -627,7 +649,7 @@ await startMockServer(PORT);
     content(path.join(contentDir, 'Manufacturing/Electronics/Readme.md')).includes(
       'notes-addressed',
     ) &&
-      JSON.stringify(Object.keys(readIndex(notesDir).pages)) === '["Manufacturing/Readme.md"]',
+      Object.keys(readIndex(notesDir).pages).length === 0,
     JSON.stringify(readIndex(notesDir)),
   );
 }
@@ -687,8 +709,10 @@ await startMockServer(PORT);
     'p6d: every step of the loop is logged with its number',
     /step 1\.1\.2:/.test(r.stdout) &&
       /step 1\.2:/.test(r.stdout) &&
-      /step 2\.1\.4:/.test(r.stdout) &&
-      /step 2\.3\.3:/.test(r.stdout),
+      /step 2\.1\.2:/.test(r.stdout) &&
+      /step 2\.3\.3:/.test(r.stdout) &&
+      /step 2\.4:/.test(r.stdout) &&
+      /step 2\.5:/.test(r.stdout),
     r.stdout.slice(-500),
   );
 }
@@ -797,54 +821,90 @@ await startMockServer(PORT);
 
 // -- Phase 6h: table rule violations, and parent cleanup on page deletion ------
 {
-  const { contentDir, notesDir, authorNotesDir } = freshDirs('p6h');
-  seed(
-    contentDir,
-    'Manufacturing/Readme.md',
-    [
-      '# Manufacturing',
-      '',
-      '<table>',
-      '<tr><th>Class</th><th>Relation</th></tr>',
-      '<tr><td>[Electronics](./Electronics/Readme.md)</td><td>builds devices</td></tr>',
-      '<tr><td>[Electronics](./Electronics/Readme.md)</td><td>builds devices</td></tr>',
-      '</table>',
-      '',
-    ].join('\n'),
-  );
-  seed(
-    contentDir,
-    'Manufacturing/Electronics/Readme.md',
-    '# Electronics\n\n<table>\n<tr><th>Class</th></tr>\n</table>\n',
-  );
-  fs.mkdirSync(notesDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(notesDir, 'Manufacturing__Electronics__Readme.md'),
-    '## Delete\n\nDelete the page entirely.\n',
-  );
-  const r = await agent(['--runs', '2'], {
-    contentDir,
-    notesDir,
-    authorNotesDir,
-  });
-  console.log(`\n--- phase 6h (table rule + deletion cleanup) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
-  check(
-    'p6h: a duplicated link across rows is a structural finding',
-    r.stdout.includes('categorization table rule violations') &&
-      r.stdout.includes('is listed in 2 rows'),
-    r.stdout.slice(0, 300),
-  );
-  const parent = content(path.join(contentDir, 'Manufacturing/Readme.md'));
-  check(
-    'p6h: deleting the subtopic strips its link from the parent',
-    r.status === 0 &&
-      !r.stdout.includes('ENOENT') &&
-      !exists(path.join(contentDir, 'Manufacturing/Electronics/Readme.md')) &&
-      !parent.includes('./Electronics/Readme.md') &&
-      parent.includes('Electronics') &&
-      r.stdout.includes('removed the link to the deleted page'),
-    parent,
-  );
+  // 6h-1: a link duplicated across table rows reaches the evaluation. The
+  // child page is reviewed first; the parent (carrying the duplicated rows)
+  // is reviewed on the second run.
+  {
+    requestLog.length = 0; callsLog.length = 0;
+    const { contentDir, notesDir, authorNotesDir } = freshDirs('p6h1');
+    seed(
+      contentDir,
+      'Manufacturing/Readme.md',
+      [
+        '# Manufacturing',
+        '',
+        '<table>',
+        '<tr><th>Class</th><th>Relation</th></tr>',
+        '<tr><td>[Electronics](./Electronics/Readme.md)</td><td>builds devices</td></tr>',
+        '<tr><td>[Electronics](./Electronics/Readme.md)</td><td>builds devices</td></tr>',
+        '</table>',
+        '',
+      ].join('\n'),
+    );
+    seed(
+      contentDir,
+      'Manufacturing/Electronics/Readme.md',
+      '# Electronics\n\n<table>\n<tr><th>Class</th></tr>\n</table>\n',
+    );
+    const r = await agent(['--runs', '2'], {
+      contentDir,
+      notesDir,
+      authorNotesDir,
+    });
+    console.log(`\n--- phase 6h1 (table rule) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+    check(
+      'p6h: a duplicated link across rows is a structural finding',
+      r.status === 0 &&
+        r.stdout.includes('categorization table rule violations') &&
+        r.stdout.includes('is listed in 2 rows'),
+      r.stdout.slice(0, 300),
+    );
+  }
+  // 6h-2: deleting a page strips its link from the parent topic page.
+  {
+    requestLog.length = 0; callsLog.length = 0;
+    const { contentDir, notesDir, authorNotesDir } = freshDirs('p6h2');
+    seed(
+      contentDir,
+      'Manufacturing/Readme.md',
+      [
+        '# Manufacturing',
+        '',
+        '<table>',
+        '<tr><th>Class</th><th>Relation</th></tr>',
+        '<tr><td>[Electronics](./Electronics/Readme.md)</td><td>builds devices</td></tr>',
+        '</table>',
+        '',
+      ].join('\n'),
+    );
+    seed(
+      contentDir,
+      'Manufacturing/Electronics/Readme.md',
+      '# Electronics\n\n<table>\n<tr><th>Class</th></tr>\n</table>\n',
+    );
+    fs.mkdirSync(notesDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(notesDir, 'Manufacturing__Electronics__Readme.md'),
+      '## Delete\n\nDelete the page entirely.\n',
+    );
+    const r = await agent(['--runs', '1'], {
+      contentDir,
+      notesDir,
+      authorNotesDir,
+    });
+    console.log(`\n--- phase 6h2 (deletion cleanup) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+    const parent = content(path.join(contentDir, 'Manufacturing/Readme.md'));
+    check(
+      'p6h: deleting the subtopic strips its link from the parent',
+      r.status === 0 &&
+        !r.stdout.includes('ENOENT') &&
+        !exists(path.join(contentDir, 'Manufacturing/Electronics/Readme.md')) &&
+        !parent.includes('./Electronics/Readme.md') &&
+        parent.includes('Electronics') &&
+        r.stdout.includes('removed the link to the deleted page'),
+      parent,
+    );
+  }
 }
 
 // -- Phase 6i: grep/find_files can be scoped to a folder -----------------------
@@ -990,6 +1050,187 @@ await startMockServer(PORT);
   );
 }
 
+// -- Phase 6l: dead links and unreachable pages are handled (2.4) ------------
+{
+  // 6l-1: a dead link, an unreachable page and an empty leftover page.
+  {
+    requestLog.length = 0; callsLog.length = 0; userLog.length = 0;
+    flags.fixLinkIntegrity = true;
+    const { contentDir, notesDir, authorNotesDir } = freshDirs('p6l1');
+    seed(
+      contentDir,
+      'Manufacturing/Readme.md',
+      '# Manufacturing\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[Electronics](./Electronics/Readme.md)</td></tr>\n</table>\n',
+    );
+    seed(
+      contentDir,
+      'Manufacturing/Electronics/Readme.md',
+      '# Electronics\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[Batteries](./Batteries.md)</td></tr>\n</table>\n',
+    );
+    seed(contentDir, 'Manufacturing/Orphan.md', '# Orphan\n\nUtility of the orphan page.\n');
+    seed(contentDir, 'Manufacturing/Leftover.md', '');
+    const r = await agent(['--runs', '1'], {
+      contentDir,
+      notesDir,
+      authorNotesDir,
+      env: { TECHNOPEDIA_WEB_SEARCH_URL: 'off' },
+    });
+    flags.fixLinkIntegrity = false;
+    console.log(`\n--- phase 6l (link integrity) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+    check(
+      'p6l: the link-integrity step ran after the edit and handled the findings',
+      r.status === 0 &&
+        taskCount('fix-link-integrity') === 1 &&
+        r.stdout.includes('step 2.4: found 1 dead link(s) and 2 unreachable page(s); handling them') &&
+        r.stdout.includes('handled: no dead links nor unreachable pages remain'),
+      requestLog.join(','),
+    );
+    check(
+      'p6l: the dead link was handled by creating the missing page',
+      exists(path.join(contentDir, 'Manufacturing/Electronics/Batteries.md')) &&
+        content(path.join(contentDir, 'Manufacturing/Electronics/Batteries.md')).trim() === '',
+      content(path.join(contentDir, 'Manufacturing/Electronics/Batteries.md')),
+    );
+    const parent = content(path.join(contentDir, 'Manufacturing/Readme.md'));
+    check(
+      'p6l: the unreachable pages were handled by referencing them in their parent',
+      parent.includes('./Leftover.md') && parent.includes('./Orphan.md'),
+      parent,
+    );
+    check(
+      'p6l: the findings reached the handling task',
+      userLog.some(
+        (u) =>
+          u.includes('TASK: fix-link-integrity') &&
+          u.includes('links to Batteries.md (the page does not exist)') &&
+          u.includes('Manufacturing/Orphan.md is not referenced in its parent topic page'),
+      ),
+      userLog.filter((u) => u.includes('fix-link-integrity')).join(' ||| ').slice(0, 300),
+    );
+    check(
+      'p6l: the editor pick is logged with the new 2.1.2 numbering and the run concludes at 2.5',
+      r.stdout.includes('step 2.1.2: picked page Manufacturing/Electronics/Readme.md for editing') &&
+        r.stdout.includes('step 2.5: reset the score'),
+      r.stdout.slice(-400),
+    );
+    const index = readIndex(notesDir);
+    check(
+      'p6l: the link-integrity step left no notes behind (the review notes were addressed)',
+      Object.keys(index.pages).length === 0,
+      JSON.stringify(index),
+    );
+    check(
+      'p6l: the page created through the tools was folded into the database',
+      JSON.parse(content(path.join(path.dirname(contentDir), 'pages.json'))).pages[
+        'Manufacturing/Electronics/Batteries.md'
+      ]?.score === null,
+      content(path.join(path.dirname(contentDir), 'pages.json')),
+    );
+  }
+  // 6l-2: an unreachable page whose parent topic page does not exist.
+  {
+    requestLog.length = 0; callsLog.length = 0;
+    flags.fixLinkIntegrity = true;
+    const { contentDir, notesDir, authorNotesDir } = freshDirs('p6l2');
+    seed(contentDir, 'Manufacturing/Electronics.md', '# Electronics\n\nUtility of Electronics.\n');
+    const r = await agent(['--runs', '1'], {
+      contentDir,
+      notesDir,
+      authorNotesDir,
+      env: { TECHNOPEDIA_WEB_SEARCH_URL: 'off' },
+    });
+    flags.fixLinkIntegrity = false;
+    console.log(`\n--- phase 6l2 (missing parent) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
+
+    const parent = content(path.join(contentDir, 'Manufacturing/Readme.md'));
+    check(
+      'p6l2: the missing parent topic page was created with a link to the page',
+      r.status === 0 &&
+        taskCount('fix-link-integrity') === 1 &&
+        parent.includes('<table>') &&
+        parent.includes('[Electronics](./Electronics.md)') &&
+        r.stdout.includes('handled: no dead links nor unreachable pages remain'),
+      parent,
+    );
+    check(
+      'p6l2: the visit still concluded cleanly (notes resolved, score reset)',
+      Object.keys(readIndex(notesDir).pages).length === 0 &&
+        content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('notes-addressed'),
+      JSON.stringify(readIndex(notesDir)),
+    );
+  }
+}
+
+// -- Phase 6m: rename_file moves files and folders within the content --------
+{
+  const { contentDir, notesDir, authorNotesDir } = freshDirs('p6m');
+  const store = new Store({ contentDir, notesDir, authorNotesDir, logger: () => {} });
+  const tools = createTools({ config: { contentDir, webSearchUrl: 'off' }, store, logger: () => {} });
+
+  seed(contentDir, 'Manufacturing/Old.md', '# Old\n');
+  const moved = await tools.exec('rename_file', {
+    path: 'Manufacturing/Old.md',
+    new_path: 'Manufacturing/New.md',
+  });
+  check(
+    'p6m: rename_file moves a page and reports both paths',
+    !exists(path.join(contentDir, 'Manufacturing/Old.md')) &&
+      content(path.join(contentDir, 'Manufacturing/New.md')).includes('# Old') &&
+      moved.renamed === 'Manufacturing/Old.md' &&
+      moved.to === 'Manufacturing/New.md',
+    JSON.stringify(moved),
+  );
+
+  seed(contentDir, 'Manufacturing/Electronics/Readme.md', '# Electronics\n');
+  seed(contentDir, 'Manufacturing/Electronics/Batteries.md', '# Batteries\n');
+  const movedDir = await tools.exec('rename_file', {
+    path: 'Manufacturing/Electronics',
+    new_path: 'Manufacturing/Devices',
+  });
+  check(
+    'p6m: rename_file moves a whole topic folder',
+    !exists(path.join(contentDir, 'Manufacturing/Electronics')) &&
+      exists(path.join(contentDir, 'Manufacturing/Devices/Readme.md')) &&
+      exists(path.join(contentDir, 'Manufacturing/Devices/Batteries.md')) &&
+      movedDir.to === 'Manufacturing/Devices',
+    JSON.stringify(movedDir),
+  );
+
+  const noSource = await tools.exec('rename_file', {
+    path: 'Manufacturing/Nope.md',
+    new_path: 'Manufacturing/X.md',
+  });
+  check(
+    'p6m: renaming a missing file is a tool error',
+    typeof noSource.error === 'string' && noSource.error.includes('does not exist'),
+    JSON.stringify(noSource),
+  );
+  const destExists = await tools.exec('rename_file', {
+    path: 'Manufacturing/New.md',
+    new_path: 'Manufacturing/Devices/Readme.md',
+  });
+  check(
+    'p6m: renaming onto an existing file is a tool error',
+    typeof destExists.error === 'string' && destExists.error.includes('already exists'),
+    JSON.stringify(destExists),
+  );
+  const outside = await tools.exec('rename_file', {
+    path: 'Manufacturing/New.md',
+    new_path: '../New.md',
+  });
+  check(
+    'p6m: renaming outside the content folder is a tool error',
+    typeof outside.error === 'string' && outside.error.includes('outside the content folder'),
+    JSON.stringify(outside),
+  );
+  check(
+    'p6m: the tools guide documents rename_file',
+    TOOLS_GUIDE.includes('rename_file(path, new_path)'),
+    TOOLS_GUIDE.split('\n').filter((l) => l.includes('rename_file')).join(' | '),
+  );
+}
+
 // -- Phase 7: no --runs loops indefinitely ------------------------------------
 {
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p7');
@@ -1102,7 +1343,7 @@ await startMockServer(PORT);
       content(path.join(contentDir, 'Manufacturing/Electronics.md')).includes('notes-addressed'),
   );
   check(
-    'p7b: the resumed run recorded the timestamps and reset the score (2.4)',
+    'p7b: the resumed run recorded the timestamps and reset the score (2.5)',
     (() => {
       const db = JSON.parse(content(pagesDb));
       const entry = db.pages['Manufacturing/Electronics.md'];
@@ -1208,8 +1449,8 @@ await startMockServer(PORT);
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p11');
   // One topic page listing three explanation pages, all with content: the
   // reviewer phase picks the three explanation pages; the editor phase picks
-  // the topic page (no score yet) plus the two explanation pages the review
-  // just scored (Gamma is left with its notes for a later run).
+  // the three pages the review just scored. The topic page has no score yet
+  // and is not eligible for the editor.
   seed(
     contentDir,
     'Manufacturing/Readme.md',
@@ -1234,25 +1475,30 @@ await startMockServer(PORT);
   check(
     'p11: the editor phase edits N pages in one run',
     r.status === 0 &&
-      taskCount('address-notes') === 2 &&
-      r.stdout.includes('picked page Manufacturing/Readme.md for editing') &&
+      taskCount('address-notes') === 3 &&
       r.stdout.includes('picked page Manufacturing/Alpha.md for editing') &&
-      r.stdout.includes('picked page Manufacturing/Beta.md for editing'),
+      r.stdout.includes('picked page Manufacturing/Beta.md for editing') &&
+      r.stdout.includes('picked page Manufacturing/Gamma.md for editing'),
     requestLog.join(','),
+  );
+  check(
+    'p11: the editor never picks the topic page without a score',
+    !r.stdout.includes('picked page Manufacturing/Readme.md for editing'),
+    r.stdout.split('\n').filter((l) => l.includes('for editing')).join(' | '),
   );
   check(
     'p11: parallel workers are tagged with their page in the log',
     r.stdout.includes('[Alpha]') &&
       r.stdout.includes('[Beta]') &&
-      r.stdout.includes('[Gamma]') &&
-      r.stdout.includes('[Manufacturing]'),
+      r.stdout.includes('[Gamma]'),
     r.stdout,
   );
   check(
-    'p11: the parallel run addressed the notes of the edited pages only',
+    'p11: the parallel run addressed the notes of all edited pages',
     content(path.join(contentDir, 'Manufacturing/Alpha.md')).includes('notes-addressed') &&
       content(path.join(contentDir, 'Manufacturing/Beta.md')).includes('notes-addressed') &&
-      Object.keys(readIndex(notesDir).pages).join(',') === 'Manufacturing/Gamma.md',
+      content(path.join(contentDir, 'Manufacturing/Gamma.md')).includes('notes-addressed') &&
+      Object.keys(readIndex(notesDir).pages).length === 0,
     JSON.stringify(readIndex(notesDir)),
   );
   check(
@@ -1263,12 +1509,14 @@ await startMockServer(PORT);
       const alpha = db.pages['Manufacturing/Alpha.md'];
       const readme = db.pages['Manufacturing/Readme.md'];
       return (
-        gamma?.score === 42 &&
+        gamma?.score === null &&
         typeof gamma?.reviewedAt === 'string' &&
+        typeof gamma?.editedAt === 'string' &&
         alpha?.score === null &&
         typeof alpha?.editedAt === 'string' &&
         readme?.score === null &&
-        typeof readme?.editedAt === 'string'
+        readme?.reviewedAt === null &&
+        readme?.editedAt === undefined
       );
     })(),
     content(path.join(path.dirname(contentDir), 'pages.json')),

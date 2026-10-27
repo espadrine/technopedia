@@ -255,6 +255,64 @@ Reply: {"done": true}`,
   ];
 }
 
+// README 2.4: after the editor's work on a page, make sure there are no dead
+// links nor unreachable pages. The findings come from a mechanical scan of
+// the whole encyclopedia; the model handles them with its tools.
+export function fixLinkIntegrityPrompt(segments, findings) {
+  const deadLinks = findings.deadLinks
+    .map((d) => `- ${d.file} links to ${d.href} (the page does not exist)`)
+    .join('\n');
+  const unreachable = findings.unreachable
+    .map((u) => {
+      const where = u.parentMissing
+        ? `has no parent topic page (${u.parent} does not exist)`
+        : `is not referenced in its parent topic page ${u.parent}`;
+      return `- ${u.rel} ${where}${u.empty ? ' (empty page)' : ''}`;
+    })
+    .join('\n');
+  return [
+    sysTools('You are the autonomous contributor agent of Technopedia, fixing link integrity violations.'),
+    user(
+      `TASK: fix-link-integrity
+
+The editor just worked on the page "${segments.join(' / ')}". A mechanical scan
+of the whole encyclopedia found these violations of the link integrity rules:
+
+Dead links (links to pages that do not exist):
+${deadLinks || '(none)'}
+
+Unreachable pages (pages no parent topic page references):
+${unreachable || '(none)'}
+
+The rules (from the style guide):
+- No dead links: All links must correspond to a page that really exists.
+- No unreachable pages: All explanation pages must be referenced in a parent topic page.
+
+Handle every violation, as needed:
+- A dead link: create the missing page, or remove or fix the link. Create the
+  page with edit_file at line 1 of the missing file (lineno_start=1,
+  lineno_end=1; new_content becomes the whole file): an explanation page is
+  <Name>.md, a topic page is <Name>/Readme.md, resolved against the folder of
+  the page carrying the link. Leave the page empty when you have nothing to
+  write in it yet; the editor fills empty pages. Remove or fix the link with
+  edit_file on the page that carries it when the link is a mistake.
+- An unreachable page: reference it in its parent topic page (edit the parent
+  with edit_file, listing the subtopic in the parent's categorization table
+  when it has one), or move the page under its proper parent with rename_file,
+  or delete it with delete_file when it should not exist (eg. an empty
+  leftover). When the parent topic page itself is missing, create it with
+  edit_file at line 1 of its Readme.md, with a link to the page.
+- Do not change anything else: never break a link or a reference that is not
+  listed above.
+
+Read a file with read_file when you need its exact line numbers before
+editing it.
+
+Reply: {"done": true}`,
+    ),
+  ];
+}
+
 export function evaluateTopicPagePrompt(segments, pageContent, findings, authorNotes = [], agentNotes = []) {
   const findingsText =
     findings.length > 0
@@ -291,7 +349,8 @@ only if there is truly nothing to improve).
 
 As part of this review, give the page a score from 0 to 100, which represents
 how much of the page should be reworked: 0 means all of it should be rewritten
-or deleted, 100 means it is perfect and needs no work.
+or deleted, 100 means it is perfect and needs no work. An empty page needs its
+whole content written: score it accordingly (low).
 
 Reply: {"notes": ["<note>", "..."], "score": <0-100>, "reasoning": "..."}`,
     ),
@@ -349,7 +408,8 @@ only if there is truly nothing to improve).
 
 As part of this review, give the page a score from 0 to 100, which represents
 how much of the page should be reworked: 0 means all of it should be rewritten
-or deleted, 100 means it is perfect and needs no work.
+or deleted, 100 means it is perfect and needs no work. An empty page needs its
+whole content written: score it accordingly (low).
 
 Reply: {"notes": ["<note>", "..."], "score": <0-100>, "reasoning": "..."}`,
     ),

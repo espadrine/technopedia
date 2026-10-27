@@ -11,9 +11,9 @@
 //
 // 1. Reviewer mode.
 //    1. Pick a page: none at all -> move on to editor mode; a page on disk
-//       but not in the database -> add it; pages with a null score -> the
-//       one amongst them with the oldest edit timestamp; otherwise the page
-//       with the oldest review timestamp.
+//       but not in the database -> add it; pages with a null score (empty
+//       pages included) -> the one amongst them with the oldest edit
+//       timestamp; otherwise the page with the oldest review timestamp.
 //    2. Evaluate the page (adherence to the rules, and per its type the
 //       categorization / clarity / overlap / fact-check checks). The review
 //       leaves one or multiple improvement notes and gives the page a score
@@ -21,9 +21,12 @@
 //       the database as an exponential average (25% latest, 75% previous),
 //       and stamps the page's review timestamp.
 // 2. Editor mode.
-//    1. Pick a page: none at all -> create the highest-level topic page; a
-//       page on disk but not in the database -> add it; a page without a
-//       score -> pick it; otherwise the page with the lowest score.
+//    1. Pick a page: none at all -> create the highest-level topic page;
+//       otherwise the page with the lowest score. Only reviewed pages are
+//       eligible: the reviewer scores every page first (1.1.3, empty pages
+//       included), and the editor picks the lowest score amongst them. Pages
+//       found on disk but not in the database are folded in by the reconcile
+//       at the mode boundary (README 1.1.2).
 //    2. Topic page: if it is empty, create its content with its links and
 //       create the linked subpages (left empty). If it has more than 10
 //       subtopics, split it into 2 group pages. Then address the notes: the
@@ -31,7 +34,12 @@
 //    3. Explanation page: if it is empty, create its content. If it has over
 //       10 sections, split it into 2 group pages added to the parent topic
 //       page. Then address the notes.
-//    4. Reset the page's score to null and stamp its edit timestamp.
+//    4. Make sure there are no dead links nor unreachable pages in the whole
+//       encyclopedia, handling them as needed: a mechanical scan finds the
+//       violations, the model handles them with its tools, and whatever
+//       remains is logged (the reviewer flags the same violations per page
+//       on its next visit of the affected pages).
+//    5. Reset the page's score to null and stamp its edit timestamp.
 //
 // The agent logs every step of the loop it is on (eg. "1.2", "2.2.3"),
 // following the numbering of the README. Pages created or deleted through
@@ -51,6 +59,7 @@ import {
   editParentLinksPrompt,
   evaluateExplanationPagePrompt,
   evaluateTopicPagePrompt,
+  fixLinkIntegrityPrompt,
   splitExplanationPagePrompt,
   splitTopicPagePrompt,
 } from './prompts.js';
@@ -576,19 +585,18 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
 
   // The up-to-`count` best pages to review, in filter order (README 1.1.3 /
   // 1.1.4): pages without a score first (never reviewed, or just edited by
-  // 2.4), oldest edit first; then the pages reviewed the longest time ago.
+  // 2.5), oldest edit first; then the pages reviewed the longest time ago.
+  // Empty pages are reviewed too: the review scores them (an empty page
+  // needs its whole content written, so it scores low), which is what makes
+  // them eligible for the editor (2.1.2 picks only scored pages).
   const pickReviewerPages = async (count) => {
     const entries = Object.entries(db.pages).sort(([a], [b]) => (a < b ? -1 : 1));
     if (entries.length === 0) return [];
     const candidates = [];
     for (const [rel, entry] of entries) {
-      // A page still empty (its content is created by the editor, 2.2.1 /
-      // 2.3.1) has nothing to review yet: skip it until it is filled in.
+      // A page deleted since the last reconcile has nothing to review.
       const content = await store.readPage(fileOf(rel)).catch(() => null);
-      if (content === null || content.trim() === '') {
-        step('1.1.3', `skipping the empty page ${rel} (nothing to review yet)`);
-        continue;
-      }
+      if (content === null) continue;
       candidates.push([rel, entry]);
     }
     if (candidates.length === 0) return [];
@@ -611,17 +619,17 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     }));
   };
 
-  // The up-to-`count` best pages to edit, in filter order (README 2.1.3 /
-  // 2.1.4): pages without a score first (they have content to create or
-  // notes to address), then the lowest score, ties broken by the least
-  // recently edited page so equally-scored pages do not starve.
+  // The up-to-`count` best pages to edit (README 2.1.2: pick the page with
+  // the lowest score). Only pages the reviewer has scored are eligible: a
+  // page without a score has never been reviewed and is not the editor's to
+  // pick — the reviewer scores it first (1.1.3, empty pages included), and
+  // it is then edited. Ties are broken by the least recently edited page so
+  // equally-scored pages do not starve.
   const pickEditorPages = (count) => {
     const entries = Object.entries(db.pages).sort(([a], [b]) => (a < b ? -1 : 1));
     if (entries.length === 0) return [];
-    const hasScore = (entry) => entry.score !== null && entry.score !== undefined;
-    const unscored = entries.filter(([, entry]) => !hasScore(entry));
     const scored = entries
-      .filter(([, entry]) => hasScore(entry))
+      .filter(([, entry]) => entry.score !== null && entry.score !== undefined)
       .sort((a, b) => {
         if (a[1].score !== b[1].score) return a[1].score - b[1].score;
         const ea = a[1].editedAt ?? '';
@@ -629,27 +637,104 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
         if (ea !== eb) return ea < eb ? -1 : 1;
         return a[0] < b[0] ? -1 : 1;
       });
-    return [...unscored, ...scored].slice(0, count).map(([rel, entry]) => ({
+    return scored.slice(0, count).map(([rel, entry]) => ({
       rel,
-      step: hasScore(entry) ? '2.1.4' : '2.1.3',
-      reason: hasScore(entry) ? `lowest score (${entry.score.toFixed(1)})` : 'no score yet',
+      step: '2.1.2',
+      reason: `lowest score (${entry.score.toFixed(1)})`,
     }));
   };
 
-  // 2.4: after the editor concludes its work on a page, the page's score is
+  // The link-integrity invariants of the whole encyclopedia (README: "No
+  // dead links" / "No unreachable pages"), computed mechanically over every
+  // page on disk: dead links (links to pages that do not exist) and
+  // unreachable pages (pages no parent topic page references; the
+  // high-level topic pages are the roots and are exempt).
+  const scanLinkIntegrity = async () => {
+    const deadLinks = [];
+    const unreachable = [];
+    for (const rel of await store.listDiskPages()) {
+      const file = fileOf(rel);
+      const content = await store.readPage(file).catch(() => null);
+      if (content === null) continue;
+      for (const href of await store.findBrokenLinks(file, content)) {
+        deadLinks.push({ file: rel, href });
+      }
+      const segments = segmentsOf(rel);
+      if (segments.length > 1 && !(await store.checkParentReference(segments, store.pageTypeOf(rel)))) {
+        const parent = store.rel(store.topicPagePath(segments.slice(0, -1)));
+        unreachable.push({
+          rel,
+          parent,
+          parentMissing: (await store.readOptional(store.topicPagePath(segments.slice(0, -1)))) === null,
+          empty: content.trim() === '',
+        });
+      }
+    }
+    return { deadLinks, unreachable };
+  };
+
+  // 2.4: after the editor's work on a page, make sure there are no dead
+  // links nor unreachable pages, handling them as needed. The mechanical
+  // scan covers the whole encyclopedia (the editor's own work may have
+  // created or deleted pages); the model handles the findings with its
+  // tools (create the missing page, fix or remove the link, reference the
+  // page in its parent topic page, move it with rename_file, delete it when
+  // it should not exist). Whatever the handling leaves behind is logged:
+  // the reviewer flags the same violations per page on its next visit.
+  const ensureLinkIntegrity = async (segments, task) => {
+    const before = await scanLinkIntegrity();
+    const total = (s) => s.deadLinks.length + s.unreachable.length;
+    if (total(before) === 0) {
+      task.step('2.4', 'no dead links nor unreachable pages');
+      return;
+    }
+    summary.actions.push('fix-links');
+    task.step('2.4', `found ${before.deadLinks.length} dead link(s) and ${before.unreachable.length} unreachable page(s); handling them`);
+    for (const d of before.deadLinks) {
+      task.step('2.4', `dead link: ${d.file} links to ${d.href} (the page does not exist)`);
+    }
+    for (const u of before.unreachable) {
+      task.step(
+        '2.4',
+        u.parentMissing
+          ? `unreachable page: ${u.rel} has no parent topic page (${u.parent} does not exist)`
+          : `unreachable page: ${u.rel} is not referenced in its parent topic page ${u.parent}`,
+      );
+    }
+    if (config.dryRun) {
+      task.step('2.4', 'dry run: the violations are logged, not handled');
+      return;
+    }
+    await llm.chatJson(fixLinkIntegrityPrompt(segments, before), {
+      temperature: DECISION_TEMPERATURE,
+      tools: task.tools,
+      label: 'fix-link-integrity',
+    });
+    const after = await scanLinkIntegrity();
+    if (total(after) === 0) {
+      task.step('2.4', 'handled: no dead links nor unreachable pages remain');
+    } else {
+      task.step(
+        '2.4',
+        `${total(after)} violation(s) remain; the reviewer will flag them on the affected pages`,
+      );
+    }
+  };
+
+  // 2.5: after the editor concludes its work on a page, the page's score is
   // reset to null (so the reviewer re-evaluates the edited page from scratch,
   // 1.1.3) and its edit timestamp is updated to the current time. Skipped
   // when the editor deleted the page: it is no longer in the database.
   const editorConclude = async (rel, task) => {
     const entry = db.pages[rel];
     if (!entry) {
-      task.step('2.4', `${rel} was deleted; nothing to conclude`);
+      task.step('2.5', `${rel} was deleted; nothing to conclude`);
       return;
     }
     entry.score = null;
     entry.editedAt = nowIso();
     await store.savePagesDb(db);
-    task.step('2.4', `reset the score of ${rel} to null and stamped its edit time`);
+    task.step('2.5', `reset the score of ${rel} to null and stamped its edit time`);
   };
 
   // 2.1.1: no page at all -> create the highest-level topic page (empty: its
@@ -703,6 +788,9 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
               await reviewPage(rel, task);
             } else {
               await editPage(rel, task);
+              // 2.4 runs even when the visit deleted the page: the deletion
+              // itself may have left dead links or unreachable pages behind.
+              await ensureLinkIntegrity(segmentsOf(rel), task);
               await editorConclude(rel, task);
             }
             run.done.push(rel);
@@ -741,16 +829,24 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     await syncDb('2.1.2');
   } else {
     await syncDb('2.1.2');
-    let picks = pickEditorPages(config.parallelism);
-    if (picks.length === 0) {
+    if (Object.keys(db.pages).length === 0) {
+      // 2.1.1: no page at all -> create the highest-level topic page (its
+      // content is created by 2.2.1 in the same run).
       const rel = await createRootTopicPage();
-      picks = [{ rel }];
+      await spawnBatch('edit', [rel]);
     } else {
-      for (const pick of picks) {
-        step(pick.step, `picked page ${pick.rel} for editing (${pick.reason})`);
+      const picks = pickEditorPages(config.parallelism);
+      if (picks.length === 0) {
+        // Pages exist but none has been reviewed yet: the reviewer scores
+        // them first (1.1.3), the editor picks them up once scored.
+        step('2.1.2', 'no scored page to edit yet; the reviewer scores pages first');
+      } else {
+        for (const pick of picks) {
+          step(pick.step, `picked page ${pick.rel} for editing (${pick.reason})`);
+        }
+        await spawnBatch('edit', picks.map((pick) => pick.rel));
       }
     }
-    await spawnBatch('edit', picks.map((pick) => pick.rel));
     // Pages may have been created or deleted through the tools: fold them
     // back into the database.
     await syncDb('2.1.2');

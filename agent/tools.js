@@ -19,6 +19,7 @@ export const TOOLS_GUIDE = `You have access to the following tools in order to p
 - edit_file(path, lineno_start, lineno_end, new_content): edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file.
   After each edit of a .md file, the result is checked for known invalid LaTeXMarkdown math (broken $\`...\`$ forms, \$\$ display math, math inside raw HTML). If any is found, the tool returns an error listing the offending lines: fix them with another edit_file.
 - delete_file(path): deletes the file at the given path.
+- rename_file(path, new_path): changes the name of the file or its location in the hierarchy: moves the file or folder to new_path, creating the folders of new_path as needed. new_path must not exist yet.
 
 To use a tool, reply with exactly {"tool": "<name>", "args": {...}} and nothing
 else. The result is sent back to you as {"tool_result": ...} in the next
@@ -312,6 +313,31 @@ export function createTools({ config, store, logger = () => {} }) {
       const { target, rel } = resolveInContent(rawPath);
       await fs.rm(target, { force: true });
       return { deleted: rel };
+    },
+
+    async rename_file({ path: rawPath, new_path: rawNewPath } = {}) {
+      if (config.dryRun) throw new Error('rename_file: disabled in dry-run mode');
+      if (!String(rawNewPath ?? '').trim()) throw new Error('rename_file: no new path given');
+      const { target, rel } = resolveInContent(rawPath);
+      const { target: newTarget, rel: newRel } = resolveInContent(rawNewPath);
+      const source = await fs.stat(target).catch(() => null);
+      if (source === null) throw new Error(`rename_file: ${rel} does not exist`);
+      if (newTarget === target) throw new Error('rename_file: the new path is the same as the old path');
+      const dest = await fs.stat(newTarget).catch(() => null);
+      if (dest !== null) throw new Error(`rename_file: ${newRel} already exists`);
+      await fs.mkdir(path.dirname(newTarget), { recursive: true });
+      await fs.rename(target, newTarget);
+      // Remove the folders the move left empty (a renamed-away Readme.md
+      // leaves its topic directory behind), like deletePage does.
+      const root = path.resolve(contentDir);
+      let dir = path.dirname(target);
+      while (dir.length > root.length) {
+        const entries = await fs.readdir(dir).catch(() => null);
+        if (entries === null || entries.length > 0) break;
+        await fs.rmdir(dir);
+        dir = path.dirname(dir);
+      }
+      return { renamed: rel, to: newRel };
     },
   };
 

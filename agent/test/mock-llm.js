@@ -9,6 +9,9 @@
 //   TECHNOPEDIA_HOST=http://127.0.0.1:39999 node agent/index.js --topic Manufacturing
 
 import http from 'node:http';
+// Imported as `posix` (not `path`): reply() has a local `path` variable
+// (the page path of the task), which would shadow the module import.
+import { posix } from 'node:path';
 
 const topicPage = (name, links) =>
   `# ${name}\n\nOverview of ${name}.\n\n## History\n\n- One highlight.\n\n## Classes\n\n<table>\n<tr><th>Class</th><th>Trait</th></tr>\n<tr><td>A</td><td>1</td></tr>\n<tr><td>${links}</td><td>Subtopic</td></tr>\n</table>\n`;
@@ -32,8 +35,10 @@ export const responseFormatLog = [];
 export const searchLog = []; // every /search query it receives
 export const modelsLog = []; // every /v1/models request it receives
 // Test knobs: when set, the matching task fails (HTTP 500) so tests can
-// exercise interrupted runs and their resumption.
-export const flags = { failResumeEval: false, badMathCreation: false };
+// exercise interrupted runs and their resumption. fixLinkIntegrity makes the
+// mock actually handle the findings of the fix-link-integrity task (by
+// default it handles nothing, so the violations remain and are logged).
+export const flags = { failResumeEval: false, badMathCreation: false, fixLinkIntegrity: false };
 
 function reply(task, firstUser, messages) {
   // Interrupted-run test: every evaluation of the page carrying the RESUME
@@ -187,6 +192,82 @@ function reply(task, firstUser, messages) {
         })
         .join('\n');
       return { markdown: `${updated}\n` };
+    }
+    case 'fix-link-integrity': {
+      // By default the mock handles nothing: the violations remain and the
+      // agent logs them (the reviewer flags them per page later). With the
+      // fixLinkIntegrity flag on, the mock fixes every finding with tool
+      // round-trips: a dead link gets its missing page created (empty), an
+      // unreachable page gets linked from its parent topic page (created
+      // when the parent itself is missing).
+      if (!flags.fixLinkIntegrity) return { done: true };
+      const dead = [...firstUser.matchAll(/^- (\S+) links to (\S+) \(the page does not exist\)$/gm)].map(
+        (m) => ({ file: m[1], href: m[2] }),
+      );
+      const unreachable = [
+        ...firstUser.matchAll(/^- (\S+) has no parent topic page \((\S+) does not exist\)( \(empty page\))?$/gm).map((m) => ({
+          rel: m[1],
+          parent: m[2],
+          parentMissing: true,
+        })),
+        ...firstUser.matchAll(/^- (\S+) is not referenced in its parent topic page (\S+)( \(empty page\))?$/gm).map((m) => ({
+          rel: m[1],
+          parent: m[2],
+          parentMissing: false,
+        })),
+      ];
+      const childNameOf = (rel) => {
+        const parts = rel.split('/');
+        return /Readme\.md$/i.test(rel) ? parts[parts.length - 2] : parts[parts.length - 1].replace(/\.md$/i, '');
+      };
+      const queue = [];
+      for (const d of dead) {
+        queue.push({
+          tool: 'edit_file',
+          args: {
+            path: posix.normalize(posix.join(posix.dirname(d.file), d.href)),
+            lineno_start: 1,
+            lineno_end: 1,
+            new_content: '',
+          },
+        });
+      }
+      for (const u of unreachable) {
+        const childHref = `./${posix.relative(posix.dirname(u.parent), u.rel)}`;
+        const childName = childNameOf(u.rel);
+        if (u.parentMissing) {
+          const parentName = u.parent.split('/').slice(-2, -1)[0] ?? u.parent.split('/').pop();
+          queue.push({
+            tool: 'edit_file',
+            args: {
+              path: u.parent,
+              lineno_start: 1,
+              lineno_end: 1,
+              new_content: `# ${parentName}\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[${childName}](${childHref})</td></tr>\n</table>\n`,
+            },
+          });
+        } else {
+          queue.push({ tool: 'read_file', args: { path: u.parent } });
+          queue.push({ appendLink: { parent: u.parent, href: childHref, name: childName } });
+        }
+      }
+      const fix = queue[toolResults.length];
+      if (!fix) return { done: true };
+      if (fix.appendLink) {
+        const read = toolResults[toolResults.length - 1];
+        const lines = String(read?.content ?? '').split('\n');
+        const last = Math.max(1, lines.length);
+        return {
+          tool: 'edit_file',
+          args: {
+            path: fix.appendLink.parent,
+            lineno_start: last,
+            lineno_end: last,
+            new_content: `${lines[last - 1] ?? ''}\n- [${fix.appendLink.name}](${fix.appendLink.href})`,
+          },
+        };
+      }
+      return fix;
     }
     case 'fact-check-queries':
       return { queries: ['specific energy of battery chemistries'] };
