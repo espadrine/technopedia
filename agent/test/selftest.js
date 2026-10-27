@@ -957,6 +957,29 @@ await startMockServer(PORT);
     typeof missing.error === 'string' && missing.error.includes('does not exist'),
     JSON.stringify(missing),
   );
+  // grep(pattern, file, folder): the file parameter narrows the search to a
+  // single file (README: grep(pattern, file, folder)).
+  const fileGrep = await tools.exec('grep', { pattern: '^# ', file: 'Manufacturing/Electronics.md' });
+  check(
+    'p6i: grep with a file only matches inside that file',
+    fileGrep.matches.length === 1 &&
+      fileGrep.matches[0].file === 'Manufacturing/Electronics.md' &&
+      fileGrep.matches[0].text === '# Electronics',
+    JSON.stringify(fileGrep),
+  );
+  const fileGrepNoMatch = await tools.exec('grep', { pattern: '^# ', file: 'Physics/Electromagnetism.md' });
+  check(
+    'p6i: grep with a file returns no matches from other files',
+    fileGrepNoMatch.matches.length === 1 &&
+      fileGrepNoMatch.matches[0].file === 'Physics/Electromagnetism.md',
+    JSON.stringify(fileGrepNoMatch),
+  );
+  const missingFile = await tools.exec('grep', { pattern: 'x', file: 'Manufacturing/Nope.md' });
+  check(
+    'p6i: a missing file is a tool error, not an empty result',
+    typeof missingFile.error === 'string' && missingFile.error.includes('does not exist'),
+    JSON.stringify(missingFile),
+  );
 }
 
 // -- Phase 6j: a non-JSON reply is corrected inside the conversation ---------

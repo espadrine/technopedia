@@ -14,8 +14,8 @@ export const TOOLS_GUIDE = `You have access to the following tools in order to p
 - web_search(query): searches the Web for the query and returns a list of relevant links and snippets.
 - web_fetch(url): fetches the content of the given URL and returns it as text.
 - run_js(code): runs the given JavaScript code in isolated-vm and returns the result. It only has the base JS syntax: it does not have require() etc. Use it only to do quick accurate computation, but you cannot access the file system with it. The value of the last expression is returned; "return" statements are also accepted.
-- grep(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).
-- find_files(pattern, folder): searches the content (or the given folder, relative to the content folder, when provided) for files whose path (including the filename or parent folder name) matches the given pattern. Returns the matching files.
+- grep(pattern, file, folder): searches the content (or the given file, or files inside the given folder) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).
+- find_files(pattern, folder): searches the content (or the given folder) for files whose path (including the filename or parent folder name, upto the content/ folder) matches the given pattern, a regular expression. Returns the matching files.
 - read_file(path): reads the content of the file at the given path and returns it as text. The path is relative to the content folder.
 - edit_file(path, lineno_start, lineno_end, new_content): edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. If lineno_start is omitted, it defaults to 1. If lineno_end is omitted, it defaults to the last line of the file. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file.
   After each edit of a .md file, the result is checked for known invalid LaTeXMarkdown math (broken $\`...\`$ forms, \$\$ display math, math inside raw HTML). If any is found, the tool returns an error listing the offending lines: fix them with another edit_file.
@@ -80,11 +80,15 @@ export const TOOL_SPECS = [
     function: {
       name: 'grep',
       description:
-        'Searches the content (or the given folder, relative to the content folder, when provided) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).',
+        'Searches the content (or the given file, or files inside the given folder) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).',
       parameters: {
         type: 'object',
         properties: {
           pattern: { type: 'string', description: 'The regular expression to search for.' },
+          file: {
+            type: 'string',
+            description: 'A single file to search in, relative to the content folder, instead of the whole content.',
+          },
           folder: {
             type: 'string',
             description: 'A subfolder of the content folder to search in, instead of the whole content.',
@@ -99,7 +103,7 @@ export const TOOL_SPECS = [
     function: {
       name: 'find_files',
       description:
-        'Searches the content (or the given folder, relative to the content folder, when provided) for files whose path (including the filename or parent folder name) matches the given pattern. Returns the matching files.',
+        'Searches the content (or the given folder) for files whose path (including the filename or parent folder name, upto the content/ folder) matches the given pattern, a regular expression. Returns the matching files.',
       parameters: {
         type: 'object',
         properties: {
@@ -359,8 +363,8 @@ export function createTools({ config, store, logger = () => {} }) {
   }
 
   // The search root of grep/find_files: the content folder by default, or
-  // the given subfolder (README: grep(pattern, folder)). Returned paths stay
-  // relative to the content folder so they can be fed straight to read_file.
+  // the given subfolder (README: grep(pattern, file, folder)). Returned paths
+  // stay relative to the content folder so they can be fed straight to read_file.
   async function resolveSearchRoot(rawFolder) {
     if (!rawFolder || String(rawFolder).trim() === '') return contentDir;
     const { target, rel } = resolveInContent(rawFolder);
@@ -388,19 +392,32 @@ export function createTools({ config, store, logger = () => {} }) {
       return { result: await runJs(code, logger) };
     },
 
-    async grep({ pattern, folder } = {}) {
+    async grep({ pattern, file, folder } = {}) {
       const re = new RegExp(String(pattern ?? ''));
-      const files = await walkFiles(await resolveSearchRoot(folder));
+      // README: grep(pattern, file, folder) — a given file narrows the search
+      // to that single file, otherwise the folder (or the whole content) is
+      // searched.
+      let files;
+      if (file !== undefined && String(file).trim() !== '') {
+        const { target, rel } = resolveInContent(file);
+        const stat = await fs.stat(target).catch(() => null);
+        if (stat === null || !stat.isFile()) {
+          throw new Error(`the file ${rel} does not exist`);
+        }
+        files = [target];
+      } else {
+        files = await walkFiles(await resolveSearchRoot(folder));
+      }
       const matches = [];
       let truncated = false;
-      outer: for (const file of files) {
-        const text = await fs.readFile(file, 'utf8').catch(() => null);
+      outer: for (const target of files) {
+        const text = await fs.readFile(target, 'utf8').catch(() => null);
         if (text === null) continue;
         const lines = text.split('\n');
         for (let i = 0; i < lines.length; i++) {
           if (re.test(lines[i])) {
             matches.push({
-              file: path.relative(contentDir, file).split(path.sep).join('/'),
+              file: path.relative(contentDir, target).split(path.sep).join('/'),
               line: i + 1,
               text: lines[i].slice(0, 200),
             });
