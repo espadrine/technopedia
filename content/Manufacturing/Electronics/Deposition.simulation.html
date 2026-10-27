@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CVD vs PVD vs ALD Deposition</title>
+<style>
+body { margin: 0; padding: 10px; font-family: sans-serif; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; align-items: center; }
+h2 { margin: 4px 0; font-size: 16px; }
+#controls { margin: 8px 0; display: flex; gap: 10px; align-items: center; }
+button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+#playBtn { background: #4CAF50; color: #fff; }
+#resetBtn { background: #607D8B; color: #fff; }
+#speed { width: 80px; }
+canvas { border: 1px solid #333; border-radius: 6px; background: #0f0f1a; }
+#info { font-size: 12px; margin-top: 6px; max-width: 700px; text-align: center; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Deposition Mechanisms: CVD vs PVD vs ALD</h2>
+<div id="controls">
+<button id="playBtn">▶ Play</button>
+<button id="resetBtn">↺ Reset</button>
+<label>Speed <input type="range" id="speed" min="1" max="5" value="2"></label>
+</div>
+<canvas id="cv" width="720" height="320"></canvas>
+<div id="info">CVD: isotropic gas-phase reaction (particles from all directions). PVD: line-of-sight from source above. ALD: self-limiting pulse-purge cycle, one atomic layer per cycle.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let playing = false;
+let frame = 0;
+let speed = 2;
+
+// Trench geometry (shared)
+const trench = { x: 0, y: 0, w: 80, h: 120, wall: 8 };
+const panelW = 240;
+const panelH = 300;
+const panels = [
+  { ox: 0, oy: 10, label: 'CVD (gas-phase)' },
+  { ox: 240, oy: 10, label: 'PVD (line-of-sight)' },
+  { ox: 480, oy: 10, label: 'ALD (self-limiting)' }
+];
+
+// Particles per panel
+let particles = [[], [], []];
+let filmThickness = [0, 0, 0]; // current film thickness in px
+const maxFilm = 20;
+
+// ALD cycle state
+let aldPhase = 0; // 0=pulse1, 1=purge1, 2=pulse2, 3=purge2
+let aldTimer = 0;
+let aldCycle = 0;
+
+function resetAll() {
+  frame = 0;
+  particles = [[], [], []];
+  filmThickness = [0, 0, 0];
+  aldPhase = 0;
+  aldTimer = 0;
+  aldCycle = 0;
+  draw();
+}
+
+function spawnParticles() {
+  const s = speed;
+  // CVD: particles from all directions
+  for (let i = 0; i < 2 * s; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 160;
+    const cx = panels[0].ox + panelW / 2;
+    const cy = panels[0].oy + panelH / 2;
+    particles[0].push({
+      x: cx + Math.cos(angle) * dist,
+      y: cy + Math.sin(angle) * dist,
+      vx: -Math.cos(angle) * 0.8 * s,
+      vy: -Math.sin(angle) * 0.8 * s,
+      r: 2.5, color: '#4FC3F7'
+    });
+  }
+  // PVD: particles from top only (line-of-sight)
+  for (let i = 0; i < 2 * s; i++) {
+    particles[1].push({
+      x: panels[1].ox + 20 + Math.random() * (panelW - 40),
+      y: panels[1].oy + 5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: 1.2 * s,
+      r: 2.5, color: '#FFB74D'
+    });
+  }
+  // ALD: particles only during pulse phases
+  if (aldPhase === 0 || aldPhase === 2) {
+    for (let i = 0; i < 1 * s; i++) {
+      particles[2].push({
+        x: panels[2].ox + 20 + Math.random() * (panelW - 40),
+        y: panels[2].oy + 5,
+        vx: (Math.random() - 0.5) * 0.2,
+        vy: 0.8 * s,
+        r: 2.5, color: aldPhase === 0 ? '#81C784' : '#E57373'
+      });
+    }
+  }
+}
+
+function getTrenchRect(panel) {
+  const tx = panel.ox + panelW / 2 - trench.w / 2;
+  const ty = panel.oy + 40;
+  return { x: tx, y: ty, w: trench.w, h: trench.h };
+}
+
+function isInsideTrench(px, py, panel) {
+  const t = getTrenchRect(panel);
+  return px > t.x && px < t.x + t.w && py > t.y && py < t.y + t.h;
+}
+
+function isOnSurface(px, py, panel) {
+  const t = getTrenchRect(panel);
+  const ft = filmThickness[panels.indexOf(panel)];
+  // Top surface
+  if (Math.abs(py - (t.y - ft)) < 4 && px > t.x - 40 && px < t.x + t.w + 40) return true;
+  // Left wall
+  if (Math.abs(px - (t.x - ft)) < 4 && py > t.y - ft && py < t.y + t.h) return true;
+  // Right wall
+  if (Math.abs(px - (t.x + t.w + ft)) < 4 && py > t.y - ft && py < t.y + t.h) return true;
+  // Bottom
+  if (Math.abs(py - (t.y + t.h + ft)) < 4 && px > t.x - ft && px < t.x + t.w + ft) return true;
+  return false;
+}
+
+function update() {
+  if (!playing) return;
+  frame++;
+  const s = speed;
+
+  // ALD phase timer
+  if (frame % Math.floor(60 / s) === 0) {
+    aldPhase = (aldPhase + 1) % 4;
+    if (aldPhase === 0) aldCycle++;
+    // On transition to pulse, add a thin layer
+    if (aldPhase === 0 && aldCycle > 0) {
+      filmThickness[2] = Math.min(filmThickness[2] + 0.5, maxFilm);
+    }
+  }
+
+  spawnParticles();
+
+  for (let p = 0; p < 3; p++) {
+    const panel = panels[p];
+    const alive = [];
+    for (const pt of particles[p]) {
+      pt.x += pt.vx;
+      pt.y += pt.vy;
+      // Check if particle hits surface
+      if (isOnSurface(pt.x, pt.y, panel)) {
+        // CVD: sticks anywhere
+        // PVD: only sticks if line-of-sight (simplified: sticks on top and upper walls)
+        // ALD: sticks during pulse phases only
+        let stick = false;
+        if (p === 0) stick = true;
+        else if (p === 1) {
+          const t = getTrenchRect(panel);
+          const ft = filmThickness[1];
+          // PVD: only top surface and upper portion of walls
+          if (pt.y < t.y + t.h * 0.4) stick = true;
+        }
+        else if (p === 2) {
+          if (aldPhase === 0 || aldPhase === 2) stick = true;
+        }
+        if (stick) {
+          filmThickness[p] = Math.min(filmThickness[p] + 0.08, maxFilm);
+          continue; // particle consumed
+        }
+      }
+      // Remove if out of bounds
+      if (pt.x < panel.ox - 10 || pt.x > panel.ox + panelW + 10 ||
+          pt.y < panel.oy - 10 || pt.y > panel.oy + panelH + 10) continue;
+      alive.push(pt);
+    }
+    particles[p] = alive;
+  }
+}
+
+function drawTrench(panel, pIdx) {
+  const t = getTrenchRect(panel);
+  const ft = filmThickness[pIdx];
+  const colors = ['#4FC3F7', '#FFB74D', '#81C784'];
+
+  // Substrate
+  ctx.fillStyle = '#37474F';
+  ctx.fillRect(panel.ox + 10, t.y + t.h, panelW - 20, panel.oy + panelH - t.y - t.h);
+  ctx.fillRect(panel.ox + 10, t.y, t.x - panel.ox - 10, t.h);
+  ctx.fillRect(t.x + t.w, t.y, panel.ox + panelW - 10 - t.x - t.w, t.h);
+
+  // Trench void
+  ctx.fillStyle = '#0f0f1a';
+  ctx.fillRect(t.x, t.y, t.w, t.h);
+
+  // Film coating
+  if (ft > 0.3) {
+    ctx.strokeStyle = colors[pIdx];
+    ctx.lineWidth = ft;
+    ctx.lineCap = 'round';
+    // Top
+    ctx.beginPath();
+    ctx.moveTo(panel.ox + 10, t.y - ft / 2);
+    ctx.lineTo(t.x - ft / 2, t.y - ft / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(t.x + t.w + ft / 2, t.y - ft / 2);
+    ctx.lineTo(panel.ox + panelW - 10, t.y - ft / 2);
+    ctx.stroke();
+    // Left wall
+    ctx.beginPath();
+    ctx.moveTo(t.x - ft / 2, t.y - ft / 2);
+    ctx.lineTo(t.x - ft / 2, t.y + t.h);
+    ctx.stroke();
+    // Right wall
+    ctx.beginPath();
+    ctx.moveTo(t.x + t.w + ft / 2, t.y - ft / 2);
+    ctx.lineTo(t.x + t.w + ft / 2, t.y + t.h);
+    ctx.stroke();
+    // Bottom
+    ctx.beginPath();
+    ctx.moveTo(t.x - ft / 2, t.y + t.h);
+    ctx.lineTo(t.x + t.w + ft / 2, t.y + t.h);
+    ctx.stroke();
+  }
+
+  // PVD: show source at top
+  if (pIdx === 1) {
+    ctx.fillStyle = '#FFB74D';
+    ctx.fillRect(panel.ox + panelW / 2 - 20, panel.oy + 2, 40, 6);
+    ctx.fillStyle = '#fff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('target', panel.ox + panelW / 2, panel.oy + 14);
+  }
+
+  // ALD: show phase indicator
+  if (pIdx === 2) {
+    const phaseNames = ['Pulse A', 'Purge', 'Pulse B', 'Purge'];
+    const phaseColors = ['#81C784', '#666', '#E57373', '#666'];
+    ctx.fillStyle = phaseColors[aldPhase];
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(phaseNames[aldPhase], panel.ox + panelW / 2, panel.oy + 14);
+    // Cycle count
+    ctx.fillStyle = '#aaa';
+    ctx.font = '9px sans-serif';
+    ctx.fillText('cycle ' + aldCycle, panel.ox + panelW / 2, panel.oy + 26);
+  }
+
+  // Label
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(panel.label, panel.ox + panelW / 2, panel.oy + panelH - 4);
+
+  // Film thickness readout
+  ctx.fillStyle = colors[pIdx];
+  ctx.font = '10px sans-serif';
+  ctx.fillText(ft.toFixed(1) + ' nm', panel.ox + panelW / 2, panel.oy + panelH - 18);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  for (let p = 0; p < 3; p++) {
+    // Panel background
+    ctx.fillStyle = '#16213e';
+    ctx.fillRect(panels[p].ox, panels[p].oy, panelW, panelH);
+    drawTrench(panels[p], p);
+    // Particles
+    for (const pt of particles[p]) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+      ctx.fillStyle = pt.color;
+      ctx.fill();
+    }
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('playBtn').onclick = () => {
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+};
+document.getElementById('resetBtn').onclick = resetAll;
+document.getElementById('speed').oninput = (e) => { speed = parseInt(e.target.value); };
+
+resetAll();
+loop();
+</script>
+</body>
+</html>

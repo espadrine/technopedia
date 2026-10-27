@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linear regression — drag the line</title>
+</head>
+<body style="font-family: system-ui, -apple-system, sans-serif; margin: 16px; color: #222;">
+<h3 style="margin: 0 0 8px;">Fit a line: drag the handles</h3>
+<p style="margin: 0 0 10px; max-width: 740px;">
+Drag the <b style="color:#0b62b4;">left handle</b> to change the intercept <i>a</i>, and the
+<b style="color:#b4530b;">right handle</b> to change the slope <i>b</i>.
+The dashed gray line is the least-squares optimum — try to get your MSE as close to it as you can.
+</p>
+<canvas id="cv" width="720" height="440" style="border:1px solid #ccc; background:#fff; touch-action:none; max-width:100%; cursor:grab;"></canvas>
+<p style="margin-top:10px;">
+<label><input type="checkbox" id="showOpt" checked> show optimal fit</label>
+&nbsp;&nbsp;<button id="reset" style="padding:4px 12px;">Reset</button>
+</p>
+<p id="out" style="font-family: ui-monospace, monospace; font-size: 14px;"></p>
+<script>
+(function(){
+  // Deterministic dataset: y = 2 + 1.5x + noise
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var rand=mulberry32(42);
+  function gauss(){var u=0,v=0;while(u===0)u=rand();while(v===0)v=rand();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+  var pts=[];
+  for(var i=0;i<15;i++){var x=0.5+i*(9.5/14);var y=2+1.5*x+0.8*gauss();pts.push([x,y]);}
+  // Least-squares optimum (normal equation, d=2)
+  var n=pts.length,sx=0,sy=0,sxx=0,sxy=0;
+  pts.forEach(function(p){sx+=p[0];sy+=p[1];sxx+=p[0]*p[0];sxy+=p[0]*p[1];});
+  var bOpt=(n*sxy-sx*sy)/(n*sxx-sx*sx), aOpt=(sy-bOpt*sx)/n;
+  function mse(a,b){var s=0;pts.forEach(function(p){var r=p[1]-(a+b*p[0]);s+=r*r;});return s/n;}
+  var mseOpt=mse(aOpt,bOpt);
+
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  var W=cv.width, H=cv.height;
+  var mL=50, mR=20, mT=20, mB=40;
+  var xMin=0, xMax=10.5, yMin=0, yMax=20;
+  function X(x){return mL+(x-xMin)/(xMax-xMin)*(W-mL-mR);}
+  function Y(y){return H-mB-(y-yMin)/(yMax-yMin)*(H-mT-mB);}
+  function invY(py){return yMin+(H-mB-py)/(H-mT-mB)*(yMax-yMin);}
+
+  var a=0.5, b=1.0;
+  var aInit=0.5, bInit=1.0;
+
+  function clampLine(){
+    a=Math.max(0,Math.min(20,a));
+    // keep both ends of the line inside the plot
+    var bMin=-a/xMax, bMax=(yMax-a)/xMax;
+    b=Math.max(bMin,Math.min(bMax,b));
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // grid
+    ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1;
+    for(var gx=0;gx<=10;gx+=2){ctx.beginPath();ctx.moveTo(X(gx),Y(0));ctx.lineTo(X(gx),Y(20));ctx.stroke();}
+    for(var gy=0;gy<=20;gy+=5){ctx.beginPath();ctx.moveTo(X(0),Y(gy));ctx.lineTo(X(10.5),Y(gy));ctx.stroke();}
+    // axes
+    ctx.strokeStyle='#333'; ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(X(0),Y(0));ctx.lineTo(X(10.5),Y(0));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(X(0),Y(0));ctx.lineTo(X(0),Y(20));ctx.stroke();
+    ctx.fillStyle='#333'; ctx.font='12px system-ui, sans-serif';
+    for(var gx2=0;gx2<=10;gx2+=2){ctx.fillText(String(gx2),X(gx2)-5,Y(0)+16);}
+    for(var gy2=0;gy2<=20;gy2+=5){ctx.fillText(String(gy2),X(0)-26,Y(gy2)+4);}
+    // optimal line
+    if(document.getElementById('showOpt').checked){
+      ctx.strokeStyle='#888'; ctx.setLineDash([7,5]); ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(X(0),Y(aOpt));ctx.lineTo(X(10.5),Y(aOpt+bOpt*10.5));ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // residuals
+    ctx.strokeStyle='rgba(11,98,180,0.35)'; ctx.lineWidth=1;
+    pts.forEach(function(p){ctx.beginPath();ctx.moveTo(X(p[0]),Y(p[1]));ctx.lineTo(X(p[0]),Y(a+b*p[0]));ctx.stroke();});
+    // user line
+    ctx.strokeStyle='#0b62b4'; ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(X(0),Y(a));ctx.lineTo(X(10.5),Y(a+b*10.5));ctx.stroke();
+    // points
+    pts.forEach(function(p){ctx.beginPath();ctx.arc(X(p[0]),Y(p[1]),4,0,2*Math.PI);ctx.fillStyle='#111';ctx.fill();});
+    // handles
+    ctx.beginPath();ctx.arc(X(0),Y(a),9,0,2*Math.PI);ctx.fillStyle='#0b62b4';ctx.fill();
+    ctx.beginPath();ctx.arc(X(10.5),Y(a+b*10.5),9,0,2*Math.PI);ctx.fillStyle='#b4530b';ctx.fill();
+    // readout
+    var m=mse(a,b);
+    document.getElementById('out').textContent=
+      'a = '+a.toFixed(2)+'    b = '+b.toFixed(2)+'    MSE = '+m.toFixed(3)+
+      '    (optimal: a = '+aOpt.toFixed(2)+', b = '+bOpt.toFixed(2)+', MSE = '+mseOpt.toFixed(3)+')';
+  }
+
+  var drag=null;
+  function pos(e){var r=cv.getBoundingClientRect();return[(e.clientX-r.left)*(W/r.width),(e.clientY-r.top)*(H/r.height)];}
+  cv.addEventListener('pointerdown',function(e){
+    var p=pos(e);
+    var dL=Math.hypot(p[0]-X(0),p[1]-Y(a));
+    var dR=Math.hypot(p[0]-X(10.5),p[1]-Y(a+b*10.5));
+    if(dL<25&&dL<=dR)drag='L';
+    else if(dR<25)drag='R';
+    if(drag){cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';e.preventDefault();}
+  });
+  cv.addEventListener('pointermove',function(e){
+    if(!drag)return;
+    var p=pos(e);
+    if(drag==='L'){a=invY(p[1]);}
+    else{b=(invY(p[1])-a)/10.5;}
+    clampLine();
+    draw();
+  });
+  function endDrag(){drag=null;cv.style.cursor='grab';}
+  cv.addEventListener('pointerup',endDrag);
+  cv.addEventListener('pointercancel',endDrag);
+  document.getElementById('reset').addEventListener('click',function(){a=aInit;b=bInit;draw();});
+  document.getElementById('showOpt').addEventListener('change',draw);
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Free Expansion and Entropy</title>
+<style>
+body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; align-items: center; }
+h2 { margin: 0 0 8px; font-size: 1.1em; }
+#canvas { border: 2px solid #444; border-radius: 4px; background: #0f0f23; }
+#controls { margin-top: 12px; display: flex; gap: 12px; align-items: center; }
+button { padding: 8px 18px; font-size: 0.95em; border: none; border-radius: 4px; cursor: pointer; background: #4a90d9; color: #fff; }
+button:disabled { background: #555; cursor: default; }
+#readout { margin-top: 10px; font-size: 0.95em; text-align: center; line-height: 1.6; }
+#entropy { color: #7fdbca; font-weight: bold; }
+#state { color: #aaa; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<h2>Free Expansion — Entropy Increase</h2>
+<canvas id="canvas" width="500" height="300"></canvas>
+<div id="controls">
+  <button id="btn">Remove Barrier</button>
+  <button id="btnReset" disabled>Reset</button>
+</div>
+<div id="readout">
+  <div id="state">State: confined (left half)</div>
+  <div>ΔS = <span id="entropy">0.00</span> k<sub>B</sub>/particle</div>
+  <div id="vol">V<sub>initial</sub> = 1 unit, V<sub>current</sub> = 1 unit</div>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const N = 40;
+const r = 4;
+let particles = [];
+let barrierOpen = false;
+let animId = null;
+
+function init() {
+  particles = [];
+  for (let i = 0; i < N; i++) {
+    particles.push({
+      x: 20 + Math.random() * (W/2 - 40),
+      y: 20 + Math.random() * (H - 40),
+      vx: (Math.random() - 0.5) * 3,
+      vy: (Math.random() - 0.5) * 3
+    });
+  }
+  barrierOpen = false;
+  document.getElementById('btn').disabled = false;
+  document.getElementById('btnReset').disabled = true;
+  document.getElementById('state').textContent = 'State: confined (left half)';
+  document.getElementById('entropy').textContent = '0.00';
+  document.getElementById('vol').textContent = 'V\u1d05\u2093\u2092\u2092\u2093\u2094\u2093 = 1 unit, V\u2092\u2095\u2092\u2092\u2092\u2094\u2093 = 1 unit';
+  if (animId) cancelAnimationFrame(animId);
+  loop();
+}
+
+function step() {
+  for (let p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    // walls
+    if (p.x < r) { p.x = r; p.vx = Math.abs(p.vx); }
+    if (p.x > W - r) { p.x = W - r; p.vx = -Math.abs(p.vx); }
+    if (p.y < r) { p.y = r; p.vy = Math.abs(p.vy); }
+    if (p.y > H - r) { p.y = H - r; p.vy = -Math.abs(p.vy); }
+    // barrier (left half only when closed)
+    if (!barrierOpen) {
+      if (p.x > W/2 - r) { p.x = W/2 - r; p.vx = -Math.abs(p.vx); }
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  // barrier
+  if (!barrierOpen) {
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(W/2 - 3, 0, 6, H);
+  }
+  // particles
+  ctx.fillStyle = '#7fdbca';
+  for (let p of particles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // label
+  ctx.fillStyle = '#888';
+  ctx.font = '12px system-ui';
+  if (!barrierOpen) {
+    ctx.fillText('V', 30, H - 10);
+  } else {
+    ctx.fillText('2V', 30, H - 10);
+  }
+}
+
+function loop() {
+  step();
+  draw();
+  animId = requestAnimationFrame(loop);
+}
+
+document.getElementById('btn').addEventListener('click', function() {
+  barrierOpen = true;
+  this.disabled = true;
+  document.getElementById('btnReset').disabled = false;
+  document.getElementById('state').textContent = 'State: expanded (full volume)';
+  // ΔS = N k_B ln(V_f/V_i) = N k_B ln(2)
+  const dS = N * Math.LN2;
+  document.getElementById('entropy').textContent = dS.toFixed(2);
+  document.getElementById('vol').textContent = 'V\u1d05\u2093\u2092\u2092\u2093\u2094\u2093 = 1 unit, V\u2092\u2095\u2092\u2092\u2092\u2094\u2093 = 2 units';
+});
+
+document.getElementById('btnReset').addEventListener('click', function() {
+  init();
+});
+
+init();
+</script>
+</body>
+</html>

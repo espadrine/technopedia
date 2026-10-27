@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lebesgue vs Riemann Integration</title>
+<style>
+body { margin: 0; padding: 10px; font-family: sans-serif; background: #1a1a2e; color: #eee; }
+.container { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+canvas { border: 1px solid #444; border-radius: 4px; background: #0f0f23; }
+.controls { text-align: center; margin: 8px 0; }
+button { padding: 6px 14px; margin: 0 4px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn-riemann { background: #e74c3c; color: #fff; }
+.btn-lebesgue { background: #2ecc71; color: #fff; }
+.btn-both { background: #3498db; color: #fff; }
+.btn-play { background: #f39c12; color: #fff; }
+label { margin: 0 6px; font-size: 13px; }
+select { padding: 3px 6px; border-radius: 3px; }
+.info { text-align: center; font-size: 13px; color: #aaa; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="controls">
+  <button class="btn-riemann" onclick="setMode('riemann')">Riemann (vertical)</button>
+  <button class="btn-lebesgue" onclick="setMode('lebesgue')">Lebesgue (horizontal)</button>
+  <button class="btn-both" onclick="setMode('both')">Both</button>
+  <button class="btn-play" onclick="toggleAnim()">▶ Animate</button>
+  <label>Function:
+    <select id="funcSelect" onchange="draw()">
+      <option value="bump">Bump</option>
+      <option value="step">Step</option>
+      <option value="sine">Sine</option>
+    </select>
+  </label>
+  <label>Resolution: <input type="range" id="resSlider" min="4" max="40" value="12" oninput="draw()">
+  <span id="resLabel">12</span>
+  </label>
+</div>
+<div class="container">
+  <canvas id="canvas" width="700" height="400"></canvas>
+</div>
+<div class="info" id="info">Riemann: slice the domain (x-axis). Lebesgue: slice the range (y-axis).</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let mode = 'both';
+let animating = false;
+let animFrame = 0;
+let animId = null;
+
+const W = canvas.width, H = canvas.height;
+const pad = 50;
+const plotW = W - 2*pad, plotH = H - 2*pad;
+
+// Domain: x in [0, 4], Range: y in [0, 3]
+const xMin = 0, xMax = 4, yMin = 0, yMax = 3;
+
+function toCanvas(x, y) {
+  return [pad + (x - xMin)/(xMax - xMin)*plotW, pad + plotH - (y - yMin)/(yMax - yMin)*plotH];
+}
+
+function getFunc() {
+  const sel = document.getElementById('funcSelect').value;
+  if (sel === 'bump') return x => 2.5 * Math.exp(-Math.pow(x-2, 2));
+  if (sel === 'step') return x => x < 1 ? 0.5 : (x < 2.5 ? 2.0 : 1.0);
+  return x => 1.5 + 1.2 * Math.sin(1.5 * x);
+}
+
+function setMode(m) { mode = m; draw(); }
+
+function toggleAnim() {
+  if (animating) { animating = false; cancelAnimationFrame(animId); draw(); }
+  else { animating = true; animFrame = 0; animate(); }
+}
+
+function animate() {
+  if (!animating) return;
+  animFrame++;
+  draw();
+  animId = requestAnimationFrame(animate);
+}
+
+document.getElementById('resSlider').addEventListener('input', function() {
+  document.getElementById('resLabel').textContent = this.value;
+});
+
+function draw() {
+  const f = getFunc();
+  const N = parseInt(document.getElementById('resSlider').value);
+  ctx.clearRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, pad + plotH);
+  ctx.lineTo(pad + plotW, pad + plotH);
+  ctx.moveTo(pad, pad);
+  ctx.lineTo(pad, pad + plotH);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#888';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('x', pad + plotW + 10, pad + plotH + 4);
+  ctx.fillText('y', pad - 20, pad + 10);
+
+  // Ticks
+  for (let i = 0; i <= 4; i++) {
+    const [cx, cy] = toCanvas(i, 0);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy+5); ctx.stroke();
+    ctx.fillText(i, cx-3, cy+18);
+  }
+  for (let i = 0; i <= 3; i++) {
+    const [cx, cy] = toCanvas(0, i);
+    ctx.beginPath(); ctx.moveTo(cx-5, cy); ctx.lineTo(cx, cy); ctx.stroke();
+    ctx.fillText(i, cx-18, cy+4);
+  }
+
+  // Plot function
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let px = 0; px <= plotW; px++) {
+    const x = xMin + px/plotW*(xMax-xMin);
+    const y = Math.max(0, Math.min(yMax, f(x)));
+    const [cx, cy] = toCanvas(x, y);
+    if (px === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+  }
+  ctx.stroke();
+
+  // Riemann (vertical strips)
+  if (mode === 'riemann' || mode === 'both') {
+    const dx = (xMax - xMin) / N;
+    let riemannSum = 0;
+    for (let i = 0; i < N; i++) {
+      const x0 = xMin + i * dx;
+      const x1 = x0 + dx;
+      const xm = (x0 + x1) / 2;
+      const h = Math.max(0, Math.min(yMax, f(xm)));
+      riemannSum += h * dx;
+      const [cx0, cy0] = toCanvas(x0, 0);
+      const [cx1, cy1] = toCanvas(x1, h);
+      ctx.fillStyle = 'rgba(231, 76, 60, 0.3)';
+      ctx.fillRect(cx0, cy1, cx1 - cx0, cy0 - cy1);
+      ctx.strokeStyle = 'rgba(231, 76, 60, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx0, cy1, cx1 - cx0, cy0 - cy1);
+    }
+    if (mode === 'riemann') {
+      ctx.fillStyle = '#e74c3c';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('Riemann sum ≈ ' + riemannSum.toFixed(3), pad + 10, pad + 20);
+    }
+  }
+
+  // Lebesgue (horizontal strips)
+  if (mode === 'lebesgue' || mode === 'both') {
+    const dy = (yMax - yMin) / N;
+    let lebesgueSum = 0;
+    for (let i = 0; i < N; i++) {
+      const y0 = yMin + i * dy;
+      const y1 = y0 + dy;
+      const ym = (y0 + y1) / 2;
+      // Measure of {x : f(x) >= ym}
+      let measure = 0;
+      const steps = 2000;
+      for (let s = 0; s <= steps; s++) {
+        const x = xMin + s/steps*(xMax-xMin);
+        if (f(x) >= ym) measure += (xMax-xMin)/steps;
+      }
+      lebesgueSum += ym * measure;
+      const [cx0, cy0] = toCanvas(0, y0);
+      const [cx1, cy1] = toCanvas(xMax, y1);
+      ctx.fillStyle = 'rgba(46, 204, 113, 0.25)';
+      ctx.fillRect(cx0, cy1, cx1 - cx0, cy0 - cy1);
+      ctx.strokeStyle = 'rgba(46, 204, 113, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx0, cy1, cx1 - cx0, cy0 - cy1);
+    }
+    if (mode === 'lebesgue') {
+      ctx.fillStyle = '#2ecc71';
+      ctx.font = '14px sans-serif';
+      ctx.fillText('Lebesgue sum ≈ ' + lebesgueSum.toFixed(3), pad + 10, pad + 20);
+    }
+  }
+
+  // Animation: highlight strips sequentially
+  if (animating) {
+    const highlight = animFrame % (N + 5);
+    if (mode === 'riemann' || mode === 'both') {
+      if (highlight < N) {
+        const dx = (xMax - xMin) / N;
+        const x0 = xMin + highlight * dx;
+        const h = Math.max(0, Math.min(yMax, f(x0 + dx/2)));
+        const [cx0, cy0] = toCanvas(x0, 0);
+        const [cx1, cy1] = toCanvas(x0 + dx, h);
+        ctx.fillStyle = 'rgba(231, 76, 60, 0.7)';
+        ctx.fillRect(cx0, cy1, cx1 - cx0, cy0 - cy1);
+      }
+    }
+    if (mode === 'lebesgue' || mode === 'both') {
+      const hIdx = (highlight + N) % (N + 5);
+      if (hIdx < N) {
+        const dy = (yMax - yMin) / N;
+        const y0 = yMin + hIdx * dy;
+        const [cx0, cy0] = toCanvas(0, y0);
+        const [cx1, cy1] = toCanvas(xMax, y0 + dy);
+        ctx.fillStyle = 'rgba(46, 204, 113, 0.7)';
+        ctx.fillRect(cx0, cy1, cx1 - cx0, cy0 - cy1);
+      }
+    }
+  }
+
+  // Legend
+  if (mode === 'both') {
+    ctx.fillStyle = 'rgba(231,76,60,0.8)';
+    ctx.fillRect(W-180, 10, 12, 12);
+    ctx.fillStyle = '#ccc';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('Riemann (domain slices)', W-164, 20);
+    ctx.fillStyle = 'rgba(46,204,113,0.8)';
+    ctx.fillRect(W-180, 28, 12, 12);
+    ctx.fillStyle = '#ccc';
+    ctx.fillText('Lebesgue (range slices)', W-164, 38);
+  }
+}
+
+draw();
+</script>
+</body>
+</html>

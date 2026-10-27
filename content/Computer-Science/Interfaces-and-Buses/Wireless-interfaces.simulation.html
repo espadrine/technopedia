@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wireless link budget simulator</title>
+<style>
+  body { font-family: sans-serif; margin: 10px; background: #fff; color: #222; }
+  h3 { margin: 4px 0 8px 0; font-size: 15px; }
+  .row { margin: 6px 0; font-size: 13px; }
+  select, input[type=range] { vertical-align: middle; }
+  #dist-label { font-weight: bold; }
+  table.out { border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+  table.out td { border: 1px solid #ccc; padding: 3px 8px; }
+  table.out td:first-child { background: #f0f0f0; }
+  #verdict { font-size: 13px; margin-top: 6px; padding: 6px; border-radius: 4px; }
+  .ok { background: #e8f5e9; border: 1px solid #66bb6a; }
+  .bad { background: #ffebee; border: 1px solid #e57373; }
+  svg { background: #fafafa; border: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<h3>Wireless link budget simulator</h3>
+<div class="row">
+  Interface:
+  <select id="tech">
+    <option value="wifi">Wi-Fi 6 (5 GHz, 160 MHz)</option>
+    <option value="ble">Bluetooth LE (2.4 GHz, 2 MHz)</option>
+    <option value="zigbee">Zigbee (2.4 GHz, 2 MHz)</option>
+    <option value="nr">5G NR FR1 (3.5 GHz, 100 MHz)</option>
+    <option value="sat">Starlink Ku downlink (12 GHz)</option>
+  </select>
+</div>
+<div class="row">
+  Distance: <span id="dist-label"></span>
+  <input type="range" id="dist" min="0" max="1000" value="500" style="width:340px">
+</div>
+<svg id="plot" width="620" height="260" viewBox="0 0 620 260"></svg>
+<table class="out" id="out"></table>
+<div id="verdict"></div>
+<script>
+(function(){
+  var TECHS = {
+    wifi:   {name:'Wi-Fi 6',        f:5500,  bw:160e6, ptx:23, gtx:2,  grx:0,  sens:-82,  dmin:1,       dmax:300,      maxRate:9600, unit:'m'},
+    ble:    {name:'Bluetooth LE',   f:2440,  bw:2e6,   ptx:0,  gtx:0,  grx:0,  sens:-90,  dmin:0.1,     dmax:200,      maxRate:1.4,  unit:'m'},
+    zigbee: {name:'Zigbee',         f:2440,  bw:2e6,   ptx:3,  gtx:0,  grx:0,  sens:-95,  dmin:1,       dmax:500,      maxRate:0.25, unit:'m'},
+    nr:     {name:'5G NR FR1',      f:3500,  bw:100e6, ptx:43, gtx:17, grx:0,  sens:-100, dmin:10,      dmax:20000,    maxRate:4000, unit:'m'},
+    sat:    {name:'Starlink Ku',    f:12000, bw:250e6, ptx:30, gtx:36, grx:38, sens:-95,  dmin:400000,  dmax:3000000,  maxRate:1000, unit:'km'}
+  };
+  var sel = document.getElementById('tech');
+  var slider = document.getElementById('dist');
+  var distLabel = document.getElementById('dist-label');
+  var out = document.getElementById('out');
+  var verdict = document.getElementById('verdict');
+  var svg = document.getElementById('plot');
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function el(tag, attrs, text){
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function log10(x){ return Math.log(x) / Math.LN10; }
+  function fmtDist(m, unit){
+    if (unit === 'km') return (m/1000).toFixed(0) + ' km';
+    if (m >= 1000) return (m/1000).toFixed(1) + ' km';
+    return m.toFixed(m < 10 ? 1 : 0) + ' m';
+  }
+  function fmtRate(mbps){
+    if (mbps >= 1000) return (mbps/1000).toFixed(2) + ' Gb/s';
+    if (mbps >= 1) return mbps.toFixed(1) + ' Mb/s';
+    return (mbps*1000).toFixed(0) + ' kb/s';
+  }
+
+  // plot geometry: x 60..600 log(dmin..dmax), y 20..220 (0 dBm .. -140 dBm)
+  var X0=60, X1=600, Y0=20, Y1=220;
+  function xOf(d, t){ return X0 + (X1-X0) * (log10(d) - log10(t.dmin)) / (log10(t.dmax) - log10(t.dmin)); }
+  function yOf(p){ return Y0 + (Y1-Y0) * (0 - p) / 140; }
+
+  function compute(t, d){
+    var fspl = 20*log10(d/1000) + 20*log10(t.f) + 32.44;
+    var prx = t.ptx + t.gtx + t.grx - fspl;
+    var noise = -174 + 10*log10(t.bw);
+    var snr = prx - noise;
+    var se = Math.log2(1 + Math.pow(10, snr/10));
+    var rate = Math.min(se, 10) * t.bw / 1e6;
+    if (rate > t.maxRate) rate = t.maxRate;
+    return {fspl:fspl, prx:prx, noise:noise, snr:snr, rate:rate};
+  }
+
+  function draw(){
+    var t = TECHS[sel.value];
+    var v = slider.value / 1000;
+    var d = t.dmin * Math.pow(t.dmax / t.dmin, v);
+    var r = compute(t, d);
+
+    distLabel.textContent = fmtDist(d, t.unit);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.appendChild(el('rect', {x:0, y:0, width:620, height:260, fill:'#fafafa'}));
+    // axes
+    svg.appendChild(el('line', {x1:X0, y1:Y1, x2:X1, y2:Y1, stroke:'#333', 'stroke-width':1.5}));
+    svg.appendChild(el('line', {x1:X0, y1:Y0, x2:X0, y2:Y1, stroke:'#333', 'stroke-width':1.5}));
+    svg.appendChild(el('text', {x:330, y:250, 'text-anchor':'middle', 'font-size':12, fill:'#333'}, 'distance (' + t.unit + ', log scale)'));
+    svg.appendChild(el('text', {x:16, y:120, 'text-anchor':'middle', 'font-size':12, fill:'#333', transform:'rotate(-90 16 120)'}, 'received power (dBm)'));
+    // y ticks: 0, -40, -80, -120
+    [0,-40,-80,-120].forEach(function(p){
+      var y = yOf(p);
+      svg.appendChild(el('line', {x1:X0, y1:y, x2:X1, y2:y, stroke:'#e0e0e0'}));
+      svg.appendChild(el('text', {x:X0-6, y:y+4, 'text-anchor':'end', 'font-size':11, fill:'#555'}, String(p)));
+    });
+    // x ticks: decades
+    var dminDec = Math.ceil(log10(t.dmin)), dmaxDec = Math.floor(log10(t.dmax));
+    for (var e10 = dminDec; e10 <= dmaxDec; e10++){
+      var dd = Math.pow(10, e10);
+      var x = xOf(dd, t);
+      svg.appendChild(el('line', {x1:x, y1:Y1, x2:x, y2:Y1+4, stroke:'#333'}));
+      svg.appendChild(el('text', {x:x, y:Y1+16, 'text-anchor':'middle', 'font-size':10, fill:'#555'}, fmtDist(dd, t.unit)));
+    }
+    // received power curve
+    var pts = [];
+    for (var i = 0; i <= 200; i++){
+      var dv = t.dmin * Math.pow(t.dmax/t.dmin, i/200);
+      pts.push(xOf(dv, t).toFixed(1) + ',' + yOf(compute(t, dv).prx).toFixed(1));
+    }
+    svg.appendChild(el('polyline', {points:pts.join(' '), fill:'none', stroke:'#1565c0', 'stroke-width':2.5}));
+    // sensitivity line
+    var ys = yOf(t.sens);
+    svg.appendChild(el('line', {x1:X0, y1:ys, x2:X1, y2:ys, stroke:'#c62828', 'stroke-width':1.5, 'stroke-dasharray':'6 4'}));
+    svg.appendChild(el('text', {x:X1-6, y:ys-5, 'text-anchor':'end', 'font-size':11, fill:'#c62828'}, 'receiver sensitivity ' + t.sens + ' dBm'));
+    // noise floor line
+    var yn = yOf(r.noise);
+    svg.appendChild(el('line', {x1:X0, y1:yn, x2:X1, y2:yn, stroke:'#ef6c00', 'stroke-width':1, 'stroke-dasharray':'2 3'}));
+    svg.appendChild(el('text', {x:X0+6, y:yn-4, 'font-size':11, fill:'#ef6c00'}, 'noise floor ' + r.noise.toFixed(0) + ' dBm'));
+    // current marker
+    svg.appendChild(el('circle', {cx:xOf(d, t), cy:yOf(r.prx), r:5, fill:'#1565c0', stroke:'#000', 'stroke-width':1.5}));
+
+    // output table
+    var rows = [
+      ['Free-space path loss', r.fspl.toFixed(1) + ' dB'],
+      ['Received power', r.prx.toFixed(1) + ' dBm'],
+      ['Noise floor (' + (t.bw/1e6) + ' MHz)', r.noise.toFixed(1) + ' dBm'],
+      ['SNR', r.snr.toFixed(1) + ' dB'],
+      ['Shannon-limited rate', fmtRate(r.rate)]
+    ];
+    out.innerHTML = rows.map(function(row){
+      return '<tr><td>' + row[0] + '</td><td>' + row[1] + '</td></tr>';
+    }).join('');
+
+    var margin = r.prx - t.sens;
+    if (margin > 0) {
+      verdict.className = 'ok';
+      verdict.textContent = 'Link closed: ' + margin.toFixed(0) + ' dB above sensitivity. ' +
+        (r.rate >= t.maxRate ? 'Rate capped by the technology at ' + fmtRate(t.maxRate) + '.' :
+        'Adaptive modulation would pick ~' + fmtRate(r.rate) + ' here.');
+    } else {
+      verdict.className = 'bad';
+      verdict.textContent = 'Link lost: ' + (-margin).toFixed(0) + ' dB below sensitivity. ' +
+        'Move closer, add antenna gain, or lower the modulation.';
+    }
+  }
+
+  sel.addEventListener('change', function(){
+    var t = TECHS[sel.value];
+    slider.value = String(500);
+    draw();
+  });
+  slider.addEventListener('input', draw);
+  draw();
+})();
+</script>
+</body>
+</html>

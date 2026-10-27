@@ -247,7 +247,7 @@ main.page td {
   vertical-align: top;
 }
 main.page tr:nth-child(even) td { background: var(--paper-dim); }
-main.page td:first-child {
+main.page td:first-child, main.page td[rowspan] + td {
   font-family: var(--font-display);
   font-weight: 700;
 }

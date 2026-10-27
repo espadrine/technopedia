@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Faraday Induction Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 10px; background: #f8f9fa; color: #2c3e50; }
+h2 { margin: 8px 0 4px; font-size: 1.1em; }
+.controls { display: flex; gap: 20px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+.controls input[type=range] { width: 130px; }
+.controls span { font-weight: bold; min-width: 34px; display: inline-block; }
+button { padding: 4px 12px; cursor: pointer; background: #4a90d9; color: white; border: none; border-radius: 4px; }
+button:hover { background: #357abd; }
+button.active { background: #e67e22; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.panel { background: white; border-radius: 6px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.panel h3 { margin: 0 0 4px; font-size: 0.9em; color: #555; }
+canvas { display: block; width: 100%; }
+.readout { font-size: 0.9em; margin-top: 6px; line-height: 1.5; }
+.readout b { font-variant-numeric: tabular-nums; }
+.hint { font-size: 0.8em; color: #777; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h2>Faraday induction: a moving magnet drives an EMF in a coil</h2>
+<div class="controls">
+  <label>Magnet distance <span id="dVal">120</span> <input type="range" id="dSlider" min="25" max="200" value="120" step="1"/></label>
+  <label>Magnet strength <span id="sVal">1.0</span> <input type="range" id="sSlider" min="0.2" max="2" value="1" step="0.1"/></label>
+  <label>Turns N <span id="nVal">50</span> <input type="range" id="nSlider" min="10" max="200" value="50" step="10"/></label>
+  <button id="oscBtn">Auto-move</button>
+  <button id="resetBtn">Reset</button>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h3>Magnet &amp; coil (Lenz's law)</h3>
+    <canvas id="scene" width="460" height="220"></canvas>
+    <div class="readout" id="readout"></div>
+    <div class="hint">Drag the distance slider: the EMF spikes only while the flux is <i>changing</i>. Hold still and it goes to zero.</div>
+  </div>
+  <div class="panel">
+    <h3>Induced EMF &amp; flux vs time</h3>
+    <canvas id="plot" width="460" height="220"></canvas>
+    <div class="hint">Blue: flux &Phi; through the coil. Red: induced EMF &epsilon; = &minus;N d&Phi;/dt.</div>
+  </div>
+</div>
+<script>
+var d = 120, strength = 1.0, N = 50;
+var osc = false, oscPhase = 0;
+var prevPhi = null, emf = 0;
+var history = [], maxHist = 260;
+
+var dSlider = document.getElementById('dSlider');
+var sSlider = document.getElementById('sSlider');
+var nSlider = document.getElementById('nSlider');
+var dVal = document.getElementById('dVal');
+var sVal = document.getElementById('sVal');
+var nVal = document.getElementById('nVal');
+var oscBtn = document.getElementById('oscBtn');
+var resetBtn = document.getElementById('resetBtn');
+var readout = document.getElementById('readout');
+
+dSlider.oninput = function() { d = +this.value; dVal.textContent = d; };
+sSlider.oninput = function() { strength = +this.value; sVal.textContent = strength.toFixed(1); };
+nSlider.oninput = function() { N = +this.value; nVal.textContent = N; };
+oscBtn.onclick = function() { osc = !osc; oscBtn.textContent = osc ? 'Stop' : 'Auto-move'; oscBtn.className = osc ? 'active' : ''; };
+resetBtn.onclick = function() { d = 120; dSlider.value = 120; dVal.textContent = 120; history = []; prevPhi = null; emf = 0; };
+
+// Flux through the coil as a function of magnet distance (dipole-like falloff).
+function flux(dist) {
+  var a = 45;
+  return strength * Math.pow(a / (a + dist), 2);
+}
+
+var sceneCtx = document.getElementById('scene').getContext('2d');
+var plotCtx = document.getElementById('plot').getContext('2d');
+
+function drawScene(phi, emfNow) {
+  var c = sceneCtx, W = 460, H = 220;
+  c.clearRect(0, 0, W, H);
+  var cy = 100;
+  // Coil on the right: several loops
+  var coilX = 360;
+  c.strokeStyle = '#2980b9';
+  c.lineWidth = 3;
+  for (var i = 0; i < 5; i++) {
+    c.beginPath();
+    c.ellipse(coilX + i * 8, cy, 14, 46, 0, 0, 2 * Math.PI);
+    c.stroke();
+  }
+  // Coil leads down to galvanometer
+  c.strokeStyle = '#2c3e50';
+  c.lineWidth = 2;
+  c.beginPath(); c.moveTo(coilX, cy + 46); c.lineTo(coilX, 175); c.stroke();
+  c.beginPath(); c.moveTo(coilX + 32, cy + 46); c.lineTo(coilX + 32, 175); c.stroke();
+  // Galvanometer
+  c.beginPath(); c.arc(coilX + 16, 190, 16, 0, 2 * Math.PI); c.fillStyle = '#fff'; c.fill(); c.stroke();
+  var needle = Math.max(-1, Math.min(1, emfNow / 0.02)) * 60;
+  c.strokeStyle = '#e74c3c'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(coilX + 16, 190);
+  c.lineTo(coilX + 16 + 12 * Math.sin(needle * Math.PI / 180), 190 - 12 * Math.cos(needle * Math.PI / 180));
+  c.stroke();
+  c.fillStyle = '#555'; c.font = '10px system-ui'; c.textAlign = 'center';
+  c.fillText('galvanometer', coilX + 16, 214);
+
+  // Magnet on a track (left), position from distance
+  var magX = 60 + (200 - d) * 0.9; // closer d -> magnet further right
+  var mw = 70, mh = 34;
+  c.fillStyle = '#c0392b'; c.fillRect(magX, cy - mh / 2, mw / 2, mh);
+  c.fillStyle = '#2980b9'; c.fillRect(magX + mw / 2, cy - mh / 2, mw / 2, mh);
+  c.strokeStyle = '#333'; c.lineWidth = 1.5; c.strokeRect(magX, cy - mh / 2, mw, mh);
+  c.fillStyle = '#fff'; c.font = 'bold 12px system-ui';
+  c.fillText('N', magX + mw / 4, cy + 4);
+  c.fillText('S', magX + 3 * mw / 4, cy + 4);
+  // track
+  c.strokeStyle = '#bbb'; c.lineWidth = 2;
+  c.beginPath(); c.moveTo(40, cy + mh / 2 + 12); c.lineTo(300, cy + mh / 2 + 12); c.stroke();
+
+  // Field lines from N pole toward coil (density ~ flux)
+  var nLines = Math.round(2 + phi * 6);
+  c.strokeStyle = 'rgba(41,128,185,0.5)'; c.lineWidth = 1.5;
+  for (var k = 0; k < nLines; k++) {
+    var yy = cy - 20 + k * (40 / Math.max(1, nLines - 1));
+    c.beginPath(); c.moveTo(magX + mw, yy);
+    c.quadraticCurveTo((magX + mw + coilX) / 2, yy + (yy - cy) * 0.3, coilX - 6, yy);
+    c.stroke();
+  }
+  c.fillStyle = '#2980b9'; c.font = '11px system-ui'; c.textAlign = 'left';
+  c.fillText('B field (through coil)', 40, 30);
+
+  // Lenz's law label
+  c.textAlign = 'center';
+  if (Math.abs(emfNow) > 0.0005) {
+    var increasing = emfNow < 0; // emf = -N dPhi/dt; dPhi/dt>0 (approach) -> emf<0
+    c.fillStyle = '#e67e22'; c.font = 'bold 12px system-ui';
+    c.fillText(increasing ? 'flux increasing -> induced field opposes (pushes back)'
+                          : 'flux decreasing -> induced field supports (pulls in)',
+               200, 20);
+  } else {
+    c.fillStyle = '#999'; c.font = '12px system-ui';
+    c.fillText('no change in flux -> no induced EMF', 200, 20);
+  }
+}
+
+function drawPlot(phi, emfNow) {
+  var c = plotCtx, W = 460, H = 220;
+  c.clearRect(0, 0, W, H);
+  var padL = 40, padR = 10, padT = 15, padB = 20;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var midY = padT + plotH / 2;
+  // axes
+  c.strokeStyle = '#ccc'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(padL, midY); c.lineTo(W - padR, midY); c.stroke();
+  c.beginPath(); c.moveTo(padL, padT); c.lineTo(padL, H - padB); c.stroke();
+  c.fillStyle = '#666'; c.font = '10px system-ui';
+  c.fillText('t', W - 12, midY + 12);
+  c.fillText('EMF', 4, padT + 4);
+  c.fillText('flux', 4, H - padB - 4);
+
+  if (history.length < 2) return;
+  var phiMax = 1.2, emfMax = 0.02;
+  // flux (blue), plotted in lower half
+  c.strokeStyle = '#2980b9'; c.lineWidth = 2; c.beginPath();
+  for (var i = 0; i < history.length; i++) {
+    var px = padL + i / (maxHist - 1) * plotW;
+    var py = (H - padB) - (history[i].phi / phiMax) * (plotH / 2);
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+  // emf (red), centered on midline
+  c.strokeStyle = '#e74c3c'; c.lineWidth = 2; c.beginPath();
+  for (var j = 0; j < history.length; j++) {
+    var qx = padL + j / (maxHist - 1) * plotW;
+    var qy = midY - (history[j].emf / emfMax) * (plotH / 2 - 4);
+    if (j === 0) c.moveTo(qx, qy); else c.lineTo(qx, qy);
+  }
+  c.stroke();
+}
+
+function step() {
+  if (osc) {
+    oscPhase += 0.03;
+    d = 112 + 88 * Math.sin(oscPhase);
+    dSlider.value = Math.round(d);
+    dVal.textContent = Math.round(d);
+  }
+  var phi = flux(d);
+  var now = performance.now() / 1000;
+  if (prevPhi !== null) {
+    var dt = 1 / 60;
+    var dphidt = (phi - prevPhi) / dt;
+    emf = -N * dphidt * 0.001; // scaled for display
+  }
+  prevPhi = phi;
+  history.push({ t: now, phi: phi, emf: emf });
+  if (history.length > maxHist) history.shift();
+
+  drawScene(phi, emf);
+  drawPlot(phi, emf);
+
+  var dir = Math.abs(emf) < 0.0005 ? '—' : (emf < 0 ? 'CCW (opposes ↑Φ)' : 'CW (opposes ↓Φ)');
+  readout.innerHTML =
+    'Flux &Phi; = <b>' + phi.toFixed(3) + '</b> &nbsp; ' +
+    'EMF &epsilon; = <b>' + (emf * 1000).toFixed(2) + '</b> mV &nbsp; ' +
+    'current: <b>' + dir + '</b>';
+
+  requestAnimationFrame(step);
+}
+step();
+</script>
+</body>
+</html>

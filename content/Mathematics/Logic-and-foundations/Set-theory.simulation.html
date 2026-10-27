@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cantor's diagonal argument</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 16px; background: #f7f9fc; color: #223; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color: #556; max-width: 62ch; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .grid { border-collapse: separate; border-spacing: 4px; }
+  .grid td { width: 34px; height: 34px; text-align: center; vertical-align: middle; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; background: #fff; border: 1px solid #d5dbe5; border-radius: 6px; }
+  .grid td.rowlabel { background: #eef2f8; font-family: system-ui, sans-serif; font-size: 13px; color: #445; width: auto; padding: 0 8px; }
+  .grid td.diag { background: #fff3bf; border-color: #e8a000; }
+  .grid td.diag.active { background: #ffe066; border-color: #c77f00; box-shadow: 0 0 0 2px #ffd43b inset; }
+  .grid td.s { background: #ffe3e3; border-color: #c0392b; color: #c0392b; font-weight: 700; }
+  .grid td.slabel { background: #ffe3e3; color: #c0392b; font-weight: 700; }
+  .panel { min-width: 240px; max-width: 320px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  button { font: inherit; font-size: 13px; padding: 7px 12px; border: 1px solid #b9c2d0; background: #fff; border-radius: 8px; cursor: pointer; }
+  button:hover { background: #eef2f8; }
+  button.primary { background: #1a56db; color: #fff; border-color: #1a56db; }
+  button.primary:hover { background: #1746b5; }
+  #msg { font-size: 13px; line-height: 1.5; background: #fff; border: 1px solid #d5dbe5; border-radius: 8px; padding: 10px 12px; min-height: 66px; }
+  #msg b { color: #c2410c; }
+  .legend { font-size: 12px; color: #556; margin-top: 10px; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin: 0 4px 0 10px; }
+</style>
+</head>
+<body>
+  <h1>Cantor's diagonal argument</h1>
+  <p class="sub">Suppose every real in (0,1) could be listed as r&#8321;, r&#8322;, r&#8323;, &hellip; in binary. The real <b>s</b> below flips the diagonal digit of each row. Because s differs from row <i>n</i> in digit <i>n</i>, it cannot appear anywhere in the list &mdash; so the list was never complete.</p>
+  <div class="wrap">
+    <div>
+      <table class="grid" id="grid"></table>
+    </div>
+    <div class="panel">
+      <div class="btns">
+        <button class="primary" id="step">Step &rarr;</button>
+        <button id="reset">Reset</button>
+        <button id="random">New list</button>
+      </div>
+      <div id="msg">Press <b>Step</b> to walk down the diagonal and build s one digit at a time.</div>
+      <div class="legend">
+        <span class="sw" style="background:#fff3bf;border:1px solid #e8a000"></span>diagonal digit
+        <span class="sw" style="background:#ffe066;border:1px solid #c77f00"></span>current step
+        <span class="sw" style="background:#ffe3e3;border:1px solid #c0392b"></span>s (flipped diagonal)
+      </div>
+    </div>
+  </div>
+<script>
+(function () {
+  var N = 6;
+  var grid = document.getElementById('grid');
+  var msg = document.getElementById('msg');
+  var rows = [];
+  var step = -1;
+
+  function rand() { return Math.random() < 0.5 ? 0 : 1; }
+
+  function newRows() {
+    rows = [];
+    for (var i = 0; i < N; i++) {
+      var r = [];
+      for (var j = 0; j < N; j++) r.push(rand());
+      rows.push(r);
+    }
+  }
+
+  function build() {
+    grid.innerHTML = '';
+    for (var i = 0; i < N; i++) {
+      var tr = document.createElement('tr');
+      var lab = document.createElement('td');
+      lab.className = 'rowlabel';
+      lab.textContent = 'r' + (i + 1);
+      tr.appendChild(lab);
+      for (var j = 0; j < N; j++) {
+        var td = document.createElement('td');
+        td.textContent = rows[i][j];
+        if (i === j) td.className = 'diag';
+        if (i === j && i === step) td.className = 'diag active';
+        td.id = 'c' + i + '_' + j;
+        tr.appendChild(td);
+      }
+      grid.appendChild(tr);
+    }
+    // s row
+    var trs = document.createElement('tr');
+    var sl = document.createElement('td');
+    sl.className = 'slabel';
+    sl.textContent = 's';
+    trs.appendChild(sl);
+    for (var k = 0; k < N; k++) {
+      var td = document.createElement('td');
+      td.className = 's';
+      td.id = 's' + k;
+      td.textContent = (k <= step) ? String(1 - rows[k][k]) : '?';
+      trs.appendChild(td);
+    }
+    grid.appendChild(trs);
+  }
+
+  function updateMsg() {
+    if (step < 0) {
+      msg.innerHTML = 'Press <b>Step</b> to walk down the diagonal and build s one digit at a time.';
+    } else if (step < N) {
+      msg.innerHTML = 'Digit ' + (step + 1) + ': s takes the <b>opposite</b> of r' + (step + 1) +
+        "'s " + (step + 1) + 'st digit, so s &ne; r' + (step + 1) + '.';
+    } else {
+      msg.innerHTML = 'Done. s differs from <b>every</b> row r' + '1&hellip;r' + N +
+        ' in at least one digit, so s is on no line of the list. The list of all reals cannot exist: |ℝ| &gt; |ℕ|.';
+    }
+  }
+
+  function doStep() {
+    if (step < N) { step++; build(); updateMsg(); }
+  }
+  function doReset() { step = -1; build(); updateMsg(); }
+  function doRandom() { newRows(); step = -1; build(); updateMsg(); }
+
+  document.getElementById('step').addEventListener('click', doStep);
+  document.getElementById('reset').addEventListener('click', doReset);
+  document.getElementById('random').addEventListener('click', doRandom);
+
+  newRows();
+  build();
+  updateMsg();
+})();
+</script>
+</body>
+</html>

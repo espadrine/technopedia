@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distributional structure and operations</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 16px; background: #f7f8fa; color: #1a202c; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 12px; color: #4a5568; font-size: 13px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 12px; }
+  .ctl { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+  .ctl label { color: #2d3748; font-weight: 600; }
+  .ctl .val { color: #2b6cb0; font-variant-numeric: tabular-nums; }
+  select, input[type=range] { font-size: 13px; }
+  input[type=range] { width: 150px; }
+  canvas { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; display: block; max-width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  .note { margin-top: 10px; font-size: 12px; color: #4a5568; max-width: 720px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Distributional structure and operations</h1>
+<p class="sub">Pick an operation. Convolution adds independent quantities; the result is shown alongside its inputs. For stable laws, the density is the numerical inverse Fourier transform of the characteristic function.</p>
+
+<div class="controls">
+  <div class="ctl">
+    <label>Operation</label>
+    <select id="mode">
+      <option value="poisson">Convolution: two Poissons</option>
+      <option value="normal">Convolution: two Normals</option>
+      <option value="stable">Stable law (α, β)</option>
+    </select>
+  </div>
+  <div class="ctl" id="c1"><label id="l1">λ₁</label><input type="range" id="s1" min="0.5" max="12" step="0.1" value="3"><span class="val" id="v1">3.0</span></div>
+  <div class="ctl" id="c2"><label id="l2">λ₂</label><input type="range" id="s2" min="0.5" max="12" step="0.1" value="5"><span class="val" id="v2">5.0</span></div>
+</div>
+
+<canvas id="cv" width="760" height="380"></canvas>
+<div class="legend" id="legend"></div>
+<div class="note" id="note"></div>
+
+<script>
+(function(){
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  var padL = 46, padR = 16, padT = 18, padB = 34;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+
+  var mode = document.getElementById('mode');
+  var s1 = document.getElementById('s1'), s2 = document.getElementById('s2');
+  var l1 = document.getElementById('l1'), l2 = document.getElementById('l2');
+  var v1 = document.getElementById('v1'), v2 = document.getElementById('v2');
+  var c1 = document.getElementById('c1'), c2 = document.getElementById('c2');
+  var legend = document.getElementById('legend');
+  var note = document.getElementById('note');
+
+  function poissonPMF(k, lam){
+    if(k < 0) return 0;
+    var logp = -lam + k*Math.log(lam);
+    for(var i=2;i<=k;i++) logp -= Math.log(i);
+    return Math.exp(logp);
+  }
+  function normalPDF(x, mu, sd){
+    var z = (x-mu)/sd;
+    return Math.exp(-0.5*z*z)/(sd*Math.sqrt(2*Math.PI));
+  }
+  // stable characteristic function (S0 parameterization), sigma=1, mu=0
+  function stableCF(t, alpha, beta){
+    var at = Math.abs(t);
+    if(at < 1e-12) return {re:1, im:0};
+    var sgn = t>0?1:-1;
+    var phase;
+    if(Math.abs(alpha-1) < 1e-9){
+      phase = -at*(1 + beta*(2/Math.PI)*sgn*Math.log(at));
+    } else {
+      phase = -at*alpha*(1 - beta*sgn*Math.tan(Math.PI*alpha/2));
+    }
+    return {re: Math.cos(phase), im: Math.sin(phase)};
+  }
+  // numerical inverse Fourier transform: f(x) = (1/2pi) ∫ e^{-itx} φ(t) dt
+  function stablePDF(x, alpha, beta){
+    var T = 60, N = 4000, dt = 2*T/N;
+    var sum = 0;
+    for(var i=0;i<=N;i++){
+      var t = -T + i*dt;
+      var cf = stableCF(t, alpha, beta);
+      var re = Math.cos(-x*t)*cf.re - Math.sin(-x*t)*cf.im;
+      sum += re;
+    }
+    return (sum*dt)/(2*Math.PI);
+  }
+
+  function drawAxis(xmin, xmax, ymax){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle = '#cbd5e0'; ctx.lineWidth = 1;
+    // y gridlines
+    ctx.fillStyle = '#718096'; ctx.font = '11px sans-serif'; ctx.textAlign='right';
+    for(var g=0; g<=4; g++){
+      var yv = ymax*g/4;
+      var y = padT + plotH - (yv/ymax)*plotH;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+plotW, y); ctx.stroke();
+      ctx.fillText(yv.toFixed(2), padL-6, y+3);
+    }
+    // x axis
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH); ctx.stroke();
+    ctx.textAlign='center'; ctx.fillStyle='#333';
+    var nx = 8;
+    for(var i=0;i<=nx;i++){
+      var xv = xmin + (xmax-xmin)*i/nx;
+      var x = padL + (i/nx)*plotW;
+      ctx.beginPath(); ctx.moveTo(x, padT+plotH); ctx.lineTo(x, padT+plotH+4); ctx.stroke();
+      ctx.fillText(xv.toFixed(1), x, padT+plotH+16);
+    }
+  }
+  function xToPx(x, xmin, xmax){ return padL + (x-xmin)/(xmax-xmin)*plotW; }
+  function yToPx(y, ymax){ return padT + plotH - (y/ymax)*plotH; }
+
+  function drawCurve(fn, xmin, xmax, ymax, color, width){
+    ctx.strokeStyle = color; ctx.lineWidth = width||2.5; ctx.beginPath();
+    var N = 400;
+    for(var i=0;i<=N;i++){
+      var x = xmin + (xmax-xmin)*i/N;
+      var y = Math.max(0, fn(x));
+      var px = xToPx(x, xmin, xmax), py = yToPx(y, ymax);
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+  function drawBars(pmf, kmax, ymax, color){
+    ctx.fillStyle = color;
+    for(var k=0;k<=kmax;k++){
+      var p = pmf(k);
+      if(p<=0) continue;
+      var x = xToPx(k, -0.5, kmax+0.5);
+      var w = plotW/(kmax+1)*0.7;
+      var y = yToPx(p, ymax);
+      ctx.fillRect(x-w/2, y, w, padT+plotH-y);
+    }
+  }
+
+  function setLegend(items){
+    legend.innerHTML = items.map(function(it){
+      return '<span><span class="swatch" style="background:'+it.color+'"></span>'+it.label+'</span>';
+    }).join('');
+  }
+
+  function render(){
+    var m = mode.value;
+    var a = parseFloat(s1.value), b = parseFloat(s2.value);
+    v1.textContent = a.toFixed(1); v2.textContent = b.toFixed(1);
+
+    if(m === 'poisson'){
+      l1.textContent='λ₁'; l2.textContent='λ₂'; c2.style.display='';
+      var lam1=a, lam2=b, lamS=lam1+lam2;
+      var kmax = Math.ceil(lamS + 4*Math.sqrt(lamS)) + 2;
+      var ymax = 0;
+      for(var k=0;k<=kmax;k++) ymax = Math.max(ymax, poissonPMF(k,lamS));
+      ymax *= 1.1;
+      drawAxis(-0.5, kmax+0.5, ymax);
+      drawBars(function(k){return poissonPMF(k,lam1);}, kmax, ymax, 'rgba(43,108,176,0.55)');
+      drawBars(function(k){return poissonPMF(k,lam2);}, kmax, ymax, 'rgba(197,48,48,0.55)');
+      drawBars(function(k){return poissonPMF(k,lamS);}, kmax, ymax, '#2f855a');
+      setLegend([
+        {color:'rgba(43,108,176,0.55)', label:'X ~ Pois(λ₁)'},
+        {color:'rgba(197,48,48,0.55)', label:'Y ~ Pois(λ₂)'},
+        {color:'#2f855a', label:'X+Y ~ Pois(λ₁+λ₂)'}
+      ]);
+      note.textContent = 'The sum of two independent Poissons is Poisson with rate λ₁+λ₂ = '+(lam1+lam2).toFixed(1)+'. The green bars (the convolution) sit to the right, with mean equal to the sum of the means.';
+    }
+    else if(m === 'normal'){
+      l1.textContent='μ₁'; l2.textContent='μ₂'; c2.style.display='';
+      var mu1=a, mu2=b, sd=1;
+      var muS=mu1+mu2, sdS=Math.sqrt(2);
+      var xmin = Math.min(mu1,mu2)-4, xmax = Math.max(mu1,mu2)+4;
+      var ymax = 0;
+      for(var i=0;i<=400;i++){ var x=xmin+(xmax-xmin)*i/400; ymax=Math.max(ymax, normalPDF(x,muS,sdS)); }
+      ymax*=1.1;
+      drawAxis(xmin, xmax, ymax);
+      drawCurve(function(x){return normalPDF(x,mu1,sd);}, xmin, xmax, ymax, 'rgba(43,108,176,0.7)');
+      drawCurve(function(x){return normalPDF(x,mu2,sd);}, xmin, xmax, ymax, 'rgba(197,48,48,0.7)');
+      drawCurve(function(x){return normalPDF(x,muS,sdS);}, xmin, xmax, ymax, '#2f855a');
+      setLegend([
+        {color:'rgba(43,108,176,0.7)', label:'X ~ N(μ₁, 1)'},
+        {color:'rgba(197,48,48,0.7)', label:'Y ~ N(μ₂, 1)'},
+        {color:'#2f855a', label:'X+Y ~ N(μ₁+μ₂, 2)'}
+      ]);
+      note.textContent = 'The sum of two independent normals is normal: the means add (μ₁+μ₂ = '+(mu1+mu2).toFixed(1)+') and the variances add (1+1 = 2), so the green curve is wider and shorter. The normal family is closed under convolution.';
+    }
+    else {
+      l1.textContent='α (stability index)'; l2.textContent='β (skewness)'; c2.style.display='';
+      s1.min=0.3; s1.max=2; s1.step=0.05;
+      s2.min=-1; s2.max=1; s2.step=0.1;
+      var alpha=a, beta=b;
+      var xmin=-6, xmax=6;
+      var xs=[]; for(var i=0;i<=240;i++) xs.push(xmin+(xmax-xmin)*i/240);
+      var ys = xs.map(function(x){ return stablePDF(x, alpha, beta); });
+      var ymax=0; for(var j=0;j<ys.length;j++) ymax=Math.max(ymax, ys[j]);
+      ymax*=1.1;
+      drawAxis(xmin, xmax, ymax);
+      ctx.strokeStyle='#2f855a'; ctx.lineWidth=2.5; ctx.beginPath();
+      for(var k=0;k<xs.length;k++){
+        var px=xToPx(xs[k],xmin,xmax), py=yToPx(Math.max(0,ys[k]),ymax);
+        if(k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+      setLegend([{color:'#2f855a', label:'Stable(α='+alpha.toFixed(2)+', β='+beta.toFixed(1)+')'}]);
+      var tail = alpha<1.999 ? 'heavy (no finite variance)' : 'light (finite variance, the normal)';
+      note.textContent = 'α = '+alpha.toFixed(2)+', β = '+beta.toFixed(1)+'. As α decreases the tails get heavier and the peak sharper; α = 2 is the normal, α = 1 the Cauchy, α = 1/2 the positive stable (Lévy) law. Tails here are '+tail+'.';
+    }
+  }
+
+  mode.addEventListener('change', function(){
+    if(mode.value==='stable'){ s1.min=0.3; s1.max=2; s1.step=0.05; s1.value=1.5; s2.min=-1; s2.max=1; s2.step=0.1; s2.value=0; }
+    else if(mode.value==='poisson'){ s1.min=0.5; s1.max=12; s1.step=0.1; s1.value=3; s2.min=0.5; s2.max=12; s2.step=0.1; s2.value=5; }
+    else { s1.min=-3; s1.max=3; s1.step=0.1; s1.value=0; s2.min=-3; s2.max=3; s2.step=0.1; s2.value=1.5; }
+    render();
+  });
+  s1.addEventListener('input', render);
+  s2.addEventListener('input', render);
+  render();
+})();
+</script>
+</body>
+</html>

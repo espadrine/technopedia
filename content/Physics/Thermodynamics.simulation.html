@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Carnot Cycle Simulation</title>
+<style>
+body { font-family: sans-serif; margin: 10px; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; margin: 5px 0; }
+canvas { display: block; margin: 0 auto; background: #16213e; border-radius: 8px; }
+.controls { text-align: center; margin: 10px 0; }
+.controls label { margin: 0 10px; }
+input[type=range] { vertical-align: middle; }
+.info { text-align: center; font-size: 14px; margin-top: 8px; }
+.legend { text-align: center; font-size: 13px; margin-top: 5px; }
+.legend span { margin: 0 8px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h2>Carnot Cycle (P–V diagram)</h2>
+<canvas id="cv" width="600" height="420"></canvas>
+<div class="controls">
+<label>T<sub>H</sub> = <span id="thVal">600</span> K <input type="range" id="tH" min="300" max="1000" value="600" step="10"></label>
+<label>T<sub>C</sub> = <span id="tcVal">300</span> K <input type="range" id="tC" min="100" max="500" value="300" step="10"></label>
+</div>
+<div class="info" id="info"></div>
+<div class="legend">
+<span><span class="dot" style="background:#ff6b6b"></span> Isothermal expansion (T<sub>H</sub>)</span>
+<span><span class="dot" style="background:#4ecdc4"></span> Adiabatic expansion</span>
+<span><span class="dot" style="background:#45b7d1"></span> Isothermal compression (T<sub>C</sub>)</span>
+<span><span class="dot" style="background:#f9ca24"></span> Adiabatic compression</span>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const pad = 50;
+const gamma = 1.4; // diatomic
+const R = 8.314;
+const n = 1; // mole
+
+function draw() {
+  const TH = +document.getElementById('tH').value;
+  const TC = +document.getElementById('tC').value;
+  document.getElementById('thVal').textContent = TH;
+  document.getElementById('tcVal').textContent = TC;
+
+  // Choose V1 so the cycle fits nicely
+  const V1 = 0.02; // m^3
+  const P1 = n * R * TH / V1;
+  const V2 = V1 * 2; // isothermal expansion ratio
+  const P2 = n * R * TH / V2;
+  // Adiabatic: T*V^(gamma-1) = const
+  const V3 = V2 * Math.pow(TH / TC, 1 / (gamma - 1));
+  const P3 = n * R * TC / V3;
+  const V4 = V3 / 2;
+  const P4 = n * R * TC / V4;
+
+  // Scale to canvas
+  const Vmin = V1 * 0.8, Vmax = V3 * 1.1;
+  const Pmin = P3 * 0.8, Pmax = P1 * 1.1;
+  function toX(v) { return pad + (v - Vmin) / (Vmax - Vmin) * (W - 2 * pad); }
+  function toY(p) { return H - pad - (p - Pmin) / (Pmax - Pmin) * (H - 2 * pad); }
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad, H - pad); ctx.lineTo(W - pad, H - pad);
+  ctx.moveTo(pad, H - pad); ctx.lineTo(pad, pad);
+  ctx.stroke();
+  ctx.fillStyle = '#aaa';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('V (m³)', W - pad - 30, H - pad + 20);
+  ctx.fillText('P (kPa)', pad + 5, pad - 5);
+
+  // Grid lines
+  ctx.strokeStyle = '#2a2a4a';
+  for (let i = 1; i < 5; i++) {
+    const y = pad + i * (H - 2 * pad) / 5;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+    const x = pad + i * (W - 2 * pad) / 5;
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad); ctx.stroke();
+  }
+
+  // Draw cycle segments
+  function drawCurve(fn, vStart, vEnd, color, steps) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const v = vStart + (vEnd - vStart) * i / steps;
+      const p = fn(v);
+      const x = toX(v), y = toY(p);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // 1→2: Isothermal at TH
+  drawCurve(v => n * R * TH / v, V1, V2, '#ff6b6b', 80);
+  // 2→3: Adiabatic (T*V^(gamma-1)=const, P = P2*(V2/V)^gamma)
+  drawCurve(v => P2 * Math.pow(V2 / v, gamma), V2, V3, '#4ecdc4', 80);
+  // 3→4: Isothermal at TC
+  drawCurve(v => n * R * TC / v, V3, V4, '#45b7d1', 80);
+  // 4→1: Adiabatic
+  drawCurve(v => P4 * Math.pow(V4 / v, gamma), V4, V1, '#f9ca24', 80);
+
+  // Points
+  const pts = [[V1,P1],[V2,P2],[V3,P3],[V4,P4]];
+  const labels = ['1','2','3','4'];
+  pts.forEach((pt, i) => {
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(toX(pt[0]), toY(pt[1]), 4, 0, 2*Math.PI);
+    ctx.fill();
+    ctx.fillStyle = '#ccc';
+    ctx.font = '13px sans-serif';
+    ctx.fillText(labels[i], toX(pt[0]) + 6, toY(pt[1]) - 6);
+  });
+
+  // Efficiency
+  const eta = 1 - TC / TH;
+  const QH = n * R * TH * Math.log(V2 / V1);
+  const QC = n * R * TC * Math.log(V3 / V4);
+  const Wnet = QH - QC;
+  document.getElementById('info').innerHTML =
+    'η = 1 − T<sub>C</sub>/T<sub>H</sub> = <b>' + (eta*100).toFixed(1) + '%</b> &nbsp;|&nbsp; '
+    + 'Q<sub>H</sub> = ' + (QH/1000).toFixed(2) + ' kJ &nbsp;|&nbsp; '
+    + 'Q<sub>C</sub> = ' + (QC/1000).toFixed(2) + ' kJ &nbsp;|&nbsp; '
+    + 'W<sub>net</sub> = ' + (Wnet/1000).toFixed(2) + ' kJ';
+}
+
+document.getElementById('tH').addEventListener('input', draw);
+document.getElementById('tC').addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

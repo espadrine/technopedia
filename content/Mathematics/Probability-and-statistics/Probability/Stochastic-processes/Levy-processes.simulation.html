@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lévy process — drift + diffusion + jumps</title>
+<style>
+  :root { --ink:#22303c; --line:#c9d3dc; --blue:#2c5f8a; --red:#c0392b; --gray:#616161; --bg:#fafafa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); background:#fff; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 14px 16px 26px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color:#5a6b78; line-height:1.45; }
+  .panel { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:16px; background:var(--bg); }
+  .panel h2 { font-size:14px; margin:0 0 4px; }
+  .panel .desc { font-size:12.5px; color:#5a6b78; margin:0 0 10px; line-height:1.45; }
+  canvas { display:block; width:100%; height:auto; background:#fff; border:1px solid #e6ebf0; border-radius:6px; }
+  .row { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-top:10px; font-size:13px; }
+  .row label { display:flex; align-items:center; gap:7px; }
+  button { font:inherit; font-size:13px; padding:5px 12px; border:1px solid var(--blue); background:var(--blue); color:#fff; border-radius:6px; cursor:pointer; }
+  button:hover { filter:brightness(1.08); }
+  button.ghost { background:#fff; color:var(--blue); }
+  button.ghost:hover { background:#eef3f8; }
+  input[type=range] { width:130px; }
+  .val { font-variant-numeric: tabular-nums; min-width:34px; display:inline-block; font-weight:700; color:var(--blue); }
+  .stats { display:flex; gap:22px; font-size:13px; margin-top:10px; }
+  .stats b { font-variant-numeric: tabular-nums; }
+  .legend { font-size:12px; color:#5a6b78; margin-top:8px; display:flex; gap:18px; flex-wrap:wrap; }
+  .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin-right:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lévy process &mdash; drift + diffusion + jumps</h1>
+  <p class="sub">One sample path of $X_t = b\,t + \sigma W_t + J_t$. Slide the three ingredients of the Lévy&ndash;Itô decomposition &mdash; the drift $b$, the diffusion strength $\sigma$, and the jump rate $\lambda$ (with a jump-size scale) &mdash; and watch how the path changes. Press <em>New path</em> to resample.</p>
+
+  <div class="panel">
+    <h2>Sample path on [0, 10]</h2>
+    <p class="desc">The blue curve is $X_t$. The dashed gray line is the pure drift $b\,t$; the red dots mark individual jumps. Turn the diffusion off ($\sigma = 0$) to see a pure-jump path, or the jumps off ($\lambda = 0$) to see a drifted Brownian motion.</p>
+    <canvas id="cv" width="860" height="340"></canvas>
+
+    <div class="row">
+      <label>Drift $b$ <input type="range" id="b" min="-2" max="2" step="0.1" value="0.3"><span class="val" id="bVal">0.3</span></label>
+    <canvas id="cv" width="860" height="300"></canvas>
+      <label>Jump rate $\lambda$ <input type="range" id="lam" min="0" max="8" step="0.1" value="2"><span class="val" id="lamVal">2.0</span></label>
+      <label>Jump size <input type="range" id="js" min="0.2" max="2" step="0.1" value="0.8"><span class="val" id="jsVal">0.8</span></label>
+    </div>
+    <div class="row">
+      <button id="play">Pause</button>
+      <button class="ghost" id="new">New path</button>
+      <label>Speed <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1"><span class="val" id="speedVal">1.0</span></label>
+    </div>
+
+    <div class="stats">
+      <span>time <b id="tVal">0.0</b></span>
+      <span>$X_t$ <b id="xVal">0.00</b></span>
+      <span>jumps so far <b id="jVal">0</b></span>
+    </div>
+
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--blue)"></span>$X_t$ path</span>
+      <span><span class="swatch" style="background:var(--gray)"></span>drift $b\,t$</span>
+      <span><span class="swatch" style="background:var(--red)"></span>jump</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  var padL = 46, padR = 18, padT = 18, padB = 34;
+  var plotW = W - padL - padR;
+  var plotH = H - padT - padB;
+  var T = 10;          // time window
+  var M = 1000;        // fine grid resolution
+
+  var b = 0.3, sig = 0.8, lam = 2.0, js = 0.8;
+  var speed = 1;
+  var running = true;
+  var currentT = 0;
+  var lastTs = 0;
+
+  var path = [];       // path[i] = X at time i*dt
+  var jumps = [];      // {t, size}
+  var yMin = -1, yMax = 1;
+
+  function gauss() {
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  // Knuth's algorithm for Poisson(mu), mu small
+  function poisson(mu) {
+    if (mu <= 0) return 0;
+    var L = Math.exp(-mu), k = 0, p = 1;
+    do { k++; p *= Math.random(); } while (p > L && k < 200);
+    return k - 1;
+  }
+
+  function regenerate() {
+    var dt = T / M;
+    path = [0];
+    jumps = [];
+    var x = 0;
+    for (var i = 1; i <= M; i++) {
+      var t = i * dt;
+      x += b * dt;                       // drift
+      x += sig * Math.sqrt(dt) * gauss(); // diffusion
+      var n = poisson(lam * dt);         // jumps
+      for (var j = 0; j < n; j++) {
+        var size = js * (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+        x += size;
+        jumps.push({ t: t, size: size });
+      }
+      path.push(x);
+    }
+    var mn = Infinity, mx = -Infinity;
+    for (var k = 0; k < path.length; k++) { if (path[k] < mn) mn = path[k]; if (path[k] > mx) mx = path[k]; }
+    if (mx - mn < 1e-9) { mn -= 1; mx += 1; }
+    var pad = (mx - mn) * 0.12;
+    yMin = mn - pad; yMax = mx + pad;
+    currentT = 0;
+  }
+
+  function xOf(t) { return padL + (t / T) * plotW; }
+  function yOf(v) { return padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH; }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // axes
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH);
+    ctx.stroke();
+
+    // x ticks
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    for (var t = 0; t <= T; t += 2) {
+      var x = xOf(t);
+      ctx.beginPath(); ctx.moveTo(x, padT + plotH); ctx.lineTo(x, padT + plotH + 4); ctx.stroke();
+      ctx.fillText(String(t), x, padT + plotH + 16);
+    }
+    ctx.fillText('time t', padL + plotW / 2, H - 6);
+
+    // y ticks
+    ctx.textAlign = 'right';
+    var span = yMax - yMin;
+    var raw = span / 5;
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag;
+    var nice = norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10;
+    var step = nice * mag;
+    for (var v = Math.ceil(yMin / step) * step; v <= yMax + 1e-9; v += step) {
+      var y = yOf(v);
+      ctx.beginPath(); ctx.moveTo(padL - 4, y); ctx.lineTo(padL, y); ctx.stroke();
+      ctx.fillText(v.toFixed(1), padL - 7, y + 3);
+    }
+
+    // zero line
+    if (yMin < 0 && yMax > 0) {
+      ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, yOf(0)); ctx.lineTo(padL + plotW, yOf(0)); ctx.stroke();
+    }
+
+    // drift line b*t (dashed)
+    ctx.strokeStyle = '#616161'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(0));
+    ctx.lineTo(xOf(currentT), yOf(b * currentT));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // revealed path
+    var idx = Math.min(M, Math.floor(currentT / T * M));
+    ctx.strokeStyle = '#2c5f8a'; ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(path[0]));
+    for (var i = 1; i <= idx; i++) {
+      ctx.lineTo(xOf(i * T / M), yOf(path[i]));
+    }
+    ctx.stroke();
+
+    // jump dots
+    ctx.fillStyle = '#c0392b';
+    for (var j = 0; j < jumps.length; j++) {
+      if (jumps[j].t <= currentT) {
+        // value just after the jump = cumulative; approximate by path at that index
+        var ji = Math.min(M, Math.round(jumps[j].t / T * M));
+        ctx.beginPath();
+        ctx.arc(xOf(jumps[j].t), yOf(path[ji]), 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // current-time marker
+    ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(xOf(currentT), padT); ctx.lineTo(xOf(currentT), padT + plotH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // stats
+    document.getElementById('tVal').textContent = currentT.toFixed(1);
+    document.getElementById('xVal').textContent = path[idx].toFixed(2);
+    var jc = 0; for (var q = 0; q < jumps.length; q++) if (jumps[q].t <= currentT) jc++;
+    document.getElementById('jVal').textContent = String(jc);
+  }
+
+  function step(dt) {
+    currentT += dt * speed;
+    if (currentT >= T) currentT = 0; // loop
+  }
+
+  function frame(ts) {
+    if (!lastTs) lastTs = ts;
+    var dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if (running) step(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // controls
+  function bind(id, valId, setter, fmt) {
+    var el = document.getElementById(id);
+    el.addEventListener('input', function () {
+      setter(parseFloat(el.value));
+      document.getElementById(valId).textContent = fmt(parseFloat(el.value));
+      regenerate();
+    });
+  }
+  bind('b', 'bVal', function (v) { b = v; }, function (v) { return v.toFixed(1); });
+  bind('sig', 'sigVal', function (v) { sig = v; }, function (v) { return v.toFixed(1); });
+  bind('lam', 'lamVal', function (v) { lam = v; }, function (v) { return v.toFixed(1); });
+  bind('js', 'jsVal', function (v) { js = v; }, function (v) { return v.toFixed(1); });
+
+  var speedEl = document.getElementById('speed');
+  speedEl.addEventListener('input', function () {
+    speed = parseFloat(speedEl.value);
+    document.getElementById('speedVal').textContent = speed.toFixed(1);
+  });
+  document.getElementById('play').addEventListener('click', function () {
+    running = !running;
+    document.getElementById('play').textContent = running ? 'Pause' : 'Play';
+  });
+  document.getElementById('new').addEventListener('click', function () {
+    regenerate();
+  });
+
+  regenerate();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

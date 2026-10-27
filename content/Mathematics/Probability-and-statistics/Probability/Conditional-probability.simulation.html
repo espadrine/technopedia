@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bayes' Theorem Interactive</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h2 { text-align: center; color: #333; }
+.controls { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin: 15px 0; }
+.control { text-align: center; }
+.control label { display: block; font-size: 13px; color: #555; margin-bottom: 4px; }
+.control input[type=range] { width: 160px; }
+.control .val { font-size: 14px; font-weight: bold; color: #333; }
+.result { text-align: center; margin: 15px 0; padding: 12px; background: #fff; border: 2px solid #B22222; border-radius: 8px; }
+.result .posterior { font-size: 28px; font-weight: bold; color: #B22222; }
+.result .formula { font-size: 13px; color: #666; margin-top: 6px; }
+svg { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<h2>Bayes' Theorem: Disease Screening</h2>
+<div class="controls">
+  <div class="control">
+    <label>Prior P(D) — prevalence</label>
+    <input type="range" id="prior" min="0.0001" max="0.5" step="0.0001" value="0.0001">
+    <div class="val" id="priorVal">0.0001</div>
+  </div>
+  <div class="control">
+    <label>Sensitivity P(T|D)</label>
+    <input type="range" id="sens" min="0.5" max="1" step="0.01" value="0.99">
+    <div class="val" id="sensVal">0.99</div>
+  </div>
+  <div class="control">
+    <label>False-positive rate P(T|D<sup>c</sup>)</label>
+    <input type="range" id="fpr" min="0.001" max="0.5" step="0.001" value="0.005">
+    <div class="val" id="fprVal">0.005</div>
+  </div>
+</div>
+<div class="result">
+  <div>Posterior P(D|T) =</div>
+  <div class="posterior" id="posterior">0.0194</div>
+  <div class="formula" id="formula">0.99 × 0.0001 / (0.99 × 0.0001 + 0.005 × 0.9999)</div>
+</div>
+<svg id="tree" viewBox="0 0 560 340" width="560" height="340">
+  <rect width="560" height="340" fill="#fafafa" stroke="#ccc"/>
+  <text x="280" y="22" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Probability tree (per 10 000 people)</text>
+  <!-- Root -->
+  <circle cx="70" cy="170" r="20" fill="#4682B4"/>
+  <text x="70" y="174" text-anchor="middle" font-size="10" fill="white">10 000</text>
+  <!-- Branch to D -->
+  <line x1="90" y1="158" x2="200" y2="95" stroke="#333" stroke-width="1.5"/>
+  <text x="130" y="115" font-size="11" fill="#555" id="lblD">P(D)=0.0001</text>
+  <circle cx="215" cy="90" r="18" fill="#DC6434"/>
+  <text x="215" y="94" text-anchor="middle" font-size="10" fill="white" id="cntD">10</text>
+  <!-- Branch to D^c -->
+  <line x1="90" y1="182" x2="200" y2="245" stroke="#333" stroke-width="1.5"/>
+  <text x="125" y="225" font-size="11" fill="#555" id="lblDc">P(D^c)=0.9999</text>
+  <circle cx="215" cy="250" r="18" fill="#6B8E23"/>
+  <text x="215" y="254" text-anchor="middle" font-size="10" fill="white" id="cntDc">9 990</text>
+  <!-- D -> T+ -->
+  <line x1="233" y1="82" x2="340" y2="55" stroke="#333" stroke-width="1.5"/>
+  <text x="275" y="60" font-size="11" fill="#555" id="lblTP">P(T|D)=0.99</text>
+  <circle cx="355" cy="52" r="16" fill="#B22222"/>
+  <text x="355" y="56" text-anchor="middle" font-size="10" fill="white" id="cntTP">≈9.9</text>
+  <!-- D -> T- -->
+  <line x1="233" y1="98" x2="340" y2="115" stroke="#333" stroke-width="1.5"/>
+  <text x="270" y="115" font-size="11" fill="#555" id="lblTN">P(T^c|D)=0.01</text>
+  <circle cx="355" cy="118" r="16" fill="#999"/>
+  <text x="355" y="122" text-anchor="middle" font-size="10" fill="white" id="cntTN">≈0.1</text>
+  <!-- D^c -> T+ -->
+  <line x1="233" y1="242" x2="340" y2="205" stroke="#333" stroke-width="1.5"/>
+  <text x="265" y="210" font-size="11" fill="#555" id="lblFP">P(T|D^c)=0.005</text>
+  <circle cx="355" cy="202" r="16" fill="#B22222"/>
+  <text x="355" y="206" text-anchor="middle" font-size="10" fill="white" id="cntFP">≈49.95</text>
+  <!-- D^c -> T- -->
+  <line x1="233" y1="258" x2="340" y2="280" stroke="#333" stroke-width="1.5"/>
+  <text x="265" y="280" font-size="11" fill="#555" id="lblTN2">P(T^c|D^c)=0.995</text>
+  <circle cx="355" cy="283" r="16" fill="#999"/>
+  <text x="355" y="287" text-anchor="middle" font-size="10" fill="white" id="cntTN2">≈9 940</text>
+  <!-- Posterior box -->
+  <rect x="390" y="40" width="160" height="180" fill="rgba(178,34,34,0.06)" stroke="#B22222" stroke-width="1.5" rx="6"/>
+  <text x="470" y="62" text-anchor="middle" font-size="12" font-weight="bold" fill="#B22222">Positive tests:</text>
+  <text x="470" y="85" text-anchor="middle" font-size="12" fill="#333" id="posTotal">≈ 9.9 + 49.95 ≈ 59.85</text>
+  <text x="470" y="115" text-anchor="middle" font-size="12" font-weight="bold" fill="#B22222" id="postFrac">P(D|T) ≈ 9.9/59.85</text>
+  <text x="470" y="145" text-anchor="middle" font-size="16" font-weight="bold" fill="#B22222" id="postVal">≈ 0.0194</text>
+  <text x="470" y="175" text-anchor="middle" font-size="11" fill="#555" id="postPct">≈ 1.9%</text>
+  <text x="470" y="200" text-anchor="middle" font-size="10" fill="#555">Only a small fraction</text>
+  <text x="470" y="213" text-anchor="middle" font-size="10" fill="#555">of positives are true</text>
+</svg>
+<script>
+function update() {
+  var pD = parseFloat(document.getElementById('prior').value);
+  var sens = parseFloat(document.getElementById('sens').value);
+  var fpr = parseFloat(document.getElementById('fpr').value);
+  var pDc = 1 - pD;
+  var num = sens * pD;
+  var den = sens * pD + fpr * pDc;
+  var post = num / den;
+  // Update labels
+  document.getElementById('priorVal').textContent = pD.toFixed(4);
+  document.getElementById('sensVal').textContent = sens.toFixed(2);
+  document.getElementById('fprVal').textContent = fpr.toFixed(3);
+  document.getElementById('posterior').textContent = post.toFixed(4);
+  document.getElementById('formula').textContent = sens.toFixed(2) + ' × ' + pD.toFixed(4) + ' / (' + sens.toFixed(2) + ' × ' + pD.toFixed(4) + ' + ' + fpr.toFixed(3) + ' × ' + pDc.toFixed(4) + ')';
+  // Tree values (per 10000)
+  var nD = pD * 10000;
+  var nDc = pDc * 10000;
+  var nTP = sens * nD;
+  var nTN = (1 - sens) * nD;
+  var nFP = fpr * nDc;
+  var nTN2 = (1 - fpr) * nDc;
+  var posTotal = nTP + nFP;
+  document.getElementById('lblD').textContent = 'P(D)=' + pD.toFixed(4);
+  document.getElementById('lblDc').textContent = 'P(D^c)=' + pDc.toFixed(4);
+  document.getElementById('cntD').textContent = Math.round(nD);
+  document.getElementById('cntDc').textContent = Math.round(nDc);
+  document.getElementById('lblTP').textContent = 'P(T|D)=' + sens.toFixed(2);
+  document.getElementById('lblTN').textContent = 'P(T^c|D)=' + (1-sens).toFixed(2);
+  document.getElementById('cntTP').textContent = '≈' + nTP.toFixed(1);
+  document.getElementById('cntTN').textContent = '≈' + nTN.toFixed(1);
+  document.getElementById('lblFP').textContent = 'P(T|D^c)=' + fpr.toFixed(3);
+  document.getElementById('lblTN2').textContent = 'P(T^c|D^c)=' + (1-fpr).toFixed(3);
+  document.getElementById('cntFP').textContent = '≈' + nFP.toFixed(1);
+  document.getElementById('cntTN2').textContent = '≈' + nTN2.toFixed(0);
+  document.getElementById('posTotal').textContent = '≈ ' + nTP.toFixed(1) + ' + ' + nFP.toFixed(1) + ' ≈ ' + posTotal.toFixed(1);
+  document.getElementById('postFrac').textContent = 'P(D|T) ≈ ' + nTP.toFixed(1) + '/' + posTotal.toFixed(1);
+  document.getElementById('postVal').textContent = '≈ ' + post.toFixed(4);
+  document.getElementById('postPct').textContent = '≈ ' + (post*100).toFixed(1) + '%';
+}
+document.getElementById('prior').addEventListener('input', update);
+document.getElementById('sens').addEventListener('input', update);
+document.getElementById('fpr').addEventListener('input', update);
+update();
+</script>
+</body>
+</html>

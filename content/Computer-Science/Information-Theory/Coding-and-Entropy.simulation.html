@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Huffman Coding and Entropy Bound</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h2 { color: #7ec8e3; margin-bottom: 4px; }
+.subtitle { color: #aaa; font-size: 0.9em; margin-bottom: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.slider-group { display: flex; flex-direction: column; align-items: center; }
+.slider-group label { font-size: 0.85em; margin-bottom: 4px; }
+.slider-group input[type=range] { width: 100px; }
+.slider-group .val { font-size: 0.8em; color: #7ec8e3; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.metric { background: #16213e; border-radius: 8px; padding: 12px 18px; min-width: 140px; }
+.metric .label { font-size: 0.8em; color: #aaa; }
+.metric .value { font-size: 1.4em; font-weight: bold; color: #7ec8e3; }
+.metric .sub { font-size: 0.75em; color: #888; }
+.tree-container { background: #16213e; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+.tree-container h3 { margin: 0 0 10px; font-size: 0.95em; color: #7ec8e3; }
+canvas { display: block; margin: 0 auto; }
+.codewords { background: #16213e; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+.codewords h3 { margin: 0 0 10px; font-size: 0.95em; color: #7ec8e3; }
+.cw-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-family: monospace; }
+.cw-row .sym { width: 30px; color: #f9a826; }
+.cw-row .bits { color: #7ec8e3; }
+.cw-row .len { color: #aaa; font-size: 0.85em; }
+.bar-container { background: #16213e; border-radius: 8px; padding: 16px; }
+.bar-container h3 { margin: 0 0 10px; font-size: 0.95em; color: #7ec8e3; }
+.bar-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+.bar-row .bar-label { width: 80px; font-size: 0.85em; }
+.bar-row .bar-track { flex: 1; height: 20px; background: #0f3460; border-radius: 4px; position: relative; }
+.bar-row .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.bar-row .bar-val { font-size: 0.8em; color: #aaa; min-width: 50px; }
+.gap-note { margin-top: 10px; font-size: 0.85em; color: #f9a826; }
+</style>
+</head>
+<body>
+<h2>Huffman Coding &amp; Entropy Bound</h2>
+<p class="subtitle">Adjust the probability distribution and observe how the Huffman code approaches the entropy bound.</p>
+
+<div class="controls" id="sliders"></div>
+
+<div class="results">
+<div class="metric"><div class="label">Entropy H(X)</div><div class="value" id="entropy-val">—</div><div class="sub">bits/symbol</div></div>
+<div class="metric"><div class="label">Expected length L</div><div class="value" id="length-val">—</div><div class="sub">bits/symbol</div></div>
+<div class="metric"><div class="label">Gap L − H</div><div class="value" id="gap-val">—</div><div class="sub">&lt; 1 bit (theorem)</div></div>
+<div class="metric"><div class="label">Redundancy R</div><div class="value" id="redundancy-val">—</div><div class="sub">1 − H/log₂|X|</div></div>
+</div>
+
+<div class="tree-container">
+<h3>Huffman Tree</h3>
+<canvas id="tree-canvas" width="600" height="300"></canvas>
+</div>
+
+<div class="codewords">
+<h3>Codewords</h3>
+<div id="cw-list"></div>
+</div>
+
+<div class="bar-container">
+<h3>Entropy vs. Expected Length</h3>
+<div class="bar-row">
+<div class="bar-label">Entropy H</div>
+<div class="bar-track"><div class="bar-fill" id="bar-h" style="background:#7ec8e3;width:0%"></div></div>
+<div class="bar-val" id="bar-h-val"></div>
+</div>
+<div class="bar-row">
+<div class="bar-label">Huffman L</div>
+<div class="bar-track"><div class="bar-fill" id="bar-l" style="background:#f9a826;width:0%"></div></div>
+<div class="bar-val" id="bar-l-val"></div>
+</div>
+<div class="bar-row">
+<div class="bar-label">Fixed-length</div>
+<div class="bar-track"><div class="bar-fill" id="bar-f" style="background:#e06666;width:0%"></div></div>
+<div class="bar-val" id="bar-f-val"></div>
+</div>
+<div class="gap-note" id="gap-note"></div>
+</div>
+
+<script>
+const N = 6;
+const symbols = ['A','B','C','D','E','F'];
+let probs = [0.35, 0.25, 0.20, 0.10, 0.05, 0.05];
+
+function initSliders() {
+  const container = document.getElementById('sliders');
+  for (let i = 0; i < N; i++) {
+    const div = document.createElement('div');
+    div.className = 'slider-group';
+    div.innerHTML = `<label>Symbol ${symbols[i]}</label><input type="range" min="1" max="50" value="${Math.round(probs[i]*100)}" id="sl-${i}"><span class="val" id="sv-${i}">${probs[i].toFixed(2)}</span>`;
+    container.appendChild(div);
+    div.querySelector('input').addEventListener('input', () => {
+      let raw = [];
+      for (let j = 0; j < N; j++) raw.push(parseInt(document.getElementById('sl-'+j).value));
+      const sum = raw.reduce((a,b)=>a+b,0);
+      probs = raw.map(v => v/sum);
+      for (let j = 0; j < N; j++) document.getElementById('sv-'+j).textContent = probs[j].toFixed(3);
+      update();
+    });
+  }
+}
+
+function huffman(probs) {
+  let nodes = probs.map((p, i) => ({ p, sym: i, left: null, right: null, code: '' }));
+  while (nodes.length > 1) {
+    nodes.sort((a, b) => a.p - b.p);
+    const a = nodes.shift(), b = nodes.shift();
+    nodes.push({ p: a.p + b.p, sym: -1, left: a, right: b, code: '' });
+  }
+  const root = nodes[0];
+  const codes = new Array(probs.length);
+  function assign(node, prefix) {
+    if (node.sym >= 0) { codes[node.sym] = prefix || '0'; return; }
+    assign(node.left, prefix + '0');
+    assign(node.right, prefix + '1');
+  }
+  assign(root, '');
+  return { root, codes };
+}
+
+function entropy(probs) {
+  let h = 0;
+  for (const p of probs) if (p > 0) h -= p * Math.log2(p);
+  return h;
+}
+
+function drawTree(root, canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const W = canvas.width, H = canvas.height;
+  const pad = 30;
+
+  // Compute positions
+  let leaves = [];
+  function collectLeaves(node) {
+    if (node.sym >= 0) { leaves.push(node); return; }
+    collectLeaves(node.left);
+    collectLeaves(node.right);
+  }
+  collectLeaves(root);
+  const nLeaves = leaves.length;
+  const spacing = (W - 2*pad) / Math.max(nLeaves - 1, 1);
+
+  function assignX(node, depth, maxDepth) {
+    if (node.sym >= 0) {
+      node.x = pad + leaves.indexOf(node) * spacing;
+      node.y = pad + depth * ((H - 2*pad) / Math.max(maxDepth, 1));
+      return;
+    }
+    assignX(node.left, depth + 1, maxDepth);
+    assignX(node.right, depth + 1, maxDepth);
+    node.x = (node.left.x + node.right.x) / 2;
+    node.y = pad + depth * ((H - 2*pad) / Math.max(maxDepth, 1));
+  }
+
+  function maxDepth(node) {
+    if (node.sym >= 0) return 0;
+    return 1 + Math.max(maxDepth(node.left), maxDepth(node.right));
+  }
+
+  const md = maxDepth(root);
+  assignX(root, 0, md);
+
+  function drawNode(node) {
+    if (node.sym >= 0) {
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, 14, 0, Math.PI*2);
+      ctx.fillStyle = '#7ec8e3';
+      ctx.fill();
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = 'bold 11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(symbols[node.sym], node.x, node.y);
+    } else {
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, 10, 0, Math.PI*2);
+      ctx.fillStyle = '#f9a826';
+      ctx.fill();
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = '9px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.p.toFixed(2), node.x, node.y);
+      drawEdge(node, node.left);
+      drawEdge(node, node.right);
+      drawNode(node.left);
+      drawNode(node.right);
+    }
+  }
+
+  function drawEdge(parent, child) {
+    ctx.beginPath();
+    ctx.moveTo(parent.x, parent.y);
+    ctx.lineTo(child.x, child.y);
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Label
+    const mx = (parent.x + child.x)/2, my = (parent.y + child.y)/2;
+    const bit = (child === parent.left) ? '0' : '1';
+    ctx.fillStyle = '#aaa';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(bit, mx + (child === parent.left ? -8 : 8), my);
+  }
+
+  drawNode(root);
+}
+
+function update() {
+  const H = entropy(probs);
+  const { root, codes } = huffman(probs);
+  let L = 0;
+  for (let i = 0; i < N; i++) L += probs[i] * codes[i].length;
+  const fixedLen = Math.ceil(Math.log2(N));
+  const R = 1 - H / Math.log2(N);
+  const gap = L - H;
+
+  document.getElementById('entropy-val').textContent = H.toFixed(3);
+  document.getElementById('length-val').textContent = L.toFixed(3);
+  document.getElementById('gap-val').textContent = gap.toFixed(3);
+  document.getElementById('redundancy-val').textContent = (R*100).toFixed(1) + '%';
+
+  drawTree(root, document.getElementById('tree-canvas'));
+
+  // Codewords
+  const cwList = document.getElementById('cw-list');
+  cwList.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    cwList.innerHTML += `<div class="cw-row"><span class="sym">${symbols[i]}</span><span class="bits">${codes[i]}</span><span class="len">(${codes[i].length} bit${codes[i].length>1?'s':''}, p=${probs[i].toFixed(3)})</span></div>`;
+  }
+
+  // Bars
+  const maxVal = Math.max(H, L, fixedLen, 0.1);
+  document.getElementById('bar-h').style.width = (H/maxVal*100)+'%';
+  document.getElementById('bar-l').style.width = (L/maxVal*100)+'%';
+  document.getElementById('bar-f').style.width = (fixedLen/maxVal*100)+'%';
+  document.getElementById('bar-h-val').textContent = H.toFixed(3);
+  document.getElementById('bar-l-val').textContent = L.toFixed(3);
+  document.getElementById('bar-f-val').textContent = fixedLen + '.000';
+  document.getElementById('gap-note').textContent = `Gap L − H = ${gap.toFixed(3)} bits < 1 ✓ (source coding theorem)`;
+}
+
+initSliders();
+update();
+</script>
+</body>
+</html>

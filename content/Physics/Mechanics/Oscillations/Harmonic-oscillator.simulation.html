@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Harmonic Oscillator Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 10px; background: #f8f9fa; color: #2c3e50; }
+h2 { margin: 8px 0 4px; font-size: 1.1em; }
+.controls { display: flex; gap: 20px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+.controls input[type=range] { width: 120px; }
+.controls span { font-weight: bold; min-width: 40px; display: inline-block; }
+button { padding: 4px 12px; cursor: pointer; background: #4a90d9; color: white; border: none; border-radius: 4px; }
+button:hover { background: #357abd; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.panel { background: white; border-radius: 6px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.panel h3 { margin: 0 0 4px; font-size: 0.9em; color: #555; }
+canvas { display: block; width: 100%; }
+.energy-bar { display: flex; height: 20px; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.energy-bar div { height: 100%; transition: width 0.05s; }
+.ke { background: #e74c3c; }
+.pe { background: #3498db; }
+.legend { font-size: 0.8em; margin-top: 4px; }
+.legend span { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h2>Harmonic Oscillator: mass-spring, phase space, and energy exchange</h2>
+<div class="controls">
+  <label>k = <span id="kVal">100</span> N/m <input type="range" id="kSlider" min="10" max="500" value="100" step="10"/></label>
+  <label>m = <span id="mVal">1.0</span> kg <input type="range" id="mSlider" min="0.1" max="5" value="1" step="0.1"/></label>
+  <label>A = <span id="aVal">1.0</span> m <input type="range" id="aSlider" min="0.1" max="3" value="1" step="0.1"/></label>
+  <button id="resetBtn">Reset</button>
+  <button id="pauseBtn">Pause</button>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h3>Mass-Spring</h3>
+    <canvas id="springCanvas" width="400" height="160"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Displacement vs Time</h3>
+    <canvas id="timeCanvas" width="400" height="160"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Phase Space (x, ẋ)</h3>
+    <canvas id="phaseCanvas" width="400" height="160"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Energy Exchange</h3>
+    <canvas id="energyCanvas" width="400" height="120"></canvas>
+    <div class="energy-bar"><div class="ke" id="keBar"></div><div class="pe" id="peBar"></div></div>
+    <div class="legend"><span class="ke"></span>Kinetic &nbsp; <span class="pe"></span>Potential</div>
+  </div>
+</div>
+<script>
+var k = 100, m = 1.0, A = 1.0;
+var omega = Math.sqrt(k / m);
+var t = 0;
+var dt = 0.016;
+var paused = false;
+var history = [];
+var maxHistory = 300;
+
+var kSlider = document.getElementById('kSlider');
+var mSlider = document.getElementById('mSlider');
+var aSlider = document.getElementById('aSlider');
+var kVal = document.getElementById('kVal');
+var mVal = document.getElementById('mVal');
+var aVal = document.getElementById('aVal');
+var resetBtn = document.getElementById('resetBtn');
+var pauseBtn = document.getElementById('pauseBtn');
+
+kSlider.oninput = function() { k = +this.value; kVal.textContent = k; omega = Math.sqrt(k/m); reset(); };
+mSlider.oninput = function() { m = +this.value; mVal.textContent = m.toFixed(1); omega = Math.sqrt(k/m); reset(); };
+aSlider.oninput = function() { A = +this.value; aVal.textContent = A.toFixed(1); reset(); };
+resetBtn.onclick = function() { reset(); };
+pauseBtn.onclick = function() { paused = !paused; pauseBtn.textContent = paused ? 'Resume' : 'Pause'; };
+
+function reset() { t = 0; history = []; }
+
+function x(t) { return A * Math.cos(omega * t); }
+function v(t) { return -A * omega * Math.sin(omega * t); }
+
+var springCtx = document.getElementById('springCanvas').getContext('2d');
+var timeCtx = document.getElementById('timeCanvas').getContext('2d');
+var phaseCtx = document.getElementById('phaseCanvas').getContext('2d');
+var energyCtx = document.getElementById('energyCanvas').getContext('2d');
+
+function drawSpring() {
+  var c = springCtx;
+  var W = 400, H = 160;
+  c.clearRect(0, 0, W, H);
+  var xNow = x(t);
+  var scale = 60;
+  var massX = 250 + xNow * scale;
+  var massY = 80;
+  // Wall
+  c.fillStyle = '#555';
+  c.fillRect(30, 30, 10, 100);
+  c.strokeStyle = '#333';
+  c.lineWidth = 3;
+  c.beginPath(); c.moveTo(30, 30); c.lineTo(30, 130); c.stroke();
+  // Spring
+  c.strokeStyle = '#333';
+  c.lineWidth = 2;
+  c.beginPath();
+  var springStart = 40;
+  var springEnd = massX - 20;
+  var coils = 12;
+  var segLen = (springEnd - springStart) / coils;
+  c.moveTo(springStart, massY);
+  for (var i = 0; i < coils; i++) {
+    var sx = springStart + i * segLen;
+    c.lineTo(sx + segLen * 0.25, massY - 12);
+    c.lineTo(sx + segLen * 0.75, massY + 12);
+    c.lineTo(sx + segLen, massY);
+  }
+  c.stroke();
+  // Mass
+  c.fillStyle = '#4a90d9';
+  c.strokeStyle = '#2a5a8a';
+  c.lineWidth = 2;
+  c.beginPath();
+  c.roundRect(massX - 20, massY - 20, 40, 40, 4);
+  c.fill(); c.stroke();
+  c.fillStyle = 'white';
+  c.font = 'bold 14px system-ui';
+  c.textAlign = 'center';
+  c.fillText('m', massX, massY + 5);
+  // Equilibrium line
+  c.strokeStyle = '#999';
+  c.lineWidth = 1;
+  c.setLineDash([4, 3]);
+  c.beginPath(); c.moveTo(250, 20); c.lineTo(250, 140); c.stroke();
+  c.setLineDash([]);
+  c.fillStyle = '#999';
+  c.font = '10px system-ui';
+  c.fillText('eq', 250, 15);
+  // Displacement arrow
+  if (Math.abs(xNow) > 0.05) {
+    c.strokeStyle = 'red';
+    c.lineWidth = 2;
+    c.beginPath(); c.moveTo(250, 135); c.lineTo(massX, 135); c.stroke();
+    var dir = xNow > 0 ? 1 : -1;
+    c.beginPath();
+    c.moveTo(massX, 135);
+    c.lineTo(massX - dir * 8, 131);
+    c.lineTo(massX - dir * 8, 139);
+    c.closePath();
+    c.fillStyle = 'red';
+    c.fill();
+  }
+  // Info
+  c.fillStyle = '#333';
+  c.font = '11px system-ui';
+  c.textAlign = 'left';
+  c.fillText('x = ' + xNow.toFixed(3) + ' m', 10, 15);
+  c.fillText('ω = ' + omega.toFixed(2) + ' rad/s', 10, 30);
+  c.fillText('T = ' + (2 * Math.PI / omega).toFixed(3) + ' s', 10, 45);
+}
+
+function drawTime() {
+  var c = timeCtx;
+  var W = 400, H = 160;
+  c.clearRect(0, 0, W, H);
+  // Axes
+  c.strokeStyle = '#ccc';
+  c.lineWidth = 1;
+  c.beginPath(); c.moveTo(30, H/2); c.lineTo(W-10, H/2); c.stroke();
+  c.beginPath(); c.moveTo(30, 10); c.lineTo(30, H-10); c.stroke();
+  c.fillStyle = '#666';
+  c.font = '10px system-ui';
+  c.fillText('t', W-15, H/2 + 12);
+  c.fillText('x', 20, 15);
+  // Plot
+  if (history.length < 2) return;
+  c.strokeStyle = '#2c3e50';
+  c.lineWidth = 2;
+  c.beginPath();
+  var tSpan = 4 * (2 * Math.PI / omega);
+  var tStart = Math.max(0, t - tSpan);
+  for (var i = 0; i < history.length; i++) {
+    var px = 30 + (history[i].t - tStart) / tSpan * (W - 40);
+    var py = H/2 - history[i].x / (A * 1.2) * (H/2 - 15);
+    if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+  }
+  c.stroke();
+}
+
+function drawPhase() {
+  var c = phaseCtx;
+  var W = 400, H = 160;
+  c.clearRect(0, 0, W, H);
+  var cx = W/2, cy = H/2;
+  var rx = (W/2 - 20) / (A * 1.1);
+  var ry = (H/2 - 15) / (A * omega * 1.1);
+  // Axes
+  c.strokeStyle = '#ccc';
+  c.lineWidth = 1;
+  c.beginPath(); c.moveTo(20, cy); c.lineTo(W-20, cy); c.stroke();
+  c.beginPath(); c.moveTo(cx, 10); c.lineTo(cx, H-10); c.stroke();
+  c.fillStyle = '#666';
+  c.font = '10px system-ui';
+  c.fillText('x', W-25, cy + 12);
+  c.fillText('ẋ', cx + 5, 15);
+  // Ellipse
+  c.strokeStyle = '#4a90d9';
+  c.lineWidth = 1.5;
+  c.beginPath();
+  c.ellipse(cx, cy, A * rx, A * omega * ry, 0, 0, 2 * Math.PI);
+  c.stroke();
+  // Current point
+  var xNow = x(t), vNow = v(t);
+  var px = cx + xNow * rx;
+  var py = cy - vNow * ry;
+  c.fillStyle = 'red';
+  c.beginPath();
+  c.arc(px, py, 5, 0, 2 * Math.PI);
+  c.fill();
+  // Trail
+  if (history.length > 1) {
+    c.strokeStyle = 'rgba(231,76,60,0.3)';
+    c.lineWidth = 1;
+    c.beginPath();
+    for (var i = Math.max(0, history.length - 60); i < history.length; i++) {
+      var hx = cx + history[i].x * rx;
+      var hy = cy - history[i].v * ry;
+      if (i === Math.max(0, history.length - 60)) c.moveTo(hx, hy); else c.lineTo(hx, hy);
+    }
+    c.stroke();
+  }
+}
+
+function drawEnergy() {
+  var c = energyCtx;
+  var W = 400, H = 120;
+  c.clearRect(0, 0, W, H);
+  var xNow = x(t), vNow = v(t);
+  var KE = 0.5 * m * vNow * vNow;
+  var PE = 0.5 * k * xNow * xNow;
+  var E = 0.5 * k * A * A;
+  // Bars
+  var barW = 60;
+  var maxH = H - 30;
+  // KE bar
+  c.fillStyle = '#e74c3c';
+  var keH = (KE / E) * maxH;
+  c.fillRect(50, H - 20 - keH, barW, keH);
+  c.fillStyle = '#333';
+  c.font = '10px system-ui';
+  c.textAlign = 'center';
+  c.fillText('KE', 80, H - 5);
+  c.fillText(KE.toFixed(3) + ' J', 80, H - 25 - keH);
+  // PE bar
+  c.fillStyle = '#3498db';
+  var peH = (PE / E) * maxH;
+  c.fillRect(150, H - 20 - peH, barW, peH);
+  c.fillStyle = '#333';
+  c.fillText('PE', 180, H - 5);
+  c.fillText(PE.toFixed(3) + ' J', 180, H - 25 - peH);
+  // Total
+  c.fillStyle = '#2c3e50';
+  c.fillRect(250, H - 20 - maxH, barW, maxH);
+  c.fillStyle = 'white';
+  c.fillText('E', 280, H - 5);
+  c.fillText(E.toFixed(3) + ' J', 280, 15);
+  // Update HTML bars
+  document.getElementById('keBar').style.width = (KE / E * 100) + '%';
+  document.getElementById('peBar').style.width = (PE / E * 100) + '%';
+}
+
+function animate() {
+  if (!paused) {
+    t += dt;
+    history.push({ t: t, x: x(t), v: v(t) });
+    if (history.length > maxHistory) history.shift();
+  }
+  drawSpring();
+  drawTime();
+  drawPhase();
+  drawEnergy();
+  requestAnimationFrame(animate);
+}
+
+// Polyfill roundRect
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.arcTo(x + w, y, x + w, y + r, r);
+    this.lineTo(x + w, y + h - r);
+    this.arcTo(x + w, y + h, x + w - r, y + h, r);
+    this.lineTo(x + r, y + h);
+    this.arcTo(x, y + h, x, y + h - r, r);
+    this.lineTo(x, y + r);
+    this.arcTo(x, y, x + r, y, r);
+  };
+}
+
+animate();
+</script>
+</body>
+</html>

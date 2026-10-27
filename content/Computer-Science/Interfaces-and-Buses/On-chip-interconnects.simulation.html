@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bus arbiter demo: strict priority vs round-robin</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 10px; background: #fff; color: #222; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; font-size: 13px; }
+  .controls label { display: flex; align-items: center; gap: 4px; }
+  button, select { font-size: 13px; padding: 3px 8px; }
+  #timeline { display: flex; gap: 2px; overflow: hidden; border: 1px solid #bbb; background: #f4f4f4; padding: 4px; height: 96px; align-items: flex-end; }
+  .col { display: flex; flex-direction: column-reverse; gap: 2px; flex: 0 0 auto; }
+  .cell { width: 12px; height: 18px; border: 1px solid #ccc; background: #fff; }
+  .cell.grant { background: #27ae60; border-color: #145a32; }
+  .cell.wait  { background: #f5b7b1; border-color: #c0392b; }
+  .mrow { display: flex; gap: 2px; margin: 2px 0; font-size: 12px; align-items: center; }
+  .mname { width: 130px; }
+  .bar { height: 12px; background: #3366cc; }
+  .warn { color: #c0392b; font-weight: bold; }
+  table { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  td, th { border: 1px solid #bbb; padding: 2px 8px; text-align: left; }
+  #msg { font-size: 12px; margin-top: 4px; min-height: 16px; }
+</style>
+</head>
+<body>
+<h1>Shared-bus arbiter: strict priority vs round-robin</h1>
+<div class="controls">
+  <label>Policy:
+    <select id="policy">
+      <option value="prio">Strict priority (M0 &gt; M1 &gt; M2 &gt; M3)</option>
+      <option value="rr">Round-robin</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="greedy" checked> M0 requests every cycle</label>
+  <label>Load of M1–M3: <input type="range" id="load" min="0" max="100" value="60"> <span id="loadv">60%</span></label>
+  <label>Cycle time: <input type="range" id="speed" min="40" max="400" value="140"> ms</label>
+  <button id="run">Pause</button>
+  <button id="reset">Reset</button>
+</div>
+<div id="timeline"></div>
+<div style="font-size:11px;color:#555;margin-top:2px">
+  Each column is one bus cycle (oldest left). <span style="color:#145a32">■</span> granted &nbsp;
+  <span style="color:#c0392b">■</span> requested but not granted &nbsp; □ idle
+</div>
+<div id="stats"></div>
+<div id="msg"></div>
+<script>
+(function () {
+  var NM = 4, MAXCOL = 60;
+  var names = ['M0 (high prio)', 'M1', 'M2', 'M3 (low prio)'];
+  var cycle = 0, running = true, timer = null, lastGrant = -1;
+  var grants = [0, 0, 0, 0], wait = [0, 0, 0, 0], maxWait = [0, 0, 0, 0];
+  var timeline = document.getElementById('timeline');
+  var stats = document.getElementById('stats');
+  var msg = document.getElementById('msg');
+  var policySel = document.getElementById('policy');
+  var greedy = document.getElementById('greedy');
+  var load = document.getElementById('load');
+  var loadv = document.getElementById('loadv');
+  var speed = document.getElementById('speed');
+  var runBtn = document.getElementById('run');
+
+  function reqProb(i) {
+    if (i === 0) return greedy.checked ? 1 : 0.3;
+    return load.value / 100;
+  }
+
+  function pick(reqs) {
+    if (policySel.value === 'prio') {
+      for (var i = 0; i < NM; i++) if (reqs[i]) return i;
+      return -1;
+    }
+    for (var k = 1; k <= NM; k++) {
+      var i = (lastGrant + k) % NM;
+      if (reqs[i]) return i;
+    }
+    return -1;
+  }
+
+  function tick() {
+    var reqs = [];
+    for (var i = 0; i < NM; i++) reqs[i] = Math.random() < reqProb(i);
+    var g = pick(reqs);
+    var col = document.createElement('div');
+    col.className = 'col';
+    for (var i = 0; i < NM; i++) {
+      var c = document.createElement('div');
+      c.className = 'cell' + (i === g ? ' grant' : (reqs[i] ? ' wait' : ''));
+      c.title = names[i] + (i === g ? ': granted' : (reqs[i] ? ': waiting' : ': idle'));
+      col.appendChild(c);
+    }
+    timeline.appendChild(col);
+    while (timeline.children.length > MAXCOL) timeline.removeChild(timeline.firstChild);
+    for (var i = 0; i < NM; i++) {
+      if (reqs[i]) { wait[i]++; if (wait[i] > maxWait[i]) maxWait[i] = wait[i]; }
+      else wait[i] = 0;
+    }
+    if (g >= 0) { grants[g]++; wait[g] = 0; lastGrant = g; }
+    cycle++;
+    render();
+  }
+
+  function render() {
+    var h = '<table><tr><th>Master</th><th>Grants</th><th>Share</th><th>Waiting since</th><th>Max wait</th></tr>';
+    var total = grants[0] + grants[1] + grants[2] + grants[3];
+    for (var i = 0; i < NM; i++) {
+      var share = total ? Math.round(100 * grants[i] / total) : 0;
+      var starved = maxWait[i] >= 25;
+      h += '<tr><td>' + names[i] + '</td><td>' + grants[i] + '</td><td>' + share + '%' +
+           '</td><td>' + wait[i] + ' cy</td><td>' + maxWait[i] + ' cy' +
+           (starved ? ' <span class="warn">starved!</span>' : '') + '</td></tr>';
+    }
+    h += '</table>';
+    stats.innerHTML = h;
+    if (policySel.value === 'prio' && maxWait[3] >= 25) {
+      msg.innerHTML = '<span class="warn">Starvation: M3 has waited ' + maxWait[3] +
+        ' cycles because M0 never stops requesting. Switch the policy to round-robin to bound its wait.</span>';
+    } else if (policySel.value === 'rr') {
+      msg.textContent = 'Round-robin: every requester is served within at most 3 cycles of its neighbours, so no master starves.';
+    } else {
+      msg.textContent = '';
+    }
+  }
+
+  function restart() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(tick, parseInt(speed.value, 10));
+  }
+
+  function reset() {
+    cycle = 0; lastGrant = -1;
+    grants = [0, 0, 0, 0]; wait = [0, 0, 0, 0]; maxWait = [0, 0, 0, 0];
+    timeline.innerHTML = '';
+    msg.textContent = '';
+    render();
+  }
+
+  runBtn.onclick = function () {
+    running = !running;
+    runBtn.textContent = running ? 'Pause' : 'Run';
+    if (running) restart(); else if (timer) clearInterval(timer);
+  };
+  document.getElementById('reset').onclick = reset;
+  speed.oninput = function () { if (running) restart(); };
+  load.oninput = function () { loadv.textContent = load.value + '%'; };
+  policySel.onchange = function () { reset(); };
+
+  reset();
+  restart();
+})();
+</script>
+</body>
+</html>

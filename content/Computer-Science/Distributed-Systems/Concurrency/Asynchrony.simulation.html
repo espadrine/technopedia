@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Event Loop Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #eee; padding: 16px; }
+h1 { font-size: 16px; margin-bottom: 12px; color: #7fdbca; }
+.controls { margin-bottom: 12px; }
+.controls button { background: #16213e; color: #7fdbca; border: 1px solid #7fdbca; padding: 6px 14px; margin-right: 8px; cursor: pointer; font-family: inherit; font-size: 13px; border-radius: 3px; }
+.controls button:hover { background: #7fdbca; color: #1a1a2e; }
+.controls button.active { background: #7fdbca; color: #1a1a2e; }
+#status { font-size: 12px; color: #aaa; margin-bottom: 10px; }
+.phases { display: flex; gap: 4px; margin-bottom: 14px; }
+.phase { flex: 1; text-align: center; padding: 8px 4px; border: 2px solid #333; border-radius: 4px; font-size: 11px; transition: all 0.3s; }
+.phase.active { border-color: #7fdbca; background: rgba(127,219,202,0.15); color: #7fdbca; font-weight: bold; }
+.phase.done { border-color: #555; color: #666; }
+.main { display: flex; gap: 12px; }
+.panel { flex: 1; border: 1px solid #333; border-radius: 4px; padding: 10px; min-height: 200px; }
+.panel h2 { font-size: 12px; color: #7fdbca; margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+.socket { display: flex; align-items: center; gap: 6px; padding: 4px 6px; margin-bottom: 3px; font-size: 11px; border-radius: 3px; transition: all 0.3s; }
+.socket.pending { background: rgba(255,193,7,0.1); border-left: 3px solid #ffc107; }
+.socket.ready { background: rgba(127,219,202,0.1); border-left: 3px solid #7fdbca; }
+.socket.closed { background: rgba(255,82,82,0.1); border-left: 3px solid #ff5252; opacity: 0.6; }
+.socket .dot { width: 8px; height: 8px; border-radius: 50%; }
+.socket.pending .dot { background: #ffc107; }
+.socket.ready .dot { background: #7fdbca; }
+.socket.closed .dot { background: #ff5252; }
+.timer-item { padding: 4px 6px; margin-bottom: 3px; font-size: 11px; border-radius: 3px; transition: all 0.3s; }
+.timer-item.pending { background: rgba(100,181,246,0.1); border-left: 3px solid #64b5f6; }
+.timer-item.fired { background: rgba(127,219,202,0.1); border-left: 3px solid #7fdbca; }
+.timer-item .bar { height: 4px; background: #333; border-radius: 2px; margin-top: 3px; }
+.timer-item .bar-fill { height: 100%; background: #64b5f6; border-radius: 2px; transition: width 0.2s; }
+.log { max-height: 180px; overflow-y: auto; font-size: 10px; }
+.log-entry { padding: 2px 4px; border-bottom: 1px solid #222; }
+.log-entry .time { color: #666; }
+.log-entry .msg { color: #ccc; }
+.log-entry .msg.dispatch { color: #7fdbca; }
+.log-entry .msg.timer { color: #64b5f6; }
+.log-entry .msg.close { color: #ff5252; }
+.log-entry .msg.error { color: #ffc107; }
+</style>
+</head>
+<body>
+<h1>Event Loop — I/O Multiplexing Simulation</h1>
+<div class="controls">
+<button id="btnStart" class="active">▶ Start</button>
+<button id="btnPause">⏸ Pause</button>
+<button id="btnReset">↺ Reset</button>
+<span id="speedLabel" style="font-size:11px;color:#888;margin-left:12px;">Speed: <span id="speedVal">1</span>x</span>
+<button id="btnSpeed">⏩</button>
+</div>
+<div id="status">Ready. Click Start to begin the event loop.</div>
+<div class="phases">
+<div class="phase" id="ph-timers">Timers</div>
+<div class="phase" id="ph-pending">Pending</div>
+<div class="phase" id="ph-poll">Poll</div>
+<div class="phase" id="ph-check">Check</div>
+<div class="phase" id="ph-close">Close</div>
+</div>
+<div class="main">
+<div class="panel">
+<h2>Sockets (I/O)</h2>
+<div id="sockets"></div>
+</div>
+<div class="panel">
+<h2>Timers</h2>
+<div id="timers"></div>
+</div>
+<div class="panel">
+<h2>Dispatch Log</h2>
+<div class="log" id="log"></div>
+</div>
+</div>
+<script>
+const PHASES = ['timers','pending','poll','check','close'];
+let state = { running: false, phase: 0, tick: 0, speed: 1, sockets: [], timers: [], log: [] };
+const socketNames = ['client:1','client:2','client:3','client:4','client:5'];
+const timerNames = ['timeout:50ms','retry:100ms','heartbeat:200ms'];
+
+function initState() {
+  state.sockets = socketNames.map((n,i) => ({ name: n, state: 'pending', readyAt: 2 + i * 3, closeAt: 12 + i * 4 }));
+  state.timers = timerNames.map((n,i) => ({ name: n, state: 'pending', fireAt: 3 + i * 5, progress: 0 }));
+  state.log = [];
+  state.phase = 0;
+  state.tick = 0;
+}
+
+function addLog(msg, cls) {
+  state.log.unshift({ t: state.tick, msg, cls: cls || '' });
+  if (state.log.length > 50) state.log.pop();
+}
+
+function step() {
+  if (!state.running) return;
+  state.tick++;
+  const ph = PHASES[state.phase];
+
+  if (ph === 'timers') {
+    state.timers.forEach(t => {
+      if (t.state === 'pending') {
+        t.progress = Math.min(1, t.progress + 0.15);
+        if (state.tick >= t.fireAt) {
+          t.state = 'fired';
+          addLog('Timer fired: ' + t.name, 'timer');
+        }
+      }
+    });
+  } else if (ph === 'poll') {
+    state.sockets.forEach(s => {
+      if (s.state === 'pending' && state.tick >= s.readyAt) {
+        s.state = 'ready';
+        addLog('I/O ready: ' + s.name + ' → dispatch callback', 'dispatch');
+      }
+      if (s.state === 'ready' && state.tick >= s.closeAt) {
+        s.state = 'closed';
+        addLog('Close: ' + s.name, 'close');
+      }
+    });
+  } else if (ph === 'close') {
+    // close callbacks already handled in poll for simplicity
+  }
+
+  state.phase = (state.phase + 1) % PHASES.length;
+
+  // Check if all done
+  const allDone = state.sockets.every(s => s.state === 'closed') && state.timers.every(t => t.state === 'fired');
+  if (allDone) {
+    state.running = false;
+    document.getElementById('status').textContent = 'All events dispatched. Loop complete. Click Reset to replay.';
+    document.getElementById('btnStart').classList.remove('active');
+  }
+
+  render();
+  if (state.running) {
+    setTimeout(step, 400 / state.speed);
+  }
+}
+
+function render() {
+  // Phases
+  PHASES.forEach((p, i) => {
+    const el = document.getElementById('ph-' + p);
+    el.className = 'phase' + (i === state.phase ? ' active' : (i < state.phase ? ' done' : ''));
+  });
+
+  // Sockets
+  const sEl = document.getElementById('sockets');
+  sEl.innerHTML = state.sockets.map(s =>
+    `<div class="socket ${s.state}"><span class="dot"></span>${s.name} <span style="color:#666">(${s.state})</span></div>`
+  ).join('');
+
+  // Timers
+  const tEl = document.getElementById('timers');
+  tEl.innerHTML = state.timers.map(t =>
+    `<div class="timer-item ${t.state}">${t.name} <span style="color:#666">(${t.state})</span><div class="bar"><div class="bar-fill" style="width:${t.state==='fired'?100:t.progress*100}%"></div></div></div>`
+  ).join('');
+
+  // Log
+  const lEl = document.getElementById('log');
+  lEl.innerHTML = state.log.map(e =>
+    `<div class="log-entry"><span class="time">[${e.t}]</span> <span class="msg ${e.cls}">${e.msg}</span></div>`
+  ).join('');
+}
+
+// Controls
+document.getElementById('btnStart').onclick = () => {
+  if (state.running) return;
+  if (state.tick === 0) { state.running = true; document.getElementById('status').textContent = 'Loop running…'; step(); }
+  else { state.running = true; document.getElementById('status').textContent = 'Loop running…'; step(); }
+};
+document.getElementById('btnPause').onclick = () => { state.running = false; document.getElementById('status').textContent = 'Paused.'; };
+document.getElementById('btnReset').onclick = () => { state.running = false; initState(); render(); document.getElementById('status').textContent = 'Ready. Click Start to begin the event loop.'; };
+document.getElementById('btnSpeed').onclick = () => {
+  state.speed = state.speed >= 4 ? 1 : state.speed * 2;
+  document.getElementById('speedVal').textContent = state.speed;
+};
+
+initState();
+render();
+</script>
+</body>
+</html>

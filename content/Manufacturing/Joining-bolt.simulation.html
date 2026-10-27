@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bolt Preload and Joint Separation</title>
+<style>
+  body { margin: 0; padding: 12px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+  h2 { font-size: 14px; margin: 0 0 8px; }
+  canvas { display: block; margin: 0 auto; background: #0f0f1a; border-radius: 6px; }
+  .controls { text-align: center; margin-top: 10px; }
+  .controls label { font-size: 12px; margin-right: 6px; }
+  .controls input[type=range] { vertical-align: middle; }
+  .status { text-align: center; font-size: 12px; margin-top: 6px; }
+  .ok { color: #6dd66d; }
+  .sep { color: #ff7755; }
+</style>
+</head>
+<body>
+<h2>Bolt preload vs. external load — why preload prevents separation</h2>
+<canvas id="c" width="500" height="230"></canvas>
+<div class="controls">
+  <label>Preload: <span id="pv">30</span> kN</label>
+  <input type="range" id="preload" min="5" max="50" step="1" value="30">
+  <label style="margin-left:18px;">External load: <span id="lv">20</span> kN</label>
+  <input type="range" id="load" min="0" max="60" step="1" value="20">
+</div>
+<div class="status" id="status"></div>
+<script>
+(function(){
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const preloadSlider = document.getElementById('preload');
+  const loadSlider = document.getElementById('load');
+  const statusEl = document.getElementById('status');
+
+  // Joint stiffness ~ 4x bolt stiffness (typical for steel plates)
+  const kB = 1, kJ = 4;
+
+  function draw(){
+    const P = parseFloat(preloadSlider.value);   // preload kN
+    const L = parseFloat(loadSlider.value);      // external load kN
+
+    // Classic bolted-joint load sharing:
+    // while L < P: bolt force = P + L*kJ/(kB+kJ); clamp = P - L*kB/(kB+kJ)
+    const frac = kJ / (kB + kJ);
+    let Fb, Fc, separated;
+    if (L <= P) {
+      Fb = P + L * (1 - frac);
+      Fc = P - L * frac;
+      separated = false;
+    } else {
+      Fb = L;          // bolt carries the whole load
+      Fc = 0;          // plates lose contact
+      separated = true;
+    }
+
+    ctx.clearRect(0, 0, cv.width, cv.height);
+
+    // Plates
+    const plateW = 150, plateH = 34;
+    const cx = 250;
+    const topY = 60, botY = 136;
+    const gap = separated ? 8 : 0;
+    ctx.fillStyle = '#667788';
+    ctx.fillRect(cx - plateW/2, topY, plateW, plateH);
+    ctx.fillRect(cx - plateW/2, botY + gap, plateW, plateH);
+    ctx.fillStyle = '#ccc';
+    ctx.font = '11px system-ui';
+    ctx.fillText('Plate', cx - plateW/2 + 8, topY + 21);
+    ctx.fillText('Plate', cx - plateW/2 + 8, botY + gap + 21);
+
+    // Bolt shaft through the plates
+    ctx.fillStyle = separated ? '#ff9955' : '#ffcc44';
+    ctx.fillRect(cx - 5, topY - 22, 10, botY + gap - topY + 22 + 22);
+    // Head and nut
+    ctx.fillRect(cx - 16, topY - 30, 32, 10);
+    ctx.fillRect(cx - 16, botY + gap + 20, 32, 10);
+
+    // External load arrows
+    ctx.strokeStyle = '#ff7755';
+    ctx.fillStyle = '#ff7755';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 60, topY + 8); ctx.lineTo(cx - 90, topY + 8); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - 90, topY + 8); ctx.lineTo(cx - 82, topY + 4);
+    ctx.lineTo(cx - 82, topY + 12); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + 60, botY + gap + 8); ctx.lineTo(cx + 90, botY + gap + 8); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx + 90, botY + gap + 8); ctx.lineTo(cx + 82, botY + gap + 4);
+    ctx.lineTo(cx + 82, botY + gap + 12); ctx.closePath(); ctx.fill();
+    ctx.fillText(L + ' kN', cx - 105, topY + 12);
+
+    // Status text
+    ctx.font = '12px system-ui';
+    if (separated) {
+      ctx.fillStyle = '#ff7755';
+      ctx.fillText('JOINT SEPARATED — bolt carries the full load (' + L + ' kN)', 20, 215);
+    } else {
+      ctx.fillStyle = '#6dd66d';
+      ctx.fillText('Clamped — residual clamp force ' + Fc.toFixed(1) + ' kN', 20, 215);
+    }
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Bolt force: ' + Fb.toFixed(1) + ' kN', 20, 30);
+    ctx.fillText('Preload P: ' + P + ' kN', 160, 30);
+    ctx.fillText('External load L: ' + L + ' kN', 300, 30);
+
+    statusEl.textContent = separated
+      ? 'L > P: the plates separate and the bolt carries the entire external load — fatigue-prone.'
+      : 'L ≤ P: the joint stays clamped; the bolt force rises only slightly (load sharing kJ/(kB+kJ)).';
+    statusEl.className = separated ? 'status sep' : 'status ok';
+  }
+
+  preloadSlider.addEventListener('input', draw);
+  loadSlider.addEventListener('input', draw);
+  draw();
+})();
+</script>
+</body>
+</html>

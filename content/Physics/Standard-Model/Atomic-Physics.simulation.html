@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hydrogen Energy-Level Explorer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+h1 { font-size: 1.3em; text-align: center; margin-bottom: 10px; color: #fff; }
+.subtitle { text-align: center; font-size: 0.9em; color: #aaa; margin-bottom: 20px; }
+.container { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+.level-panel { background: #16213e; border-radius: 12px; padding: 20px; min-width: 320px; }
+.info-panel { background: #16213e; border-radius: 12px; padding: 20px; min-width: 280px; }
+.level-row { display: flex; align-items: center; margin: 8px 0; cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: background 0.2s; }
+.level-row:hover { background: #0f3460; }
+.level-row.selected { background: #e94560; }
+.level-row .bar { height: 4px; background: #53a8b6; border-radius: 2px; margin-right: 10px; }
+.level-row .label { font-size: 0.9em; min-width: 120px; }
+.level-row .energy { font-size: 0.85em; color: #aaa; margin-left: auto; }
+.info-panel h3 { font-size: 1em; color: #53a8b6; margin-bottom: 12px; }
+.info-row { margin: 8px 0; font-size: 0.95em; }
+.info-row .key { color: #aaa; }
+.info-row .val { color: #fff; font-weight: 600; }
+.photon-color { display: inline-block; width: 16px; height: 16px; border-radius: 50%; vertical-align: middle; margin-left: 6px; border: 1px solid #555; }
+.transition-type { font-size: 0.85em; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-top: 8px; }
+.emission { background: #2d6a4f; color: #b7e4c7; }
+.absorption { background: #7b2cbf; color: #e0aaff; }
+.hint { font-size: 0.8em; color: #777; margin-top: 15px; text-align: center; }
+.wavelength-bar { height: 8px; border-radius: 4px; margin-top: 10px; background: linear-gradient(to right, #8b00ff, #0000ff, #00ffff, #00ff00, #ffff00, #ff8800, #ff0000); position: relative; }
+.wavelength-marker { position: absolute; top: -4px; width: 4px; height: 16px; background: #fff; border-radius: 2px; }
+</style>
+</head>
+<body>
+<h1>Hydrogen Energy-Level Explorer</h1>
+<p class="subtitle">Click two levels to see the emitted or absorbed photon</p>
+<div class="container">
+  <div class="level-panel">
+    <div id="levels"></div>
+    <p class="hint">Click a level to select it as the start, then click another as the end.</p>
+  </div>
+  <div class="info-panel">
+    <h3>Transition Info</h3>
+    <div id="info">
+      <p class="hint">Select two energy levels to begin.</p>
+    </div>
+  </div>
+</div>
+<script>
+const levels = [
+  { n: 1, E: -13.6 },
+  { n: 2, E: -3.4 },
+  { n: 3, E: -1.511 },
+  { n: 4, E: -0.85 },
+  { n: 5, E: -0.544 },
+  { n: 6, E: -0.378 },
+  { n: 7, E: -0.278 },
+  { n: 8, E: -0.213 },
+  { n: 9, E: -0.168 },
+  { n: 10, E: -0.136 }
+];
+const ionization = { n: '∞', E: 0 };
+const allLevels = [...levels, ionization];
+
+let selected = [];
+const levelsDiv = document.getElementById('levels');
+const infoDiv = document.getElementById('info');
+
+function wavelengthToColor(wl) {
+  if (wl < 10) return '#8b00ff';
+  if (wl < 40) return '#8b00ff';
+  if (wl < 100) return '#4400ff';
+  if (wl < 200) return '#0000ff';
+  if (wl < 380) return '#0000ff';
+  if (wl < 440) return '#0044ff';
+  if (wl < 480) return '#00aaff';
+  if (wl < 500) return '#00ffcc';
+  if (wl < 560) return '#00ff00';
+  if (wl < 580) return '#88ff00';
+  if (wl < 600) return '#ffff00';
+  if (wl < 620) return '#ff8800';
+  if (wl < 700) return '#ff4400';
+  if (wl < 780) return '#ff0000';
+  return '#880000';
+}
+
+function wavelengthToRegion(wl) {
+  if (wl < 100) return 'Extreme UV';
+  if (wl < 200) return 'Far UV';
+  if (wl < 300) return 'Near UV';
+  if (wl < 380) return 'UV';
+  if (wl < 450) return 'Violet';
+  if (wl < 485) return 'Blue';
+  if (wl < 500) return 'Cyan';
+  if (wl < 565) return 'Green';
+  if (wl < 590) return 'Yellow';
+  if (wl < 625) return 'Orange';
+  if (wl < 700) return 'Red';
+  if (wl < 1000) return 'Near IR';
+  if (wl < 2500) return 'Mid IR';
+  return 'Far IR';
+}
+
+function renderLevels() {
+  levelsDiv.innerHTML = '';
+  allLevels.forEach((lv, i) => {
+    const row = document.createElement('div');
+    row.className = 'level-row' + (selected.includes(i) ? ' selected' : '');
+    const barWidth = lv.n === '∞' ? 10 : Math.max(20, 200 * (1 - 1/lv.n));
+    row.innerHTML = `<div class="bar" style="width:${barWidth}px"></div>
+      <span class="label">n = ${lv.n}</span>
+      <span class="energy">${lv.E.toFixed(3)} eV</span>`;
+    row.onclick = () => selectLevel(i);
+    levelsDiv.appendChild(row);
+  });
+}
+
+function selectLevel(idx) {
+  if (selected.includes(idx)) {
+    selected = selected.filter(s => s !== idx);
+  } else {
+    selected.push(idx);
+    if (selected.length > 2) selected.shift();
+  }
+  renderLevels();
+  if (selected.length === 2) showTransition();
+  else infoDiv.innerHTML = '<p class="hint">Select two energy levels to begin.</p>';
+}
+
+function showTransition() {
+  const a = allLevels[selected[0]];
+  const b = allLevels[selected[1]];
+  const dE = Math.abs(a.E - b.E);
+  const wl = 1240 / dE;
+  const color = wavelengthToColor(wl);
+  const region = wavelengthToRegion(wl);
+  const isEmission = a.E < b.E;
+  const typeLabel = isEmission ? 'Emission' : 'Absorption';
+  const typeClass = isEmission ? 'emission' : 'absorption';
+  const fromN = isEmission ? a.n : b.n;
+  const toN = isEmission ? b.n : a.n;
+
+  // Determine series
+  let series = '';
+  if (toN === 1) series = 'Lyman series';
+  else if (toN === 2) series = 'Balmer series';
+  else if (toN === 3) series = 'Paschen series';
+  else if (toN === 4) series = 'Brackett series';
+  else if (toN === 5) series = 'Pfund series';
+
+  const markerPos = Math.min(100, Math.max(0, ((wl - 10) / (2000 - 10)) * 100));
+
+  infoDiv.innerHTML = `
+    <div class="info-row"><span class="key">Transition:</span> <span class="val">n=${fromN} → n=${toN}</span></div>
+    <div class="info-row"><span class="key">Energy:</span> <span class="val">${dE.toFixed(4)} eV</span></div>
+    <div class="info-row"><span class="key">Wavelength:</span> <span class="val">${wl < 1000 ? wl.toFixed(1) + ' nm' : (wl/1000).toFixed(3) + ' μm'}</span></div>
+    <div class="info-row"><span class="key">Region:</span> <span class="val">${region}</span></div>
+    ${series ? `<div class="info-row"><span class="key">Series:</span> <span class="val">${series}</span></div>` : ''}
+    <div class="info-row"><span class="key">Photon color:</span> <span class="photon-color" style="background:${color}"></span></div>
+    <span class="transition-type ${typeClass}">${typeLabel}</span>
+    <div class="wavelength-bar"><div class="wavelength-marker" style="left:${markerPos}%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:0.7em;color:#777;margin-top:2px"><span>10 nm</span><span>2000 nm</span></div>
+  `;
+}
+
+renderLevels();
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dependency graph of algebraic and discrete mathematics</title>
+<style>
+body { margin: 0; background: #1a1a2e; font-family: system-ui, sans-serif; }
+canvas { display: block; margin: 0 auto; }
+#info { position: absolute; top: 10px; left: 10px; color: #eee; font-size: 13px; max-width: 280px; background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="info">Click a node to highlight its connections. Drag to reposition.</div>
+<canvas id="c" width="700" height="480"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const nodes = [
+  { id: 0, label: 'Abstract\nalgebra', x: 350, y: 80, color: '#e94560' },
+  { id: 1, label: 'Linear\nalgebra', x: 180, y: 200, color: '#f5a623' },
+  { id: 2, label: 'Number\ntheory', x: 520, y: 200, color: '#4ecdc4' },
+  { id: 3, label: 'Combinatorics', x: 250, y: 360, color: '#7c6ef0' },
+  { id: 4, label: 'Graph\ntheory', x: 450, y: 360, color: '#50fa7b' }
+];
+
+const edges = [
+  { from: 0, to: 1, label: 'symmetry groups → spectral theory' },
+  { from: 0, to: 2, label: 'Galois groups, finite fields' },
+  { from: 1, to: 2, label: 'quadratic forms, lattices' },
+  { from: 1, to: 3, label: 'incidence matrices' },
+  { from: 1, to: 4, label: 'adjacency eigenvalues' },
+  { from: 2, to: 3, label: 'congruence → designs' },
+  { from: 2, to: 4, label: 'congruence → coloring' },
+  { from: 3, to: 4, label: 'counting ↔ connectivity' }
+];
+
+let selected = -1;
+let dragNode = -1;
+let offsetX = 0, offsetY = 0;
+
+function draw() {
+  ctx.clearRect(0, 0, 700, 480);
+
+  // Draw edges
+  edges.forEach(e => {
+    const a = nodes[e.from], b = nodes[e.to];
+    const isHi = (selected === e.from || selected === e.to);
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = isHi ? '#ffffff' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = isHi ? 2.5 : 1;
+    ctx.stroke();
+
+    // Edge label
+    if (isHi) {
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      ctx.font = '10px system-ui';
+      ctx.fillStyle = '#ccc';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.label, mx, my - 6);
+    }
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    const isSel = (selected === n.id);
+    const r = isSel ? 38 : 32;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = isSel ? n.color : n.color + 'cc';
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#fff' : 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = isSel ? 3 : 1;
+    ctx.stroke();
+
+    // Label
+    ctx.font = (isSel ? 'bold 12px' : '11px') + ' system-ui';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lines = n.label.split('\n');
+    if (lines.length === 1) {
+      ctx.fillText(lines[0], n.x, n.y);
+    } else {
+      ctx.fillText(lines[0], n.x, n.y - 8);
+      ctx.fillText(lines[1], n.x, n.y + 8);
+    }
+  });
+}
+
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  for (let i = 0; i < nodes.length; i++) {
+    const dx = mx - nodes[i].x, dy = my - nodes[i].y;
+    if (dx * dx + dy * dy < 35 * 35) {
+      dragNode = i;
+      offsetX = dx; offsetY = dy;
+      break;
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (dragNode >= 0) {
+    const rect = canvas.getBoundingClientRect();
+    nodes[dragNode].x = e.clientX - rect.left - offsetX;
+    nodes[dragNode].y = e.clientY - rect.top - offsetY;
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (dragNode >= 0) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const dx = mx - nodes[dragNode].x, dy = my - nodes[dragNode].y;
+    if (dx * dx + dy * dy < 5) {
+      selected = (selected === dragNode) ? -1 : dragNode;
+    }
+    dragNode = -1;
+    draw();
+  }
+});
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let hit = -1;
+  for (let i = 0; i < nodes.length; i++) {
+    const dx = mx - nodes[i].x, dy = my - nodes[i].y;
+    if (dx * dx + dy * dy < 35 * 35) { hit = i; break; }
+  }
+  selected = (hit === selected) ? -1 : hit;
+  draw();
+});
+
+draw();
+</script>
+</body>
+</html>

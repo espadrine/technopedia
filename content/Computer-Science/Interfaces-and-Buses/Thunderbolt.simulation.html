@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thunderbolt per-segment bandwidth budget</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px 14px; background: #fff; color: #223; }
+  h2 { font-size: 15px; margin: 6px 0; }
+  .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; }
+  .row label { flex: 0 0 190px; }
+  .row input[type=range] { flex: 1; }
+  .val { flex: 0 0 90px; text-align: right; font-variant-numeric: tabular-nums; }
+  .seg { border: 1px solid #ccd; border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: #fafcff; }
+  .seg h3 { margin: 0 0 6px; font-size: 13px; }
+  .bar { position: relative; height: 18px; background: #e8ecf3; border-radius: 4px; overflow: hidden; margin: 4px 0 8px; }
+  .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+  .bar span { position: absolute; left: 6px; top: 2px; font-size: 11px; color: #223; }
+  .over .fill { background: #c62828 !important; }
+  .over .lbl { color: #c62828; font-weight: bold; }
+  select { font-size: 12px; }
+  #verdict { font-size: 12px; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h2>Per-segment, per-direction bandwidth budget</h2>
+<div class="row"><label>Link generation</label>
+  <select id="gen">
+    <option value="40">Thunderbolt 3/4 — 40 Gb/s</option>
+    <option value="80" selected>Thunderbolt 5 — 80 Gb/s</option>
+    <option value="120">Thunderbolt 5 Bandwidth Boost — 120 Gb/s</option>
+  </select></div>
+<div class="row"><label>4K60 displays (12.5 Gb/s each)</label><input type="range" id="disp" min="0" max="2" step="1" value="1"><span class="val" id="dispV"></span></div>
+<div class="row"><label>DSC on displays (÷3)</label><input type="checkbox" id="dsc"></div>
+<div class="row"><label>SSD read (device → host)</label><input type="range" id="rd" min="0" max="8" step="0.5" value="2"><span class="val" id="rdV"></span></div>
+<div class="row"><label>SSD write (host → device)</label><input type="range" id="wr" min="0" max="8" step="0.5" value="0"><span class="val" id="wrV"></span></div>
+<div class="row"><label>NIC downstream</label><input type="range" id="nd" min="0" max="10" step="0.5" value="5"><span class="val" id="ndV"></span></div>
+<div class="row"><label>NIC upstream</label><input type="range" id="nu" min="0" max="10" step="0.5" value="1"><span class="val" id="nuV"></span></div>
+<div class="row"><label>USB 3 devices (downstream)</label><input type="range" id="usb" min="0" max="10" step="0.5" value="2"><span class="val" id="usbV"></span></div>
+
+<div class="seg"><h3>Segment 1 — host ↔ SSD enclosure (carries everything)</h3>
+  <div class="bar" id="b1d"><div class="fill"></div><span></span></div>
+  <div class="bar" id="b1u"><div class="fill"></div><span></span></div></div>
+<div class="seg"><h3>Segment 2 — SSD enclosure ↔ dock (displays + NIC + USB)</h3>
+  <div class="bar" id="b2d"><div class="fill"></div><span></span></div>
+  <div class="bar" id="b2u"><div class="fill"></div><span></span></div></div>
+<div id="verdict"></div>
+
+<script>
+function upd() {
+  var cap = +document.getElementById('gen').value;
+  var dsc = document.getElementById('dsc').checked;
+  var video = (+document.getElementById('disp').value) * 12.5 * (dsc ? 1/3 : 1);
+  var rd = (+document.getElementById('rd').value) * 8;
+  var wr = (+document.getElementById('wr').value) * 8;
+  var nd = (+document.getElementById('nd').value);
+  var nu = (+document.getElementById('nu').value);
+  var usb = (+document.getElementById('usb').value);
+  var s1d = video + nd + usb + wr, s1u = rd + nu;
+  var s2d = video + nd + usb, s2u = nu;
+  function bar(id, used) {
+    var b = document.getElementById(id), f = b.querySelector('.fill'), s = b.querySelector('span');
+    var pct = Math.min(100, used / cap * 100);
+    f.style.width = pct + '%';
+    f.style.background = used > cap ? '#c62828' : (used > 0.8 * cap ? '#ef8f00' : '#2e7d32');
+    s.textContent = used.toFixed(1) + ' / ' + cap + ' Gb/s (' + (used / cap * 100).toFixed(0) + '%)';
+    b.className = 'bar' + (used > cap ? ' over' : '');
+  }
+  bar('b1d', s1d); bar('b1u', s1u); bar('b2d', s2d); bar('b2u', s2u);
+  var v = document.getElementById('verdict'), msgs = [];
+  if (s1d > cap || s1u > cap) msgs.push('Segment 1 is saturated: move the SSD closer to the host is impossible (it already is) — reduce SSD traffic or upgrade the link.');
+  if (s2d > cap || s2u > cap) msgs.push('Segment 2 is saturated: the dock cannot get its traffic through the SSD enclosure — try swapping the dock and the enclosure.');
+  if (!msgs.length) msgs.push('All segments fit. Note segment 1 always carries the most: every packet to the dock crosses it, plus the SSD\u2019s own traffic.');
+  v.textContent = msgs.join(' ');
+}
+['disp','dsc','rd','wr','nd','nu','usb','gen'].forEach(function(id) {
+  var el = document.getElementById(id);
+  el.addEventListener('input', upd);
+  if (el.type === 'range') { var v = document.getElementById(id + 'V'); if (v) v.textContent = ''; }
+});
+function labels() {
+  document.getElementById('dispV').textContent = document.getElementById('disp').value + ' × 4K60';
+  document.getElementById('rdV').textContent = document.getElementById('rd').value + ' GB/s';
+  document.getElementById('wrV').textContent = document.getElementById('wr').value + ' GB/s';
+  document.getElementById('ndV').textContent = document.getElementById('nd').value + ' Gb/s';
+  document.getElementById('nuV').textContent = document.getElementById('nu').value + ' Gb/s';
+}
+document.getElementById('disp').addEventListener('input', labels);
+document.getElementById('rd').addEventListener('input', labels);
+document.getElementById('wr').addEventListener('input', labels);
+labels();
+upd();
+</script>
+</body>
+</html>

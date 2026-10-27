@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gaussian-process regression — interactive demo</title>
+<style>
+  :root { --ink:#22303c; --line:#c9d3dc; --blue:#2c5f8a; --red:#c0392b; --green:#1e7d4f; --bg:#fafafa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--ink); background:#fff; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 14px 16px 26px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color:#5a6b78; line-height:1.45; }
+  .panel { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:16px; background:var(--bg); }
+  .panel h2 { font-size:14px; margin:0 0 4px; }
+  .panel .desc { font-size:12.5px; color:#5a6b78; margin:0 0 10px; line-height:1.45; }
+  canvas { display:block; width:100%; height:auto; background:#fff; border:1px solid #e6ebf0; border-radius:6px; cursor:crosshair; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:10px; font-size:13px; }
+  .row label { display:flex; align-items:center; gap:6px; }
+  button { font:inherit; font-size:13px; padding:5px 12px; border:1px solid var(--blue); background:var(--blue); color:#fff; border-radius:6px; cursor:pointer; }
+  button:hover { filter:brightness(1.08); }
+  button.ghost { background:#fff; color:var(--blue); }
+  input[type=range] { width:150px; }
+  .val { font-variant-numeric: tabular-nums; min-width:40px; display:inline-block; }
+  .legend { font-size:12px; color:#5a6b78; margin-top:8px; }
+  .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin-right:4px; }
+  .swatch.line { height:3px; border-radius:0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Gaussian-process regression (kriging)</h1>
+  <p class="sub">A hidden smooth function is drawn from a Gaussian process with a squared-exponential kernel. Click on the plot to observe a point; the <b>posterior mean</b> and its &plusmn;2&sigma; <b>confidence band</b> are recomputed from the kernel. Watch the band tighten around the data and relax between them. The length-scale &ell; controls how smooth the model believes the function to be.</p>
+
+  <div class="panel">
+    <h2>Posterior over functions</h2>
+    <p class="desc">Shaded region = &plusmn;2&sigma;<sub>*</sub> (about 95% of the posterior mass). Dots = observations. Dashed grey = the true (hidden) function.</p>
+    <canvas id="c" width="860" height="380"></canvas>
+    <div class="row">
+      <button id="add">Add random point</button>
+      <button id="reset" class="ghost">Reset</button>
+      <label>Length-scale &ell; <input type="range" id="ell" min="0" max="100" value="45"><span class="val" id="vell">0.7</span></label>
+      <label><input type="checkbox" id="show" checked> show true function</label>
+    </div>
+    <div class="legend">
+      <span class="swatch" style="background:rgba(44,95,138,0.22)"></span>&plusmn;2&sigma;<sub>*</sub> band &nbsp;
+      <span class="swatch line" style="background:var(--blue)"></span>posterior mean &nbsp;
+      <span class="swatch" style="background:var(--red)"></span>observation &nbsp;
+      <span class="swatch line" style="background:#9aa7b2"></span>true function
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var XMIN=0, XMAX=10, NGRID=200;
+  var grid=[]; for(var i=0;i<NGRID;i++){ grid.push(XMIN+(XMAX-XMIN)*i/(NGRID-1)); }
+
+  // ---- hidden function: random Fourier features (approximates an SE GP) ----
+  var M=24, freq=[], amp=[], phase=[];
+  function gauss(){ var u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+  function newFunction(){
+    freq=[]; amp=[]; phase=[];
+    for(var j=0;j<M;j++){ freq.push(Math.abs(gauss())*0.9+0.15); amp.push(gauss()/Math.sqrt(M)); phase.push(Math.random()*2*Math.PI); }
+  }
+  function f(x){ var s=0; for(var j=0;j<M;j++){ s+=amp[j]*Math.cos(freq[j]*x+phase[j]); } return s; }
+
+  // ---- GP regression state ----
+  var obs=[]; // {x,y}
+  var ell=0.7, sigmaN=0.02;
+  function kernel(a,b){ var d=a-b; return Math.exp(-(d*d)/(2*ell*ell)); }
+
+  // small dense matrix inverse (Gaussian elimination, partial pivoting)
+  function inv(A){
+    var n=A.length, M2=[];
+    for(var i=0;i<n;i++){ M2.push(A[i].slice()); for(var j=0;j<n;j++){ M2[i].push(j===i?1:0); } }
+    for(var col=0;col<n;col++){
+      var piv=col; for(var r=col+1;r<n;r++){ if(Math.abs(M2[r][col])>Math.abs(M2[piv][col])) piv=r; }
+      var tmp=M2[col]; M2[col]=M2[piv]; M2[piv]=tmp;
+      var d=M2[col][col]||1e-12;
+      for(var c=0;c<2*n;c++){ M2[col][c]/=d; }
+      for(var rr=0;rr<n;rr++){ if(rr===col)continue; var fct=M2[rr][col]; if(fct===0)continue; for(var cc=0;cc<2*n;cc++){ M2[rr][cc]-=fct*M2[col][cc]; } }
+    }
+    var out=[]; for(var i2=0;i2<n;i2++){ out.push(M2[i2].slice(n)); }
+    return out;
+  }
+  function solve(A,b){ // A x = b, A n x n
+    var n=A.length, M2=[];
+    for(var i=0;i<n;i++){ M2.push(A[i].concat([b[i]])); }
+    for(var col=0;col<n;col++){
+      var piv=col; for(var r=col+1;r<n;r++){ if(Math.abs(M2[r][col])>Math.abs(M2[piv][col])) piv=r; }
+      var tmp=M2[col]; M2[col]=M2[piv]; M2[piv]=tmp;
+      var d=M2[col][col]||1e-12;
+      for(var c=0;c<n+1;c++){ M2[col][c]/=d; }
+      for(var rr=0;rr<n;rr++){ if(rr===col)continue; var fct=M2[rr][col]; if(fct===0)continue; for(var cc=0;cc<n+1;cc++){ M2[rr][cc]-=fct*M2[col][cc]; } }
+    }
+    var x=[]; for(var i2=0;i2<n;i2++){ x.push(M2[i2][n]); }
+    return x;
+  }
+
+  // posterior mean & variance on the grid
+  function posterior(){
+    var n=obs.length;
+    var mean=new Array(NGRID), varr=new Array(NGRID);
+    if(n===0){ for(var i=0;i<NGRID;i++){ mean[i]=0; varr[i]=1; } return {mean:mean,varr:varr}; }
+    var K=[]; for(var i=0;i<n;i++){ var row=[]; for(var j=0;j<n;j++){ row.push(kernel(obs[i].x,obs[j].x)+(i===j?sigmaN:0)); } K.push(row); }
+    var y=[]; for(var i=0;i<n;i++){ y.push(obs[i].y); }
+    var Kinv=inv(K);
+    // alpha = Kinv y
+    var alpha=new Array(n); for(var i=0;i<n;i++){ var s=0; for(var j=0;j<n;j++){ s+=Kinv[i][j]*y[j]; } alpha[i]=s; }
+    for(var g=0;g<NGRID;g++){
+      var xg=grid[g], ks=new Array(n);
+      for(var i=0;i<n;i++){ ks[i]=kernel(xg,obs[i].x); }
+      var m=0, v=1;
+      for(var i=0;i<n;i++){ m+=ks[i]*alpha[i]; v-=ks[i]*alpha[i]; }
+      mean[g]=m; varr[g]=Math.max(0,v);
+    }
+    return {mean:mean,varr:varr};
+  }
+
+  // ---- drawing ----
+  var cv=document.getElementById("c"), ctx=cv.getContext("2d");
+  var W=cv.width, H=cv.height, pad=42;
+  var yMin=-2.6, yMax=2.6;
+  function px(x){ return pad+(W-2*pad)*(x-XMIN)/(XMAX-XMIN); }
+  function py(y){ return pad+(H-2*pad)*(1-(y-yMin)/(yMax-yMin)); }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // axes
+    ctx.strokeStyle="#e6ebf0"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad,H-pad); ctx.lineTo(W-pad,H-pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad,pad); ctx.lineTo(pad,H-pad); ctx.stroke();
+    // zero line
+    ctx.strokeStyle="#f0f3f6"; ctx.beginPath(); ctx.moveTo(px(XMIN),py(0)); ctx.lineTo(px(XMAX),py(0)); ctx.stroke();
+    var post=posterior();
+    // confidence band
+    ctx.fillStyle="rgba(44,95,138,0.22)";
+    ctx.beginPath();
+    for(var i=0;i<NGRID;i++){ var x=px(grid[i]), y=py(post.mean[i]+2*Math.sqrt(post.varr[i])); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    for(var i=NGRID-1;i>=0;i--){ var x=px(grid[i]), y=py(post.mean[i]-2*Math.sqrt(post.varr[i])); ctx.lineTo(x,y); }
+    ctx.closePath(); ctx.fill();
+    // true function
+    if(document.getElementById("show").checked){
+      ctx.strokeStyle="#9aa7b2"; ctx.lineWidth=1.6; ctx.setLineDash([6,4]); ctx.beginPath();
+      for(var i=0;i<NGRID;i++){ var x=px(grid[i]), y=py(f(grid[i])); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    // posterior mean
+    ctx.strokeStyle="#2c5f8a"; ctx.lineWidth=2.4; ctx.beginPath();
+    for(var i=0;i<NGRID;i++){ var x=px(grid[i]), y=py(post.mean[i]); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+    // observations
+    for(var i=0;i<obs.length;i++){
+      ctx.fillStyle="#c0392b"; ctx.beginPath(); ctx.arc(px(obs[i].x),py(obs[i].y),4.5,0,2*Math.PI); ctx.fill();
+      ctx.strokeStyle="#fff"; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    // labels
+    ctx.fillStyle="#667"; ctx.font="12px system-ui, sans-serif";
+    ctx.textAlign="end"; ctx.fillText("x", W-pad, H-14);
+    ctx.textAlign="start"; ctx.fillText("f(x)", pad-34, pad+4);
+  }
+
+  function addPoint(x){
+    if(obs.length>=40) return;
+    obs.push({x:x, y:f(x)+gauss()*Math.sqrt(sigmaN)});
+    draw();
+  }
+  function reset(){ obs=[]; newFunction(); draw(); }
+
+  // interactions
+  document.getElementById("add").onclick=function(){ addPoint(XMIN+Math.random()*(XMAX-XMIN)); };
+  document.getElementById("reset").onclick=reset;
+  document.getElementById("show").onchange=draw;
+  document.getElementById("ell").oninput=function(){
+    var v=+this.value; ell=0.2+ (v/100)*1.6; document.getElementById("vell").textContent=ell.toFixed(2); draw();
+  };
+  cv.addEventListener("click",function(e){
+    var rect=cv.getBoundingClientRect();
+    var mx=(e.clientX-rect.left)*(W/rect.width);
+    var x=XMIN+(XMAX-XMIN)*(mx-pad)/(W-2*pad);
+    if(x<XMIN||x>XMAX) return;
+    addPoint(x);
+  });
+
+  // init
+  newFunction();
+  document.getElementById("vell").textContent=ell.toFixed(2);
+  addPoint(2.2); addPoint(5.0); addPoint(7.6);
+})();
+</script>
+</body>
+</html>

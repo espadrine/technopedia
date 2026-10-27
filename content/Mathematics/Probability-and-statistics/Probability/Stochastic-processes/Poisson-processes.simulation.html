@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poisson process</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a; background: #fff;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p.sub { font-size: 12px; margin: 0 0 12px; color: #555; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 10px; }
+  .controls label { font-size: 13px; font-weight: 600; }
+  .controls input[type=range] { width: 180px; vertical-align: middle; }
+  .controls button {
+    font-size: 13px; padding: 6px 14px; border: 1px solid #bbb; border-radius: 6px;
+    background: #f4f4f4; cursor: pointer;
+  }
+  .controls button:hover { background: #e8e8e8; }
+  .controls button.primary { background: #1565c0; color: #fff; border-color: #1565c0; }
+  .controls button.primary:hover { background: #0d47a1; }
+  .val { font-variant-numeric: tabular-nums; font-weight: 700; color: #1565c0; }
+  .stats { display: flex; gap: 22px; font-size: 13px; margin-bottom: 8px; }
+  .stats span b { font-variant-numeric: tabular-nums; }
+  canvas { width: 100%; height: auto; display: block; border: 1px solid #e0e0e0; border-radius: 6px; background: #fcfcfc; }
+  .legend { font-size: 12px; color: #555; margin-top: 8px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+</style>
+</head>
+<body>
+  <h1>Poisson process &mdash; arrivals over time</h1>
+  <p class="sub">Events arrive at a constant rate &lambda;. The blue staircase is the counting process N<sub>t</sub>; the colored bars on the time axis are the inter-arrival gaps (each &sim; Exp(&lambda;)). The dashed line is the expected count &lambda;t.</p>
+
+  <div class="controls">
+    <label>Rate &lambda; = <span class="val" id="lamVal">3.0</span>
+      <input type="range" id="lam" min="0.5" max="10" step="0.1" value="3">
+    </label>
+    <label>Speed
+      <input type="range" id="speed" min="0.25" max="4" step="0.25" value="1">
+    </label>
+    <button class="primary" id="play">Pause</button>
+    <button id="reset">Reset</button>
+  </div>
+
+  <div class="stats">
+    <span>time <b id="tVal">0.0</b></span>
+    <span>events <b id="nVal">0</b></span>
+    <span>expected &lambda;t <b id="expVal">0.0</b></span>
+    <span>mean gap 1/&lambda; <b id="gapVal">0.33</b></span>
+  </div>
+
+  <canvas id="cv" width="760" height="360"></canvas>
+
+  <div class="legend">
+    <span><i style="background:#1565c0"></i>N<sub>t</sub> staircase</span>
+    <span><i style="background:#d32f2f"></i>arrival (jump)</span>
+    <span><i style="background:#ffb74d"></i>inter-arrival gap</span>
+    <span><i style="background:#9e9e9e"></i>expected &lambda;t</span>
+  </div>
+
+<script>
+(function () {
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  var padL = 44, padR = 16, padT = 16, padB = 40;
+  var plotW = W - padL - padR;
+  var plotH = H - padT - padB;
+  var T = 20;                 // time window shown
+  var baseRate = 3;           // rate at which the window is "full" of ~T*baseRate events
+
+  var lam = 3;
+  var speed = 1;
+  var running = true;
+  var arrivals = [];          // arrival times (sorted)
+  var nextArrival = 0;        // time of the next (not yet shown) arrival
+  var currentT = 0;
+  var lastTs = 0;
+
+  function sampleExp(rate) {
+    // inverse-CDF sampling of Exp(rate)
+    var u = Math.random();
+    while (u <= 0) u = Math.random();
+    return -Math.log(u) / rate;
+  }
+
+  function reset() {
+    arrivals = [];
+    currentT = 0;
+    nextArrival = sampleExp(lam);
+  }
+
+  function xOf(t) { return padL + (t / T) * plotW; }
+  function yOf(n) {
+    // scale y so that ~T*baseRate events fit
+    var maxN = T * baseRate;
+    return padT + plotH - (n / maxN) * plotH;
+  }
+
+  function step(dt) {
+    currentT += dt * speed;
+    // reveal arrivals that have occurred by currentT
+    while (nextArrival <= currentT) {
+      arrivals.push(nextArrival);
+      nextArrival += sampleExp(lam);
+    }
+    if (currentT >= T) {
+      // loop: keep the tail, restart the window
+      currentT = 0;
+      arrivals = [];
+      nextArrival = sampleExp(lam);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + plotH);
+    ctx.lineTo(padL + plotW, padT + plotH);
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, padT + plotH);
+    ctx.stroke();
+
+    // x ticks
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    for (var t = 0; t <= T; t += 5) {
+      var x = xOf(t);
+      ctx.beginPath();
+      ctx.moveTo(x, padT + plotH);
+      ctx.lineTo(x, padT + plotH + 4);
+      ctx.stroke();
+      ctx.fillText(String(t), x, padT + plotH + 16);
+    }
+    ctx.fillText('time t', padL + plotW / 2, H - 6);
+
+    // y ticks
+    ctx.textAlign = 'right';
+    var maxN = Math.round(T * baseRate);
+    for (var n = 0; n <= maxN; n += Math.max(1, Math.round(maxN / 5))) {
+      var y = yOf(n);
+      ctx.beginPath();
+      ctx.moveTo(padL - 4, y);
+      ctx.lineTo(padL, y);
+      ctx.stroke();
+      ctx.fillText(String(n), padL - 7, y + 3);
+    }
+
+    // expected line lambda*t
+    ctx.strokeStyle = '#9e9e9e';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(0));
+    ctx.lineTo(xOf(currentT), yOf(lam * currentT));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // inter-arrival gap bars on the time axis
+    var shown = [];
+    for (var i = 0; i < arrivals.length; i++) {
+      if (arrivals[i] <= currentT) shown.push(arrivals[i]);
+    }
+    var prev = 0;
+    for (var j = 0; j < shown.length; j++) {
+      var a = shown[j];
+      ctx.fillStyle = 'rgba(255,183,77,0.85)';
+      ctx.fillRect(xOf(prev), padT + plotH + 2, xOf(a) - xOf(prev), 6);
+      prev = a;
+    }
+
+    // staircase N_t
+    ctx.strokeStyle = '#1565c0';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(0));
+    var count = 0;
+    for (var k = 0; k < shown.length; k++) {
+      var at = shown[k];
+      ctx.lineTo(xOf(at), yOf(count));       // horizontal to the arrival
+      count++;
+      ctx.lineTo(xOf(at), yOf(count));       // vertical jump
+    }
+    ctx.lineTo(xOf(currentT), yOf(count));   // horizontal to now
+    ctx.stroke();
+
+    // arrival dots
+    ctx.fillStyle = '#d32f2f';
+    for (var m = 0; m < shown.length; m++) {
+      ctx.beginPath();
+      ctx.arc(xOf(shown[m]), yOf(m + 1), 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // current-time marker
+    ctx.strokeStyle = '#d32f2f';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(xOf(currentT), padT);
+    ctx.lineTo(xOf(currentT), padT + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // stats
+    document.getElementById('tVal').textContent = currentT.toFixed(1);
+    document.getElementById('nVal').textContent = String(count);
+    document.getElementById('expVal').textContent = (lam * currentT).toFixed(1);
+    document.getElementById('gapVal').textContent = (1 / lam).toFixed(2);
+  }
+
+  function frame(ts) {
+    if (!lastTs) lastTs = ts;
+    var dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if (running) step(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // controls
+  var lamEl = document.getElementById('lam');
+  var speedEl = document.getElementById('speed');
+  var playBtn = document.getElementById('play');
+  var resetBtn = document.getElementById('reset');
+
+  lamEl.addEventListener('input', function () {
+    lam = parseFloat(lamEl.value);
+    document.getElementById('lamVal').textContent = lam.toFixed(1);
+    // rescale the pending gap so the new rate takes effect immediately
+    nextArrival = currentT + sampleExp(lam);
+  });
+  speedEl.addEventListener('input', function () {
+    speed = parseFloat(speedEl.value);
+  });
+  playBtn.addEventListener('click', function () {
+    running = !running;
+    playBtn.textContent = running ? 'Pause' : 'Play';
+  });
+  resetBtn.addEventListener('click', function () {
+    reset();
+  });
+
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

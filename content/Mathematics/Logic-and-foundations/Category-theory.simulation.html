@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Naturality square explorer</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 16px; background: #f7f9fc; color: #223; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color: #556; max-width: 70ch; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+  .panel { min-width: 250px; max-width: 340px; }
+  .card { background: #fff; border: 1px solid #d5dbe5; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 14px; margin: 0 0 8px; color: #334; }
+  label { font-size: 13px; color: #445; display: block; margin: 6px 0 3px; }
+  select { font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid #b9c2d0; border-radius: 6px; background: #fff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 90px; }
+  button { font: inherit; font-size: 13px; padding: 7px 12px; border: 1px solid #b9c2d0; background: #fff; border-radius: 8px; cursor: pointer; }
+  button:hover { background: #eef2f8; }
+  button.primary { background: #1a56db; color: #fff; border-color: #1a56db; }
+  button.primary:hover { background: #1746b5; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .cell { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px; text-align: center; padding: 10px 0; background: #fff; border: 1px solid #d5dbe5; border-radius: 7px; cursor: pointer; }
+  .cell:hover { background: #eef2f8; }
+  .cell.sel { background: #fff3bf; border-color: #e8a000; box-shadow: 0 0 0 2px #ffd43b inset; }
+  .cell.ok { border-color: #0f7a3d; }
+  .cell.bad { border-color: #c0392b; }
+  #trace { font-size: 13px; line-height: 1.7; background: #fff; border: 1px solid #d5dbe5; border-radius: 8px; padding: 10px 12px; min-height: 96px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  #trace .ok { color: #0f7a3d; font-weight: 700; }
+  #trace .bad { color: #c0392b; font-weight: 700; }
+  #verdict { font-size: 14px; font-weight: 700; padding: 10px 12px; border-radius: 8px; margin-top: 4px; }
+  #verdict.ok { background: #d7f5e3; color: #0f7a3d; border: 1px solid #0f7a3d; }
+  #verdict.bad { background: #ffe3e3; color: #c0392b; border: 1px solid #c0392b; }
+  .legend { font-size: 12px; color: #556; margin-top: 10px; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin: 0 4px 0 10px; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+</style>
+</head>
+<body>
+  <h1>Naturality square explorer</h1>
+  <p class="sub">A natural transformation $`\alpha: F \Rightarrow G`$ must make every square commute: for each arrow $`f: A \to B`$, going <b>down then right</b> ($`G(f) \circ \alpha_A`$) must equal going <b>right then down</b> ($`\alpha_B \circ F(f)`$). Here $`F = G`$ is the "square" functor $`S \mapsto S \times S`$, and $`\alpha`$ is either the <b>flip</b> or the <b>identity</b>. Pick a corner map and an element of $`A \times A`$ to trace both paths.</p>
+
+  <div class="wrap">
+    <div>
+      <svg viewBox="0 0 360 240" width="360" height="240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Naturality square">
+        <defs><marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#334"/></marker></defs>
+        <g font-family="sans-serif" font-size="16" fill="#222" text-anchor="middle">
+          <circle cx="90" cy="60" r="34" fill="#cfe3ff" stroke="#1a56db" stroke-width="2"/><text x="90" y="65">F(A)</text>
+          <circle cx="270" cy="60" r="34" fill="#d7f5e3" stroke="#0f7a3d" stroke-width="2"/><text x="270" y="65">F(B)</text>
+          <circle cx="90" cy="180" r="34" fill="#ffe0e0" stroke="#c0392b" stroke-width="2"/><text x="90" y="185">G(A)</text>
+          <circle cx="270" cy="180" r="34" fill="#fff3bf" stroke="#e8a000" stroke-width="2"/><text x="270" y="185">G(B)</text>
+        </g>
+        <g stroke="#334" stroke-width="2" fill="none" marker-end="url(#arr)">
+          <line x1="124" y1="60" x2="236" y2="60"/>
+          <line x1="124" y1="180" x2="236" y2="180"/>
+          <line x1="90" y1="94" x2="90" y2="146"/>
+          <line x1="270" y1="94" x2="270" y2="146"/>
+        </g>
+        <text x="180" y="50" font-family="sans-serif" font-size="14" fill="#334" text-anchor="middle">F(f)</text>
+        <text x="180" y="200" font-family="sans-serif" font-size="14" fill="#334" text-anchor="middle">G(f)</text>
+        <text x="70" y="125" font-family="sans-serif" font-size="14" fill="#c2410c" text-anchor="end">α_A</text>
+        <text x="290" y="125" font-family="sans-serif" font-size="14" fill="#c2410c">α_B</text>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <div class="card">
+        <h2>Choose the maps</h2>
+        <label>α_A : A×A → A×A</label>
+        <select id="alphaA">
+          <option value="flip">flip (a,b) ↦ (b,a)</option>
+          <option value="id">identity</option>
+        </select>
+        <label>α_B : B×B → B×B</label>
+        <select id="alphaB">
+          <option value="flip">flip (x,y) ↦ (y,x)</option>
+          <option value="id">identity</option>
+        </select>
+        <label>the arrow f : A → B (A = {a,b,c}, B = {x,y})</label>
+        <div class="row">
+          <div><label>f(a)</label><select id="fa"><option>x</option><option>y</option></select></div>
+          <div><label>f(b)</label><select id="fb"><option>x</option><option>y</option></select></div>
+          <div><label>f(c)</label><select id="fc"><option>x</option><option>y</option></select></div>
+        </div>
+        <div style="margin-top:10px">
+          <button class="primary" id="random">Randomize f</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Trace an element of A×A</h2>
+        <div class="grid" id="grid"></div>
+        <div class="legend">
+          <span class="sw" style="background:#d7f5e3;border:1px solid #0f7a3d"></span>both paths agree
+          <span class="sw" style="background:#ffe3e3;border:1px solid #c0392b"></span>paths disagree
+          <span class="sw" style="background:#fff3bf;border:1px solid #e8a000"></span>selected
+        </div>
+      </div>
+
+      <div id="trace">Click an element of A×A to trace it through both paths of the square.</div>
+      <div id="verdict" class="ok">The square commutes ✓</div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  var S = ['a','b','c'];
+  var T = ['x','y'];
+  var alphaA = 'flip';
+  var alphaB = 'flip';
+  var f = { a:'x', b:'y', c:'x' };
+  var selected = null;
+
+  var grid = document.getElementById('grid');
+  var trace = document.getElementById('trace');
+  var verdict = document.getElementById('verdict');
+
+  function flip(p){ return [p[1], p[0]]; }
+  function id(p){ return p; }
+  function Ff(p){ return [f[p[0]], f[p[1]]]; }
+  function Gf(p){ return [f[p[0]], f[p[1]]]; }
+  function applyAlpha(which, p){ return which === 'flip' ? flip(p) : id(p); }
+  function downRight(p){ return Gf(applyAlpha(alphaA, p)); }
+  function rightDown(p){ return applyAlpha(alphaB, Ff(p)); }
+  function agrees(p){
+    var a = downRight(p), b = rightDown(p);
+    return a[0] === b[0] && a[1] === b[1];
+  }
+  function fmt(p){ return '(' + p[0] + ', ' + p[1] + ')'; }
+
+  function buildGrid() {
+    grid.innerHTML = '';
+    for (var i = 0; i < S.length; i++) {
+      for (var j = 0; j < S.length; j++) {
+        var p = [S[i], S[j]];
+        var d = document.createElement('div');
+        d.className = 'cell' + (agrees(p) ? ' ok' : ' bad') + (selected && selected[0]===p[0] && selected[1]===p[1] ? ' sel' : '');
+        d.textContent = fmt(p);
+        (function (pp) { d.addEventListener('click', function () { selected = pp; render(); }); })(p);
+        grid.appendChild(d);
+      }
+    }
+  }
+
+  function renderTrace() {
+    if (!selected) {
+      trace.innerHTML = 'Click an element of A×A to trace it through both paths of the square.';
+      return;
+    }
+    var p = selected;
+    var a1 = applyAlpha(alphaA, p);
+    var a2 = downRight(p);
+    var b1 = Ff(p);
+    var b2 = rightDown(p);
+    var ok = agrees(p);
+    trace.innerHTML =
+      'start: ' + fmt(p) + '<br>' +
+      'down then right: α_A ' + fmt(p) + ' = ' + fmt(a1) + ' → G(f) ' + fmt(a1) + ' = <b>' + fmt(a2) + '</b><br>' +
+      'right then down: F(f) ' + fmt(p) + ' = ' + fmt(b1) + ' → α_B ' + fmt(b1) + ' = <b>' + fmt(b2) + '</b><br>' +
+      (ok ? '<span class="ok">both paths agree ✓</span>' : '<span class="bad">paths disagree ✗</span>');
+  }
+
+  function renderVerdict() {
+    var all = true, counter = null;
+    for (var i = 0; i < S.length && all; i++) {
+      for (var j = 0; j < S.length && all; j++) {
+        var p = [S[i], S[j]];
+        if (!agrees(p)) { all = false; counter = p; }
+      }
+    }
+    if (all) {
+      verdict.className = 'ok';
+      verdict.innerHTML = 'The square commutes ✓ — α is a natural transformation.';
+    } else {
+      verdict.className = 'bad';
+      verdict.innerHTML = 'The square does NOT commute ✗ — counterexample ' + fmt(counter) + '. α is not natural.';
+    }
+  }
+
+  function render() { buildGrid(); renderTrace(); renderVerdict(); }
+
+  document.getElementById('alphaA').addEventListener('change', function () { alphaA = this.value; render(); });
+  document.getElementById('alphaB').addEventListener('change', function () { alphaB = this.value; render(); });
+  document.getElementById('fa').addEventListener('change', function () { f.a = this.value; render(); });
+  document.getElementById('fb').addEventListener('change', function () { f.b = this.value; render(); });
+  document.getElementById('fc').addEventListener('change', function () { f.c = this.value; render(); });
+  document.getElementById('random').addEventListener('click', function () {
+    var r = function () { return Math.random() < 0.5 ? 'x' : 'y'; };
+    f.a = r(); f.b = r(); f.c = r();
+    document.getElementById('fa').value = f.a;
+    document.getElementById('fb').value = f.b;
+    document.getElementById('fc').value = f.c;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Circuit Breaker Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h2 { color: #7ec8e3; margin-bottom: 4px; }
+.subtitle { color: #aaa; font-size: 14px; margin-bottom: 16px; }
+.cb-container { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+.cb-state-box { flex: 1; min-width: 280px; }
+.cb-state { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; margin: 0 auto 16px; border: 4px solid #555; transition: all 0.4s; }
+.cb-state.closed { background: #2d6a4f; border-color: #52b788; color: #fff; }
+.cb-state.open { background: #3d0000; border-color: #e63946; color: #e63946; }
+.cb-state.half-open { background: #7a5c00; border-color: #f4a261; color: #f4a261; }
+.cb-stats { text-align: center; font-size: 14px; color: #aaa; }
+.cb-stats div { margin: 4px 0; }
+.cb-controls { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; justify-content: center; }
+.cb-btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.2s; }
+.cb-btn:hover { transform: scale(1.05); }
+.cb-btn.success { background: #2d6a4f; color: #fff; }
+.cb-btn.failure { background: #3d0000; color: #e63946; border: 1px solid #e63946; }
+.cb-btn.reset { background: #333; color: #aaa; border: 1px solid #555; }
+.cb-log { flex: 1; min-width: 280px; max-height: 300px; overflow-y: auto; background: #0d1117; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; }
+.cb-log-entry { margin: 3px 0; padding: 2px 6px; border-radius: 3px; }
+.cb-log-entry.info { color: #8b949e; }
+.cb-log-entry.success { color: #52b788; }
+.cb-log-entry.failure { color: #e63946; }
+.cb-log-entry.state { color: #f4a261; font-weight: bold; }
+.cb-diagram { margin-top: 16px; padding: 12px; background: #0d1117; border-radius: 8px; font-size: 13px; color: #aaa; text-align: center; }
+.cb-diagram .arrow { color: #7ec8e3; font-size: 18px; }
+</style>
+</head>
+<body>
+<h2>Circuit Breaker</h2>
+<p class="subtitle">Simulate calls to a flaky dependency and watch the breaker trip: CLOSED → OPEN → HALF-OPEN.</p>
+
+<div class="cb-container">
+<div class="cb-state-box">
+<h3 style="color:#7ec8e3;margin-bottom:12px">Circuit Breaker State Machine</h3>
+<div class="cb-state closed" id="cbState">CLOSED</div>
+<div class="cb-stats">
+<div>Failures: <span id="cbFailures">0</span> / <span id="cbThreshold">5</span></div>
+<div>Cooldown: <span id="cbCooldown">—</span></div>
+<div>Successes (half-open): <span id="cbHalfSuccess">0</span></div>
+</div>
+<div class="cb-controls">
+<button class="cb-btn success" onclick="cbCall(true)">✓ Call (success)</button>
+<button class="cb-btn failure" onclick="cbCall(false)">✗ Call (failure)</button>
+<button class="cb-btn reset" onclick="cbReset()">Reset</button>
+</div>
+<div class="cb-controls">
+<label style="font-size:12px;color:#aaa">Threshold:</label>
+<select id="cbThresholdSel" onchange="cbSetThreshold()">
+<option value="3">3</option>
+<option value="5" selected>5</option>
+<option value="10">10</option>
+</select>
+<label style="font-size:12px;color:#aaa">Cooldown (s):</label>
+<select id="cbCooldownSel" onchange="cbSetCooldown()">
+<option value="5">5</option>
+<option value="10" selected>10</option>
+<option value="30">30</option>
+</select>
+</div>
+<div class="cb-diagram">
+<span id="diagClosed" style="color:#52b788">CLOSED</span>
+<span class="arrow"> → </span>
+<span id="diagOpen" style="color:#e63946">OPEN</span>
+<span class="arrow"> → </span>
+<span id="diagHalf" style="color:#f4a261">HALF-OPEN</span>
+<span class="arrow"> → </span>
+<span id="diagBack" style="color:#52b788">CLOSED</span>
+</div>
+</div>
+<div class="cb-log" id="cbLog"></div>
+</div>
+
+<script>
+let cbState = 'CLOSED';
+let cbFailures = 0;
+let cbThreshold = 5;
+let cbCooldown = 10;
+let cbHalfSuccess = 0;
+let cbCooldownTimer = null;
+let cbCooldownRemaining = 0;
+
+function cbLog(msg, cls) {
+  const log = document.getElementById('cbLog');
+  const entry = document.createElement('div');
+  entry.className = 'cb-log-entry ' + cls;
+  const time = new Date().toLocaleTimeString();
+  entry.textContent = '[' + time + '] ' + msg;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+function cbUpdateUI() {
+  const stateEl = document.getElementById('cbState');
+  stateEl.className = 'cb-state ' + cbState.toLowerCase();
+  stateEl.textContent = cbState;
+  document.getElementById('cbFailures').textContent = cbFailures;
+  document.getElementById('cbThreshold').textContent = cbThreshold;
+  document.getElementById('cbHalfSuccess').textContent = cbHalfSuccess;
+  document.getElementById('cbCooldown').textContent = cbState === 'OPEN' ? cbCooldownRemaining + 's' : '—';
+  document.getElementById('diagClosed').style.fontWeight = cbState === 'CLOSED' ? 'bold' : 'normal';
+  document.getElementById('diagOpen').style.fontWeight = cbState === 'OPEN' ? 'bold' : 'normal';
+  document.getElementById('diagHalf').style.fontWeight = cbState === 'HALF-OPEN' ? 'bold' : 'normal';
+  document.getElementById('diagBack').style.fontWeight = cbState === 'CLOSED' ? 'bold' : 'normal';
+}
+
+function cbCall(success) {
+  if (cbState === 'OPEN') {
+    cbLog('Call REJECTED (circuit OPEN, cooldown ' + cbCooldownRemaining + 's remaining)', 'failure');
+    return;
+  }
+  if (success) {
+    if (cbState === 'HALF-OPEN') {
+      cbHalfSuccess++;
+      cbLog('Test call SUCCEEDED in HALF-OPEN → closing circuit', 'success');
+      cbState = 'CLOSED';
+      cbFailures = 0;
+      cbHalfSuccess = 0;
+      if (cbCooldownTimer) { clearInterval(cbCooldownTimer); cbCooldownTimer = null; }
+      cbLog('State: CLOSED (normal operation resumed)', 'state');
+    } else {
+      cbLog('Call succeeded (CLOSED)', 'success');
+    }
+  } else {
+    cbFailures++;
+    if (cbState === 'HALF-OPEN') {
+      cbLog('Test call FAILED in HALF-OPEN → re-opening circuit', 'failure');
+      cbState = 'OPEN';
+      cbCooldownRemaining = cbCooldown;
+      startCooldown();
+      cbLog('State: OPEN (cooldown ' + cbCooldown + 's)', 'state');
+    } else if (cbFailures >= cbThreshold) {
+      cbState = 'OPEN';
+      cbCooldownRemaining = cbCooldown;
+      startCooldown();
+      cbLog('Threshold reached (' + cbFailures + '/' + cbThreshold + ') → opening circuit', 'failure');
+      cbLog('State: OPEN (cooldown ' + cbCooldown + 's)', 'state');
+    } else {
+      cbLog('Call failed (' + cbFailures + '/' + cbThreshold + ' before trip)', 'failure');
+    }
+  }
+  cbUpdateUI();
+}
+
+function startCooldown() {
+  if (cbCooldownTimer) clearInterval(cbCooldownTimer);
+  cbCooldownRemaining = cbCooldown;
+  cbCooldownTimer = setInterval(() => {
+    cbCooldownRemaining--;
+    cbUpdateUI();
+    if (cbCooldownRemaining <= 0) {
+      clearInterval(cbCooldownTimer);
+      cbCooldownTimer = null;
+      cbState = 'HALF-OPEN';
+      cbHalfSuccess = 0;
+      cbLog('Cooldown expired → HALF-OPEN (allowing test call)', 'state');
+      cbUpdateUI();
+    }
+  }, 1000);
+}
+
+function cbReset() {
+  cbState = 'CLOSED';
+  cbFailures = 0;
+  cbHalfSuccess = 0;
+  cbCooldownRemaining = 0;
+  if (cbCooldownTimer) { clearInterval(cbCooldownTimer); cbCooldownTimer = null; }
+  cbLog('Circuit breaker RESET', 'info');
+  cbUpdateUI();
+}
+
+function cbSetThreshold() {
+  cbThreshold = parseInt(document.getElementById('cbThresholdSel').value);
+  cbLog('Threshold set to ' + cbThreshold, 'info');
+  cbUpdateUI();
+}
+
+function cbSetCooldown() {
+  cbCooldown = parseInt(document.getElementById('cbCooldownSel').value);
+  cbLog('Cooldown set to ' + cbCooldown + 's', 'info');
+  cbUpdateUI();
+}
+
+cbLog('Circuit breaker initialized (CLOSED, threshold=5, cooldown=10s)', 'info');
+cbUpdateUI();
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Driven Oscillations</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 12px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; }
+.controls { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 10px; }
+.control { display: flex; align-items: center; gap: 6px; }
+.control label { font-size: 0.9em; min-width: 46px; }
+.control input[type=range] { width: 130px; }
+.control span { font-size: 0.85em; min-width: 42px; text-align: right; }
+.readout { font-size: 0.9em; margin-bottom: 10px; color: #cfd8dc; }
+.readout b { color: #4fc3f7; }
+canvas { border: 1px solid #333; border-radius: 4px; background: #0f0f1a; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.plot-box { flex: 1; min-width: 300px; }
+.plot-box h3 { margin: 4px 0; font-size: 0.9em; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Driven Oscillations — resonance &amp; frequency response</h2>
+<div class="controls">
+  <div class="control"><label>ω₀</label><input type="range" id="w0" min="0.5" max="5" step="0.1" value="2"><span id="w0v">2.0</span></div>
+  <div class="control"><label>γ</label><input type="range" id="gamma" min="0.05" max="2" step="0.05" value="0.2"><span id="gammav">0.20</span></div>
+  <div class="control"><label>ω</label><input type="range" id="w" min="0.1" max="10" step="0.05" value="2"><span id="wv">2.00</span></div>
+  <div class="control"><label>F₀/m</label><input type="range" id="f0" min="0.1" max="3" step="0.1" value="1"><span id="f0v">1.0</span></div>
+</div>
+<div class="readout" id="readout"></div>
+<div class="row">
+  <div class="plot-box"><h3>x(t): transient decays into steady-state</h3><canvas id="ct" width="520" height="280"></canvas></div>
+  <div class="plot-box"><h3>Amplitude response X(ω) — dot is current ω</h3><canvas id="cr" width="360" height="280"></canvas></div>
+</div>
+<script>
+const ct = document.getElementById('ct').getContext('2d');
+const cr = document.getElementById('cr').getContext('2d');
+const w0s = document.getElementById('w0');
+const gs = document.getElementById('gamma');
+const ws = document.getElementById('w');
+const f0s = document.getElementById('f0');
+const w0v = document.getElementById('w0v');
+const gammav = document.getElementById('gammav');
+const wv = document.getElementById('wv');
+const f0v = document.getElementById('f0v');
+const readout = document.getElementById('readout');
+
+function Xof(w, w0, g, f0){ return f0/Math.sqrt(Math.pow(w0*w0 - w*w,2) + Math.pow(2*g*w,2)); }
+function deltaOf(w, w0, g){ return Math.atan2(2*g*w, w0*w0 - w*w); }
+
+function draw() {
+  const w0 = parseFloat(w0s.value);
+  const g = parseFloat(gs.value);
+  const w = parseFloat(ws.value);
+  const f0 = parseFloat(f0s.value);
+  w0v.textContent = w0.toFixed(1);
+  gammav.textContent = g.toFixed(2);
+  wv.textContent = w.toFixed(2);
+  f0v.textContent = f0.toFixed(1);
+
+  const Q = w0/(2*g);
+  const Xw = Xof(w, w0, g, f0);
+  const d = deltaOf(w, w0, g);
+  const wres = Math.sqrt(Math.max(w0*w0 - 2*g*g, 0));
+  readout.innerHTML = 'Q = <b>' + Q.toFixed(1) + '</b> &nbsp; ' +
+    'X(ω) = <b>' + Xw.toFixed(3) + '</b> &nbsp; ' +
+    'δ = <b>' + (d*180/Math.PI).toFixed(0) + '°</b> &nbsp; ' +
+    'ω<sub>res</sub> = <b>' + wres.toFixed(2) + '</b> &nbsp; ' +
+    'Δω ≈ 2γ = <b>' + (2*g).toFixed(2) + '</b>';
+
+  // ---- integrate x(t) with RK4 ----
+  const T = 40, N = 2400, dt = T/N;
+  const xs = new Array(N+1);
+  let x = 0, v = 0;
+  xs[0] = 0;
+  for (let i = 0; i < N; i++) {
+    const t = i*dt;
+    const acc = (xx, vv) => -2*g*vv - w0*w0*xx + f0*Math.cos(w*t);
+    const k1x = v,            k1v = acc(x, v);
+    const k2x = v + 0.5*dt*k1v, k2v = acc(x + 0.5*dt*k1x, v + 0.5*dt*k1v);
+    const k3x = v + 0.5*dt*k2v, k3v = acc(x + 0.5*dt*k2x, v + 0.5*dt*k2v);
+    const k4x = v + dt*k3v,     k4v = acc(x + dt*k3x, v + dt*k3v);
+    x += dt/6*(k1x + 2*k2x + 2*k3x + k4x);
+    v += dt/6*(k1v + 2*k2v + 2*k3v + k4v);
+    xs[i+1] = x;
+  }
+  // steady-state overlay
+  const Xss = Xof(w, w0, g, f0);
+  const dss = deltaOf(w, w0, g);
+
+  // ---- Plot x(t) ----
+  const W = 520, H = 280, pad = 35;
+  ct.clearRect(0,0,W,H);
+  let maxAmp = 0.001;
+  for (let i=0;i<=N;i++) if (Math.abs(xs[i])>maxAmp) maxAmp = Math.abs(xs[i]);
+  const yScale = (H - 2*pad)/(2*maxAmp*1.1);
+  const xScale = (W - pad - 10)/T;
+  const yMid = (pad + H - pad)/2;
+  ct.strokeStyle = '#444'; ct.lineWidth = 1;
+  ct.beginPath(); ct.moveTo(pad,pad); ct.lineTo(W-10,pad); ct.lineTo(W-10,H-pad); ct.lineTo(pad,H-pad); ct.closePath(); ct.stroke();
+  ct.strokeStyle = '#333'; ct.beginPath(); ct.moveTo(pad,yMid); ct.lineTo(W-10,yMid); ct.stroke();
+  ct.fillStyle = '#888'; ct.font = '11px system-ui';
+  ct.fillText('t', W-15, H-pad+15);
+  ct.fillText('x', pad-15, pad+5);
+  // steady-state (dashed)
+  ct.strokeStyle = 'rgba(174,213,129,0.8)'; ct.lineWidth = 1.5; ct.setLineDash([5,3]);
+  ct.beginPath();
+  for (let i=0;i<=N;i++){ const t=i*dt; const px=pad+t*xScale; const py=yMid - Xss*Math.cos(w*t - dss)*yScale; i===0?ct.moveTo(px,py):ct.lineTo(px,py); }
+  ct.stroke(); ct.setLineDash([]);
+  // total
+  ct.strokeStyle = '#4fc3f7'; ct.lineWidth = 2;
+  ct.beginPath();
+  for (let i=0;i<=N;i++){ const px=pad+i*dt*xScale; const py=yMid - xs[i]*yScale; i===0?ct.moveTo(px,py):ct.lineTo(px,py); }
+  ct.stroke();
+  // legend
+  ct.strokeStyle = '#4fc3f7'; ct.lineWidth = 2; ct.beginPath(); ct.moveTo(W-150,20); ct.lineTo(W-130,20); ct.stroke();
+  ct.fillStyle = '#4fc3f7'; ct.fillText('x(t)', W-125, 24);
+  ct.strokeStyle = '#aed581'; ct.lineWidth = 1.5; ct.setLineDash([5,3]); ct.beginPath(); ct.moveTo(W-150,34); ct.lineTo(W-130,34); ct.stroke(); ct.setLineDash([]);
+  ct.fillStyle = '#aed581'; ct.fillText('steady-state', W-125, 38);
+
+  // ---- Plot X(omega) ----
+  const PW = 360, PH = 280, ppad = 35;
+  cr.clearRect(0,0,PW,PH);
+  const wMax = 2.5*w0;
+  let Xpeak = 0;
+  for (let ww=0.001; ww<=wMax; ww+=wMax/400) Xpeak = Math.max(Xpeak, Xof(ww,w0,g,f0));
+  const yMax = Xpeak*1.15;
+  const pxX = (ww)=> ppad + (ww/wMax)*(PW-ppad-10);
+  const pyY = (X)=> (PH-ppad) - (X/yMax)*(PH-2*ppad);
+  cr.strokeStyle = '#444'; cr.lineWidth = 1;
+  cr.beginPath(); cr.moveTo(ppad,ppad); cr.lineTo(PW-10,ppad); cr.lineTo(PW-10,PH-ppad); cr.lineTo(ppad,PH-ppad); cr.closePath(); cr.stroke();
+  cr.fillStyle = '#888'; cr.font = '11px system-ui';
+  cr.fillText('ω', PW-15, PH-ppad+15);
+  cr.fillText('X', ppad-15, ppad+5);
+  // curve
+  cr.strokeStyle = '#4fc3f7'; cr.lineWidth = 2;
+  cr.beginPath();
+  for (let i=0;i<=400;i++){ const ww = i/400*wMax; const px=pxX(ww); const py=pyY(Xof(ww,w0,g,f0)); i===0?cr.moveTo(px,py):cr.lineTo(px,py); }
+  cr.stroke();
+  // peak marker at wres
+  const pxp = pxX(wres), pyp = pyY(Xof(wres,w0,g,f0));
+  cr.fillStyle = '#ff5252'; cr.beginPath(); cr.arc(pxp,pyp,3,0,2*Math.PI); cr.fill();
+  cr.fillStyle = '#ff5252'; cr.font = '10px system-ui'; cr.fillText('peak', pxp+5, pyp-4);
+  // current omega dot
+  const pxc = pxX(w), pyc = pyY(Xof(w,w0,g,f0));
+  cr.strokeStyle = '#e0a800'; cr.lineWidth = 1; cr.setLineDash([3,3]);
+  cr.beginPath(); cr.moveTo(pxc,PH-ppad); cr.lineTo(pxc,pyc); cr.stroke();
+  cr.beginPath(); cr.moveTo(ppad,pyc); cr.lineTo(pxc,pyc); cr.stroke();
+  cr.setLineDash([]);
+  cr.fillStyle = '#e0a800'; cr.beginPath(); cr.arc(pxc,pyc,4,0,2*Math.PI); cr.fill();
+}
+
+w0s.addEventListener('input', draw);
+gs.addEventListener('input', draw);
+ws.addEventListener('input', draw);
+f0s.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

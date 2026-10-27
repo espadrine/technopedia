@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flip-chip reflow and self-alignment</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin: 5px 0; }
+.controls { text-align: center; margin: 8px 0; }
+.controls button { margin: 0 4px; padding: 6px 14px; border: 1px solid #555; border-radius: 4px; background: #2a2a4a; color: #eee; cursor: pointer; font-size: 0.9em; }
+.controls button.active { background: #4a4a8a; border-color: #88f; }
+canvas { display: block; margin: 0 auto; border: 1px solid #333; border-radius: 4px; background: #12122a; }
+.legend { text-align: center; font-size: 0.8em; margin-top: 6px; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Flip-chip: molten solder self-aligns the die</h2>
+<div class="controls">
+<button id="btn-place" class="active">1. Place (misaligned)</button>
+<button id="btn-reflow">2. Reflow</button>
+<button id="btn-reset">Reset</button>
+</div>
+<canvas id="cv" width="700" height="360"></canvas>
+<div class="legend" id="msg">The die is placed bump-down with a placement error. Surface tension of the molten solder pulls it into alignment.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const msg = document.getElementById('msg');
+
+let state = 'placed';      // placed | reflowing | aligned
+let offset = 45;           // placement error in px
+let anim = null;
+
+const subY = 250;          // substrate top surface
+const bumps = [];
+for (let i = 0; i < 8; i++) bumps.push({ x: 180 + i * 45 });
+
+function drawScene(off, jointH, molten) {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  // Substrate
+  ctx.fillStyle = '#8b6914';
+  ctx.fillRect(80, subY, 540, 60);
+  ctx.fillStyle = '#eee';
+  ctx.font = '12px system-ui';
+  ctx.fillText('Organic substrate', 90, subY + 45);
+  // Substrate pads
+  bumps.forEach(b => {
+    ctx.fillStyle = '#d8d8e8';
+    ctx.fillRect(b.x - 12, subY - 4, 24, 4);
+  });
+  // Die (flipped, face-down)
+  const dieY = subY - jointH - 90;
+  ctx.fillStyle = '#4a90d9';
+  ctx.fillRect(80 + off, dieY, 540, 90);
+  ctx.fillStyle = '#eee';
+  ctx.fillText('Die (flipped, face-down)', 100 + off, dieY + 25);
+  // Die bumps
+  bumps.forEach(b => {
+    ctx.fillStyle = '#e74c3c';
+    if (molten) {
+      // collapsed joint: squashed sphere between die and pad
+      ctx.beginPath();
+      ctx.ellipse(b.x + off / 2, subY - jointH / 2, 14, jointH / 2 + 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.arc(b.x + off, dieY + 90 + 12, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  if (molten) {
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('collapsed joints (~60 µm tall)', 90, subY - 8);
+  } else {
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('placement error: ' + off + ' px', 90, subY - 8);
+  }
+}
+
+function render() {
+  if (state === 'placed') drawScene(offset, 0, false);
+  else if (state === 'reflowing') drawScene(0, 60, true);
+  else drawScene(0, 60, true);
+}
+
+document.getElementById('btn-place').onclick = () => { state = 'placed'; render(); msg.textContent = 'The die is placed bump-down with a placement error. Surface tension of the molten solder pulls it into alignment.'; };
+document.getElementById('btn-reflow').onclick = () => {
+  if (state === 'placed') {
+    state = 'reflowing';
+    msg.textContent = 'At reflow temperature each molten bump pulls with surface tension; the net force slides the die until all bumps are symmetric — self-alignment to a few µm.';
+    render();
+    setTimeout(() => { state = 'aligned'; render(); msg.textContent = 'Aligned: every joint is symmetric, so surface tension is balanced. The die corrected its own placement error for free.'; }, 900);
+  } else {
+    state = 'placed';
+    render();
+    msg.textContent = 'The die is placed bump-down with a placement error. Press Reflow to see self-alignment.';
+  }
+};
+render();
+</script>
+</body>
+</html>

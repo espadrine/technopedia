@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Manufacturing Process Flow</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin-bottom: 4px; }
+p.sub { text-align: center; font-size: 0.85em; color: #aaa; margin-top: 0; }
+.flow { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; margin: 16px 0; }
+.stage { width: 120px; height: 80px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.75em; font-weight: 600; cursor: pointer; transition: all 0.3s; border: 2px solid transparent; }
+.stage.active { border-color: #fff; transform: scale(1.08); box-shadow: 0 0 12px rgba(255,255,255,0.3); }
+.stage.s1 { background: #e67e22; }
+.stage.s2 { background: #3498db; }
+.stage.s3 { background: #e74c3c; }
+.stage.s4 { background: #2ecc71; }
+.stage.s5 { background: #9b59b6; }
+.arrow { font-size: 1.4em; color: #666; }
+.detail { background: #16213e; border-radius: 8px; padding: 12px; margin: 12px auto; max-width: 520px; min-height: 70px; font-size: 0.85em; line-height: 1.5; }
+.detail b { color: #f1c40f; }
+.controls { text-align: center; margin-top: 12px; }
+button { background: #0f3460; color: #eee; border: 1px solid #555; border-radius: 6px; padding: 8px 18px; font-size: 0.9em; cursor: pointer; margin: 0 6px; }
+button:hover { background: #1a5276; }
+.progress { width: 100%; max-width: 520px; height: 6px; background: #333; border-radius: 3px; margin: 10px auto; }
+.progress-fill { height: 100%; background: #f1c40f; border-radius: 3px; transition: width 0.4s; }
+</style>
+</head>
+<body>
+<h2>Manufacturing Process Flow — Smartphone Chassis</h2>
+<p class="sub">Click a stage or press Play to step through the five primary classes</p>
+<div class="flow" id="flow"></div>
+<div class="progress"><div class="progress-fill" id="prog"></div></div>
+<div class="detail" id="detail">Press <b>Play</b> or click a stage to begin.</div>
+<div class="controls">
+<button id="prev">◀ Prev</button>
+<button id="play">▶ Play</button>
+<button id="next">Next ▶</button>
+<button id="reset">Reset</button>
+</div>
+<script>
+const stages = [
+  { name: "Solid-state processing", cls: "s1", desc: "<b>Materials processing + Forming.</b> Primary aluminum is cast into billets, hot-rolled into sheet, then deep-drawn or stamped into a near-net chassis shape. Mechanism: prepare and deform solid material." },
+  { name: "Solidify / deposit", cls: "s2", desc: "<b>Casting or Additive manufacturing.</b> (Not used for this chassis, but shown for completeness.) Molten material solidifies in a mold, or layers of powder/filament are deposited. Mechanism: create geometry by phase change or material addition." },
+  { name: "Remove", cls: "s3", desc: "<b>Subtractive manufacturing.</b> CNC milling trims edges, machines the camera cutout, and creates the antenna window. Mechanism: subtract material to reveal geometry." },
+  { name: "Bond / finish", cls: "s4", desc: "<b>Surface finishing.</b> Anodizing (Type II) grows a 15 µm Al₂O₃ layer for corrosion resistance and colour; a sealant is applied. Mechanism: create or modify material interfaces at the surface." },
+  { name: "Integrate", cls: "s5", desc: "<b>Assembly.</b> The chassis is joined (screws, clips) to the display, battery, and internal PCBs, then arranged into the final functional unit. Mechanism: arrange or fabricate functional systems." }
+];
+let cur = -1, timer = null;
+const flow = document.getElementById('flow');
+const detail = document.getElementById('detail');
+const prog = document.getElementById('prog');
+stages.forEach((s, i) => {
+  if (i > 0) { const a = document.createElement('span'); a.className = 'arrow'; a.textContent = '→'; flow.appendChild(a); }
+  const d = document.createElement('div'); d.className = 'stage ' + s.cls; d.textContent = s.name; d.dataset.i = i;
+  d.onclick = () => { stop(); cur = i; render(); };
+  flow.appendChild(d);
+});
+function render() {
+  document.querySelectorAll('.stage').forEach((el, i) => el.classList.toggle('active', i === cur));
+  prog.style.width = cur >= 0 ? ((cur + 1) / stages.length * 100) + '%' : '0%';
+  detail.innerHTML = cur >= 0 ? stages[cur].desc : 'Press <b>Play</b> or click a stage to begin.';
+}
+function stop() { if (timer) { clearInterval(timer); timer = null; document.getElementById('play').textContent = '▶ Play'; } }
+document.getElementById('next').onclick = () => { stop(); cur = Math.min(cur + 1, stages.length - 1); render(); };
+document.getElementById('prev').onclick = () => { stop(); cur = Math.max(cur - 1, -1); render(); };
+document.getElementById('reset').onclick = () => { stop(); cur = -1; render(); };
+document.getElementById('play').onclick = function() {
+  if (timer) { stop(); return; }
+  this.textContent = '⏸ Pause';
+  if (cur >= stages.length - 1) cur = -1;
+  timer = setInterval(() => {
+    cur++;
+    if (cur >= stages.length) { stop(); cur = stages.length - 1; render(); return; }
+    render();
+  }, 2200);
+};
+render();
+</script>
+</body>
+</html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Manufacturing Process Flow</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 10px; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin: 5px 0 10px; }
+canvas { display: block; margin: 0 auto; background: #16213e; border-radius: 8px; }
+.controls { text-align: center; margin: 10px 0; }
+button { padding: 6px 14px; margin: 0 4px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+#playBtn { background: #4ecca3; color: #1a1a2e; }
+#resetBtn { background: #e94560; color: #fff; }
+#speedBtn { background: #533483; color: #fff; }
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; font-size: 0.75em; }
+.legend span { padding: 2px 8px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h2>Manufacturing Process Flow — Smartphone Chassis</h2>
+<canvas id="c" width="720" height="340"></canvas>
+<div class="controls">
+<button id="playBtn">▶ Play</button>
+<button id="resetBtn">↺ Reset</button>
+<button id="speedBtn">Speed: 1×</button>
+</div>
+<div class="legend">
+<span style="background:#e94560">Materials</span>
+<span style="background:#f5a623">Forming</span>
+<span style="background:#4ecca3">Subtractive</span>
+<span style="background:#7ed6df">Finishing</span>
+<span style="background:#533483">Assembly</span>
+<span style="background:#a8dadc">Metrology</span>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const stages = [
+  { name: 'Materials\nProcessing', color: '#e94560', x: 60, y: 170 },
+  { name: 'Forming', color: '#f5a623', x: 180, y: 170 },
+  { name: 'Subtractive', color: '#4ecca3', x: 300, y: 170 },
+  { name: 'Surface\nFinishing', color: '#7ed6df', x: 420, y: 170 },
+  { name: 'Assembly', color: '#533483', x: 540, y: 170 },
+  { name: 'Metrology', color: '#a8dadc', x: 650, y: 170 }
+];
+
+let progress = 0; // 0..1 overall
+let playing = false;
+let speed = 1;
+let lastTime = 0;
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw flow arrows
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < stages.length - 1; i++) {
+    const x1 = stages[i].x + 40;
+    const x2 = stages[i+1].x - 40;
+    const y = stages[i].y;
+    ctx.beginPath();
+    ctx.moveTo(x1, y);
+    ctx.lineTo(x2, y);
+    ctx.stroke();
+    // arrowhead
+    ctx.beginPath();
+    ctx.moveTo(x2, y);
+    ctx.lineTo(x2 - 8, y - 5);
+    ctx.lineTo(x2 - 8, y + 5);
+    ctx.closePath();
+    ctx.fillStyle = '#444';
+    ctx.fill();
+  }
+
+  // Draw stage boxes
+  const boxW = 80, boxH = 50;
+  stages.forEach((s, i) => {
+    const bx = s.x - boxW/2;
+    const by = s.y - boxH/2;
+    const stageProgress = Math.max(0, Math.min(1, progress * stages.length - i));
+
+    // Box
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = 0.3 + 0.7 * stageProgress;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 6);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = s.color;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'center';
+    const lines = s.name.split('\n');
+    const totalH = lines.length * 13;
+    lines.forEach((line, li) => {
+      ctx.fillText(line, s.x, s.y - totalH/2 + 13 + li * 13);
+    });
+
+    // Progress bar under box
+    if (stageProgress > 0) {
+      ctx.fillStyle = s.color;
+      ctx.fillRect(bx, by + boxH + 4, boxW * stageProgress, 4);
+      ctx.strokeStyle = '#555';
+      ctx.strokeRect(bx, by + boxH + 4, boxW, 4);
+    }
+  });
+
+  // Moving dot
+  if (progress > 0 && progress < 1) {
+    const totalDist = stages[stages.length-1].x - stages[0].x;
+    const dotX = stages[0].x + totalDist * progress;
+    const dotY = stages[0].y;
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.strokeStyle = '#4ecca3';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Title
+  ctx.fillStyle = '#888';
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('Aluminum smartphone chassis: billet → sheet → drawn → milled → anodized → assembled → inspected', 10, H - 10);
+}
+
+function animate(time) {
+  if (playing) {
+    const dt = (time - lastTime) / 1000;
+    progress += dt * 0.15 * speed;
+    if (progress >= 1) { progress = 1; playing = false; document.getElementById('playBtn').textContent = '▶ Play'; }
+  }
+  lastTime = time;
+  draw();
+  requestAnimationFrame(animate);
+}
+
+document.getElementById('playBtn').onclick = () => {
+  if (progress >= 1) progress = 0;
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+};
+document.getElementById('resetBtn').onclick = () => {
+  progress = 0; playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+};
+document.getElementById('speedBtn').onclick = () => {
+  speed = speed === 1 ? 2 : speed === 2 ? 4 : 1;
+  document.getElementById('speedBtn').textContent = 'Speed: ' + speed + '×';
+};
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

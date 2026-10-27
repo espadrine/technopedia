@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Subtractive Manufacturing Classes</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 10px; color: #4ecca3; }
+.controls { margin-bottom: 15px; }
+.controls label { margin-right: 15px; font-size: 0.9em; }
+.controls select { padding: 4px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a4a; color: #eee; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 15px; }
+.card { background: #2a2a4a; border-radius: 8px; padding: 12px; border: 2px solid transparent; cursor: pointer; transition: all 0.2s; }
+.card:hover { border-color: #4ecca3; }
+.card.active { border-color: #4ecca3; background: #3a3a5a; }
+.card h3 { font-size: 0.95em; margin-bottom: 6px; color: #4ecca3; }
+.card p { font-size: 0.8em; color: #aaa; line-height: 1.4; }
+.bars { margin-top: 15px; }
+.bar-row { display: flex; align-items: center; margin-bottom: 8px; }
+.bar-label { width: 120px; font-size: 0.8em; color: #ccc; }
+.bar-track { flex: 1; height: 22px; background: #111; border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; display: flex; align-items: center; padding-left: 8px; font-size: 0.75em; color: #fff; font-weight: bold; }
+.bar-mech { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+.bar-thermal { background: linear-gradient(90deg, #f39c12, #e67e22); }
+.bar-edm { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
+.bar-ecm { background: linear-gradient(90deg, #3498db, #2980b9); }
+.bar-chem { background: linear-gradient(90deg, #1abc9c, #16a085); }
+.detail { margin-top: 15px; background: #2a2a4a; border-radius: 8px; padding: 15px; min-height: 80px; }
+.detail h3 { color: #4ecca3; font-size: 1em; margin-bottom: 8px; }
+.detail p { font-size: 0.85em; line-height: 1.5; color: #ccc; }
+.legend { display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
+.legend span { font-size: 0.75em; display: flex; align-items: center; gap: 5px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<h1>Subtractive Manufacturing – Class Comparison</h1>
+<div class="controls">
+<label>Metric: <select id="metric">
+<option value="mrr">Material Removal Rate (MRR)</option>
+<option value="tolerance">Tolerance (tighter = better)</option>
+<option value="finish">Surface Finish (Ra, lower = better)</option>
+<option value="independence">Material Independence</option>
+</select></label>
+</div>
+<div class="grid" id="cards"></div>
+<div class="bars" id="bars"></div>
+<div class="detail" id="detail">
+<h3>Select a class</h3>
+<p>Click a class card above to see its removal mechanism, typical applications, and key trade-offs.</p>
+</div>
+<div class="legend">
+<span><span class="dot" style="background:#e74c3c"></span>Mechanical</span>
+<span><span class="dot" style="background:#f39c12"></span>Thermal</span>
+<span><span class="dot" style="background:#9b59b6"></span>EDM</span>
+<span><span class="dot" style="background:#3498db"></span>ECM</span>
+<span><span class="dot" style="background:#1abc9c"></span>Chemical</span>
+</div>
+<script>
+const classes = [
+{ id:'mech', name:'Mechanical machining', color:'bar-mech',
+  mechanism:'Kinetic force of a cutting tool or abrasive against the workpiece.',
+  apps:'Milling, turning, drilling, grinding, waterjet. Gears, housings, shafts, turbine blades.',
+  tradeoff:'Fast for 3-D solids; limited by hardness ratio (tool must be harder than workpiece).',
+  mrr:[1,5000], tol:[5,50], finish:[0.2,25], indep:3 },
+{ id:'thermal', name:'Thermal cutting', color:'bar-thermal',
+  mechanism:'Heat from a laser, plasma arc, flame, or electron beam melts/vaporises material.',
+  apps:'Laser, plasma, oxy-fuel, electron-beam cutting. Sheet metal, plate, thick sections.',
+  tradeoff:'Cuts any meltable material; introduces a heat-affected zone (HAZ).',
+  mrr:[0.1,1000], tol:[50,200], finish:[1,10], indep:5 },
+{ id:'edm', name:'Electrical discharge machining', color:'bar-edm',
+  mechanism:'Spark plasma (10 000–30 000 K) vaporises material in a dielectric fluid.',
+  apps:'Sinker EDM, wire EDM. Die cavities, hardened parts, complex 3-D shapes.',
+  tradeoff:'Independent of hardness; slow for large volumes. Requires conductivity.',
+  mrr:[0.01,50], tol:[1,25], finish:[0.2,3], indep:4 },
+{ id:'ecm', name:'Electrochemical machining', color:'bar-ecm',
+  mechanism:'Anodic dissolution in an electrolyte; no physical contact.',
+  apps:'Contour ECM, ECG, electrochemical drilling. Turbine blades, large die cavities.',
+  tradeoff:'No tool wear, no HAZ; requires conductivity and electrolyte handling.',
+  mrr:[1,2000], tol:[5,50], finish:[0.5,5], indep:4 },
+{ id:'chem', name:'Chemical machining', color:'bar-chem',
+  mechanism:'Chemical dissolution by a reagent (acid, base, oxidiser).',
+  apps:'Photochemical machining, chemical milling. Micro-features, thin sheets, non-conductive substrates.',
+  tradeoff:'No force, no heat; limited by undercut and aspect ratio. Slow for thick sections.',
+  mrr:[0.001,1], tol:[2,20], finish:[0.1,1], indep:5 }
+];
+
+const metricInfo = {
+  mrr: { label:'MRR (mm³/min)', log:true, higherBetter:true },
+  tolerance: { label:'Tolerance (µm)', log:false, higherBetter:false },
+  finish: { label:'Ra (µm)', log:false, higherBetter:false },
+  independence: { label:'Material independence (1–5)', log:false, higherBetter:true }
+};
+
+let activeClass = null;
+
+function render() {
+  const metric = document.getElementById('metric').value;
+  const info = metricInfo[metric];
+  const cardsEl = document.getElementById('cards');
+  const barsEl = document.getElementById('bars');
+  const detailEl = document.getElementById('detail');
+
+  // Cards
+  cardsEl.innerHTML = '';
+  classes.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'card' + (activeClass === c.id ? ' active' : '');
+    div.innerHTML = '<h3>' + c.name + '</h3><p>' + c.mechanism + '</p>';
+    div.onclick = () => { activeClass = c.id; render(); };
+    cardsEl.appendChild(div);
+  });
+
+  // Bars
+  barsEl.innerHTML = '<div style="font-size:0.85em;color:#aaa;margin-bottom:8px">' + info.label + '</div>';
+  let maxVal, minVal;
+  if (metric === 'independence') {
+    maxVal = 5; minVal = 1;
+  } else if (info.log) {
+    maxVal = Math.max(...classes.map(c => c[metric][1]));
+    minVal = Math.min(...classes.map(c => c[metric][0]));
+  } else {
+    maxVal = Math.max(...classes.map(c => c[metric][1]));
+    minVal = Math.min(...classes.map(c => c[metric][0]));
+  }
+
+  classes.forEach(c => {
+    let val, label;
+    if (metric === 'independence') {
+      val = c.indep; label = val + ' / 5';
+    } else if (info.log) {
+      val = Math.log10(c[metric][1]) - Math.log10(minVal);
+      const maxLog = Math.log10(maxVal) - Math.log10(minVal);
+      val = val / maxLog;
+      label = c[metric][0].toExponential(1) + ' – ' + c[metric][1].toExponential(1);
+    } else {
+      val = (c[metric][1] - minVal) / (maxVal - minVal);
+      label = c[metric][0] + ' – ' + c[metric][1];
+    }
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = '<span class="bar-label">' + c.name.split(' ')[0] + '</span><div class="bar-track"><div class="bar-fill ' + c.color + '" style="width:' + Math.max(val * 100, 8) + '%">' + label + '</div></div>';
+    barsEl.appendChild(row);
+  });
+
+  // Detail
+  if (activeClass) {
+    const c = classes.find(x => x.id === activeClass);
+    detailEl.innerHTML = '<h3>' + c.name + '</h3><p><strong>Mechanism:</strong> ' + c.mechanism + '<br><strong>Applications:</strong> ' + c.apps + '<br><strong>Trade-off:</strong> ' + c.tradeoff + '</p>';
+  }
+}
+
+document.getElementById('metric').onchange = render;
+render();
+</script>
+</body>
+</html>

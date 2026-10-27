@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computer Science — abstraction gradient</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --panel: #1a2233;
+    --ink: #e8edf7;
+    --muted: #9aa7bd;
+    --accent: #5aa9ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    padding: 16px;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .wrap { display: flex; gap: 16px; flex-wrap: wrap; }
+  .stack { display: flex; flex-direction: column; gap: 8px; width: 340px; }
+  .layer {
+    border: 1px solid #2b3650;
+    border-radius: 10px;
+    background: var(--panel);
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .layer:hover { transform: translateX(3px); }
+  .layer.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(90,169,255,.35); }
+  .layer .name { font-weight: 600; font-size: 15px; }
+  .layer .q { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .layer .bar {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+    background: rgba(90,169,255,.18);
+    transition: width .1s linear;
+  }
+  .detail {
+    flex: 1;
+    min-width: 260px;
+    border: 1px solid #2b3650;
+    border-radius: 10px;
+    background: var(--panel);
+    padding: 14px;
+  }
+  .detail h2 { margin: 0 0 6px; font-size: 16px; }
+  .detail .tag { color: var(--accent); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .detail p { font-size: 13px; line-height: 1.5; color: #cdd6e6; margin: 8px 0; }
+  .detail ul { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: #cdd6e6; }
+  .detail li { margin: 3px 0; }
+  .controls { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  button {
+    background: var(--accent); color: #06121f; border: 0; border-radius: 8px;
+    padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .4; cursor: default; }
+  .note { color: var(--muted); font-size: 12px; }
+  .grad { font-size: 11px; color: var(--muted); text-align: center; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>The five classes of computer science</h1>
+  <p class="sub">An abstraction gradient from the most concrete (hardware) to the most abstract (algorithmics). Click a layer, or trace a request through the stack.</p>
+
+  <div class="wrap">
+    <div>
+      <div class="stack" id="stack"></div>
+      <div class="grad">concrete &darr; &nbsp;&nbsp; abstract</div>
+    </div>
+    <div class="detail" id="detail"></div>
+  </div>
+
+  <div class="controls">
+    <button id="trace">Trace a request</button>
+    <span class="note" id="status">A request flows top-to-bottom: an algorithm is encoded into bits, written in a language, executed on hardware, and coordinated across a network.</span>
+  </div>
+
+<script>
+  const layers = [
+    {
+      name: "Computer Hardware",
+      q: "How is the program physically executed?",
+      tag: "most concrete",
+      desc: "The physical substrate: the processor, the memory hierarchy, and the operating system that schedule instructions and manage resources.",
+      items: ["CPU: pipeline, ALU, FPU, SIMD", "Memory: L1/L2 cache, RAM, disk, TLB", "Operating system: processes, virtual memory, file systems", "I/O interfaces: PCIe, USB, NVMe, Ethernet"]
+    },
+    {
+      name: "Programming",
+      q: "How do we specify, structure, and maintain computations?",
+      tag: "specification",
+      desc: "Syntax, semantics, types, and compilation rules that turn an algorithm into an executable program, plus the security and engineering practices that keep it correct and maintainable.",
+      items: ["Control flow, variables, scope, closures", "Memory: stack, heap, pointers, garbage collection", "Language theory: parsers, AST, type systems", "Compilation: AOT vs JIT, bytecode", "Security & software engineering"]
+    },
+    {
+      name: "Distributed Systems",
+      q: "How is computation coordinated across machines?",
+      tag: "coordination",
+      desc: "Network protocols, consensus mechanisms, and fault-tolerance strategies that make a cluster behave like one machine.",
+      items: ["Networks: IP, TCP, HTTP, TLS, DNS", "Concurrency: threads, locks, event loops", "Consensus: Paxos, Raft, CAP", "Fault tolerance: replication, CRDTs, sharding"]
+    },
+    {
+      name: "Information Theory",
+      q: "How do we encode, compress, and protect data?",
+      tag: "encoding",
+      desc: "Bounds the minimum number of bits, designs error-correcting codes, and provides cryptographic primitives for the data that passes between layers.",
+      items: ["Coding & entropy: UTF-8, base64, bits per symbol", "Compression: Huffman, LZ77, DEFLATE, DCT", "Communication: CRC, Hamming, Reed-Solomon", "Cryptography: ciphers, hashes, key exchange"]
+    },
+    {
+      name: "Algorithmics",
+      q: "What can be computed, and at what cost?",
+      tag: "most abstract",
+      desc: "Selects the representation and the procedure (the algorithm) that transforms input into output, and bounds its cost.",
+      items: ["Computability: Turing machines, decidability", "Complexity: big-O, P/NP", "Data structures: hash tables, B-trees, graphs", "Optimization & learning: gradient descent, neural networks"]
+    }
+  ];
+
+  const stack = document.getElementById("stack");
+  const detail = document.getElementById("detail");
+  const status = document.getElementById("status");
+  const traceBtn = document.getElementById("trace");
+  let active = -1;
+  let tracing = false;
+
+  layers.forEach((l, i) => {
+    const el = document.createElement("div");
+    el.className = "layer";
+    el.innerHTML = '<div class="bar"></div><div class="name">' + l.name + '</div><div class="q">' + l.q + '</div>';
+    el.addEventListener("click", () => { if (!tracing) select(i); });
+    stack.appendChild(el);
+  });
+
+  function select(i) {
+    active = i;
+    const els = stack.children;
+    for (let k = 0; k < els.length; k++) {
+      els[k].classList.toggle("active", k === i);
+    }
+    const l = layers[i];
+    detail.innerHTML =
+      '<div class="tag">' + l.tag + '</div>' +
+      '<h2>' + l.name + '</h2>' +
+      '<p>' + l.desc + '</p>' +
+      '<ul>' + l.items.map(x => "<li>" + x + "</li>").join("") + "</ul>";
+  }
+
+  function trace() {
+    if (tracing) return;
+    tracing = true;
+    traceBtn.disabled = true;
+    const els = stack.children;
+    const bars = Array.from(els).map(e => e.querySelector(".bar"));
+    let i = 0;
+    status.textContent = "Tracing a request through the stack...";
+    function step() {
+      // reset all bars
+      bars.forEach(b => b.style.width = "0");
+      // fill up to current layer
+      for (let k = 0; k <= i; k++) bars[k].style.width = "100%";
+      select(i);
+      if (i < layers.length - 1) {
+        i++;
+        setTimeout(step, 700);
+      } else {
+        status.textContent = "Done: the request reached the algorithm at the top of the abstraction gradient.";
+        tracing = false;
+        traceBtn.disabled = false;
+      }
+    }
+    step();
+  }
+
+  traceBtn.addEventListener("click", trace);
+  select(0);
+</script>
+</body>
+</html>

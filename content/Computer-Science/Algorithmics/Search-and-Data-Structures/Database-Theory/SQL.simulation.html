@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>B-tree Index Lookup &amp; Query Plan Comparison</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+h2 { text-align: center; margin-bottom: 8px; color: #64b5f6; font-size: 20px; }
+.subtitle { text-align: center; color: #90a4ae; margin-bottom: 14px; font-size: 13px; }
+.query-box { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin: 0 auto 14px; max-width: 1100px; font-family: 'Courier New', monospace; font-size: 13px; color: #7ee787; text-align: center; }
+.controls { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px; max-width: 1100px; margin: 0 auto 14px; background: #16213e; border: 1px solid #2a3a5e; border-radius: 10px; padding: 12px; }
+.controls label { font-size: 13px; color: #b0bec5; }
+button { background: #1976d2; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 13px; margin: 0 3px; transition: background 0.2s; }
+button:hover { background: #1565c0; }
+button:disabled { background: #424242; cursor: not-allowed; }
+#btn-index.on { background: #2e7d32; }
+#btn-index.off { background: #b71c1c; }
+input[type=range] { vertical-align: middle; width: 160px; }
+#limit-val { color: #ffab40; font-weight: bold; font-family: monospace; }
+.container { display: flex; gap: 16px; max-width: 1100px; margin: 0 auto; }
+.panel { flex: 1; background: #16213e; border-radius: 12px; padding: 14px; border: 1px solid #2a3a5e; min-width: 0; }
+.panel h3 { color: #81c784; margin-bottom: 8px; font-size: 14px; text-align: center; }
+canvas { width: 100%; height: 300px; display: block; }
+.status { text-align: center; margin-top: 12px; font-size: 13px; color: #ffab40; min-height: 20px; max-width: 1100px; margin-left: auto; margin-right: auto; }
+</style>
+</head>
+<body>
+<h2>Seq Scan vs. Index Scan — Query Plan Comparison</h2>
+<p class="subtitle">Table <b>orders</b>: 10M rows, 100,000 pages. Composite index on (customer_id, created_at DESC). Toggle the index and change LIMIT to see the plan and cost change.</p>
+
+<div class="query-box" id="query-box">SELECT * FROM orders WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20;</div>
+
+<div class="controls">
+  <button id="btn-index" class="on">Index: ON</button>
+  <label>LIMIT <input type="range" id="limit-slider" min="1" max="100" value="20"> <span id="limit-val">20</span></label>
+  <button id="btn-step">Step</button>
+  <button id="btn-auto">Auto-play</button>
+  <button id="btn-reset">Reset</button>
+</div>
+
+<div class="container">
+  <div class="panel">
+    <h3 id="access-title">Access Path: Index Scan (B-tree)</h3>
+    <canvas id="access-canvas" width="520" height="300"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Plan Comparison (cost = page reads)</h3>
+    <canvas id="plan-canvas" width="520" height="300"></canvas>
+  </div>
+</div>
+
+<div class="status" id="status">Toggle the index, set LIMIT, then press Step or Auto-play.</div>
+
+<script>
+const actx = document.getElementById('access-canvas').getContext('2d');
+const pctx = document.getElementById('plan-canvas').getContext('2d');
+const statusEl = document.getElementById('status');
+const queryBox = document.getElementById('query-box');
+const btnIndex = document.getElementById('btn-index');
+const slider = document.getElementById('limit-slider');
+const limitVal = document.getElementById('limit-val');
+const accessTitle = document.getElementById('access-title');
+
+const TABLE_PAGES = 100000;   // 10M rows / 100 rows per page
+const FANOUT = 200;           // B-tree fanout
+const DEPTH = 4;              // log_200(10^7) ~= 3.3 -> 4 page reads
+
+let indexOn = true;
+let limit = 20;
+let step = -1;                // -1 = not started
+let autoTimer = null;
+
+// ---------- cost model ----------
+function seqCost() { return TABLE_PAGES; }                       // full scan + filter
+function idxCost() { return DEPTH + limit; }                     // descent + leaf entries
+function sortCost(matching) { return 20000 + matching; }         // external sort of matching rows (approx)
+
+// ---------- steps ----------
+function steps() {
+  if (indexOn) {
+    return [
+      'B-tree root: compare 42 with separator keys, descend (page read 1/' + DEPTH + ')',
+      'Internal node: 42 in range of child pointer 2 (page read 2/' + DEPTH + ')',
+      'Leaf reached (page read ' + DEPTH + '/' + DEPTH + '): first entry with customer_id = 42',
+      'Read ' + limit + ' entries in index order — already sorted by created_at DESC, no sort step',
+      'Done: ' + DEPTH + ' + ' + limit + ' = ' + idxCost() + ' page reads. LIMIT stops the scan here.'
+    ];
+  } else {
+    return [
+      'No usable index: sequential scan starts, reading all 100,000 pages…',
+      'Scanning… filtering customer_id = 42 on every row (CPU cost on 10M rows)',
+      'Scan done: matching rows found (unsorted by created_at)',
+      'External sort of matching rows by created_at DESC, then take first ' + limit,
+      'Done: ' + TABLE_PAGES.toLocaleString() + ' page reads + sort. LIMIT cannot stop a seq scan early.'
+    ];
+  }
+}
+
+// ---------- drawing helpers ----------
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+function node(ctx, x, y, w, h, label, state) {
+  const fills = { active: ['#1b5e20', '#4caf50', '#a5d6a7'], dim: ['#1a237e', '#3949ab', '#7986cb'], normal: ['#263238', '#546e7a', '#e0e0e0'] }[state];
+  ctx.fillStyle = fills[0]; ctx.strokeStyle = fills[1]; ctx.lineWidth = 1.5;
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, 4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = fills[2]; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(label, x, y + 4);
+}
+
+// ---------- access path panel ----------
+function drawAccess() {
+  const W = 520, H = 300;
+  actx.clearRect(0, 0, W, H);
+  const s = step;
+  if (indexOn) {
+    // B-tree: root, internal, leaf
+    const rootKeys = '[7 | 42 | 88]';
+    node(actx, W / 2, 45, 150, 32, rootKeys, s >= 0 ? (s === 0 ? 'active' : 'dim') : 'normal');
+    node(actx, W / 2, 120, 150, 32, '[26 | 35 | 42]', s >= 1 ? (s === 1 ? 'active' : 'dim') : 'normal');
+    node(actx, W / 2, 195, 190, 32, 'leaf: cust 42, sorted DESC', s >= 2 ? (s === 2 ? 'active' : 'dim') : 'normal');
+    actx.strokeStyle = s >= 1 ? '#ffab40' : '#37474f'; actx.lineWidth = s >= 1 ? 2 : 1;
+    actx.beginPath(); actx.moveTo(W / 2, 61); actx.lineTo(W / 2, 104); actx.stroke();
+    actx.strokeStyle = s >= 2 ? '#ffab40' : '#37474f';
+    actx.beginPath(); actx.moveTo(W / 2, 136); actx.lineTo(W / 2, 179); actx.stroke();
+    // rows read from leaf
+    if (s >= 3) {
+      const n = Math.min(limit, 20);
+      for (let i = 0; i < n; i++) {
+        const x = 60 + i * 21;
+        actx.fillStyle = '#4caf50';
+        roundRect(actx, x, 245, 16, 22, 3); actx.fill();
+      }
+      actx.fillStyle = '#81c784'; actx.font = '11px sans-serif'; actx.textAlign = 'left';
+      actx.fillText('rows returned (LIMIT ' + limit + '):', 60, 285);
+    }
+    if (s >= 4) {
+      actx.fillStyle = '#4caf50'; actx.font = 'bold 12px monospace'; actx.textAlign = 'center';
+      actx.fillText('cost = ' + DEPTH + ' + ' + limit + ' = ' + idxCost() + ' page reads', W / 2, 225);
+    }
+    actx.fillStyle = '#607d8b'; actx.font = '11px sans-serif'; actx.textAlign = 'left';
+    actx.fillText('root (fanout ~200)', 10, 20);
+    actx.fillText('depth = log_200(10^7) = ' + DEPTH + ' pages', 10, 285);
+  } else {
+    // sequential scan: row of pages being swept
+    const pages = 40, pw = 10, gap = 3, x0 = 60, y0 = 90;
+    const progress = s < 0 ? 0 : Math.min(s / 2, 1);
+    for (let i = 0; i < pages; i++) {
+      const x = x0 + i * (pw + gap);
+      const scanned = (i / pages) < progress;
+      actx.fillStyle = scanned ? '#ef5350' : '#263238';
+      actx.strokeStyle = scanned ? '#ef5350' : '#546e7a';
+      roundRect(actx, x, y0, pw, 60, 2); actx.fill(); actx.stroke();
+    }
+    actx.fillStyle = '#90a4ae'; actx.font = '11px sans-serif'; actx.textAlign = 'left';
+    actx.fillText('100,000 pages — every page read, every row filtered', 60, 80);
+    if (s >= 2) {
+      actx.fillStyle = '#ef9a9a';
+      actx.fillText('matching rows found (unsorted by created_at)', 60, 175);
+    }
+    if (s >= 3) {
+      actx.fillStyle = '#ffab40';
+      actx.fillText('→ external sort by created_at DESC → take first ' + limit, 60, 200);
+      // sort bar
+      for (let i = 0; i < 20; i++) {
+        actx.fillStyle = '#ffb74d';
+        roundRect(actx, 60 + i * 21, 215, 16, 22, 3); actx.fill();
+      }
+    }
+    if (s >= 4) {
+      actx.fillStyle = '#ef5350'; actx.font = 'bold 12px monospace'; actx.textAlign = 'center';
+      actx.fillText('cost = ' + TABLE_PAGES.toLocaleString() + ' pages + sort', W / 2, 265);
+    }
+    actx.fillStyle = '#607d8b'; actx.font = '11px sans-serif'; actx.textAlign = 'left';
+    actx.fillText('LIMIT cannot stop a seq scan early: matches may hide anywhere', 10, 285);
+  }
+}
+
+// ---------- plan comparison panel ----------
+function drawPlan() {
+  const W = 520, H = 300;
+  pctx.clearRect(0, 0, W, H);
+  const sc = seqCost(), ic = idxCost();
+  const chosen = indexOn ? 'index' : 'seq';
+  const maxC = Math.max(sc, ic);
+  const barW = 170;
+
+  // titles
+  pctx.font = '12px monospace'; pctx.textAlign = 'center';
+  pctx.fillStyle = chosen === 'seq' ? '#4caf50' : '#78909c';
+  pctx.fillText('Plan A: Seq Scan + Filter + Sort', 130, 30);
+  pctx.fillStyle = chosen === 'index' ? '#4caf50' : '#78909c';
+  pctx.fillText('Plan B: Index Scan', 390, 30);
+
+  // plan A tree
+  const aActive = chosen === 'seq';
+  node(pctx, 130, 70, 120, 26, 'Limit (' + limit + ')', aActive ? 'active' : 'dim');
+  node(pctx, 130, 115, 120, 26, 'Sort', aActive ? 'active' : 'dim');
+  node(pctx, 130, 160, 150, 26, 'Seq Scan orders', aActive ? 'active' : 'dim');
+  pctx.strokeStyle = aActive ? '#4caf50' : '#3949ab'; pctx.lineWidth = 1.5;
+  [[70,115],[115,160]].forEach(([y1,y2]) => { pctx.beginPath(); pctx.moveTo(130, y1+13); pctx.lineTo(130, y2-13); pctx.stroke(); });
+
+  // plan B tree
+  const bActive = chosen === 'index';
+  node(pctx, 390, 70, 120, 26, 'Limit (' + limit + ')', bActive ? 'active' : 'dim');
+  node(pctx, 390, 115, 150, 26, 'Index Scan idx_cust', bActive ? 'active' : 'dim');
+  pctx.strokeStyle = bActive ? '#4caf50' : '#3949ab';
+  pctx.beginPath(); pctx.moveTo(390, 83); pctx.lineTo(390, 102); pctx.stroke();
+
+  // cost bars (log scale)
+  const y0 = 210, hMax = 60;
+  function barY(cost) { return y0 - hMax * (Math.log10(cost) / Math.log10(maxC)); }
+  // seq bar
+  pctx.fillStyle = aActive ? '#ef5350' : '#8a2f2f';
+  const sy = barY(sc);
+  pctx.fillRect(95, sy, barW, y0 - sy);
+  pctx.strokeStyle = '#ef5350'; pctx.strokeRect(95, sy, barW, y0 - sy);
+  // index bar
+  pctx.fillStyle = bActive ? '#4caf50' : '#2f5e38';
+  const iy = barY(ic);
+  pctx.fillRect(355, iy, barW, y0 - iy);
+  pctx.strokeStyle = '#4caf50'; pctx.strokeRect(355, iy, barW, y0 - iy);
+
+  pctx.font = '12px monospace';
+  pctx.fillStyle = aActive ? '#ef9a9a' : '#78909c';
+  pctx.fillText(sc.toLocaleString(), 130 + barW / 2, sy - 6);
+  pctx.fillStyle = bActive ? '#a5d6a7' : '#78909c';
+  pctx.fillText(ic.toLocaleString(), 355 + barW / 2, iy - 6);
+  pctx.font = '11px sans-serif'; pctx.fillStyle = '#90a4ae';
+  pctx.fillText('Seq Scan cost', 130 + barW / 2, y0 + 16);
+  pctx.fillText('Index Scan cost', 355 + barW / 2, y0 + 16);
+
+  // verdict
+  if (step >= 4) {
+    const ratio = (sc / ic).toFixed(0);
+    pctx.fillStyle = '#0d47a1'; pctx.strokeStyle = '#42a5f5';
+    roundRect(pctx, 40, 262, 440, 28, 4); pctx.fill(); pctx.stroke();
+    pctx.fillStyle = '#90caf9'; pctx.font = '12px monospace'; pctx.textAlign = 'center';
+    pctx.fillText(chosen === 'index'
+      ? '✓ Index Scan chosen: ' + ratio + '× cheaper than Seq Scan'
+      : '✓ Seq Scan chosen: index unusable, scan is the only access path',
+      W / 2, 280);
+  }
+  pctx.textAlign = 'left';
+}
+
+// ---------- update ----------
+function update() {
+  queryBox.textContent = 'SELECT * FROM orders WHERE customer_id = 42 ORDER BY created_at DESC LIMIT ' + limit + ';';
+  limitVal.textContent = limit;
+  btnIndex.textContent = 'Index: ' + (indexOn ? 'ON' : 'OFF');
+  btnIndex.className = indexOn ? 'on' : 'off';
+  accessTitle.textContent = indexOn ? 'Access Path: Index Scan (B-tree)' : 'Access Path: Sequential Scan';
+  drawAccess();
+  drawPlan();
+  const ss = steps();
+  if (step >= 0 && step < ss.length) statusEl.textContent = ss[step];
+  else if (step < 0) statusEl.textContent = 'Toggle the index, set LIMIT, then press Step or Auto-play.';
+}
+
+function stepFwd() {
+  const ss = steps();
+  if (step < ss.length - 1) { step++; update(); }
+  else if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('btn-auto').disabled = false; }
+  else { statusEl.textContent = 'Complete. Change LIMIT or toggle the index and run again.'; }
+}
+
+function reset() {
+  step = -1;
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('btn-auto').disabled = false; }
+  update();
+}
+
+btnIndex.addEventListener('click', () => { indexOn = !indexOn; reset(); });
+slider.addEventListener('input', () => { limit = parseInt(slider.value, 10); step = -1; update(); });
+document.getElementById('btn-step').addEventListener('click', stepFwd);
+document.getElementById('btn-reset').addEventListener('click', reset);
+document.getElementById('btn-auto').addEventListener('click', function () {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; this.disabled = false; return; }
+  this.disabled = true;
+  autoTimer = setInterval(stepFwd, 1300);
+});
+
+update();
+</script>
+</body>
+</html>

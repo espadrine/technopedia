@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Standard Model particle explorer</title>
+<style>
+  body { font-family: sans-serif; margin: 10px; max-width: 680px; color: #222; }
+  h3 { margin: 4px 0 6px 0; font-size: 16px; }
+  p { font-size: 13px; margin: 4px 0 8px 0; line-height: 1.4; }
+  .controls { margin: 8px 0; font-size: 14px; }
+  select { font-size: 14px; padding: 3px 6px; }
+  .card { border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; margin: 10px 0; background: #fafafa; }
+  .name { font-size: 18px; font-weight: bold; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+  .q { display: inline-block; margin: 6px 14px 2px 0; font-size: 13px; }
+  .q b { font-size: 15px; }
+  .check { border-left: 4px solid #16a34a; background: #f0fdf4; padding: 8px 10px; margin: 8px 0; font-size: 13px; border-radius: 0 6px 6px 0; }
+  .check .formula { font-size: 15px; margin-top: 4px; }
+  .bosons { font-size: 13px; margin-top: 6px; }
+  .bosons span { display: inline-block; background: #e8f0fd; border: 1px solid #2563eb; color: #1e40af; border-radius: 6px; padding: 2px 8px; margin: 2px 4px 2px 0; font-size: 12px; }
+  .none { color: #888; font-style: italic; }
+  .bar { height: 14px; border-radius: 3px; background: linear-gradient(90deg,#2563eb,#7c3aed); margin-top: 4px; }
+  .barlabel { font-size: 11px; color: #555; }
+</style>
+</head>
+<body>
+<h3>Standard Model particle explorer &amp; charge calculator</h3>
+<p>Pick a particle to see its quantum numbers. For every fermion the electric charge is fixed by the
+Gell-Mann&ndash;Nishijima relation <b>Q = T&#8323; + Y/2</b> (weak isospin plus half the hypercharge);
+the calculator verifies it live. Bosons carry their charge directly.</p>
+<div class="controls">
+  <label for="sel">Particle:</label>
+  <select id="sel"></select>
+</div>
+<div class="card" id="card"></div>
+<script>
+(function () {
+  // [name, category, gen, Q, T3, Y, color, massLabel, massLog, couples[]]
+  // massLog = log10(mass in GeV) for the bar (approx)
+  var P = [
+    ["Up quark (u)","Quark",1, 2/3, 1/2, 1/3, "triplet", "2.2 MeV", -2.66, ["Gluons","W","Z","Photon","Higgs"]],
+    ["Down quark (d)","Quark",1, -1/3, -1/2, 1/3, "triplet", "4.7 MeV", -2.33, ["Gluons","W","Z","Photon","Higgs"]],
+    ["Charm quark (c)","Quark",2, 2/3, 1/2, 1/3, "triplet", "1.27 GeV", 0.10, ["Gluons","W","Z","Photon","Higgs"]],
+    ["Strange quark (s)","Quark",2, -1/3, -1/2, 1/3, "triplet", "95 MeV", -1.02, ["Gluons","W","Z","Photon","Higgs"]],
+    ["Top quark (t)","Quark",3, 2/3, 1/2, 1/3, "triplet", "173 GeV", 2.24, ["Gluons","W","Z","Photon","Higgs"]],
+    ["Bottom quark (b)","Quark",3, -1/3, -1/2, 1/3, "triplet", "4.18 GeV", 0.62, ["Gluons","W","Z","Photon","Higgs"]],
+    ["Electron neutrino (νₑ)","Lepton",1, 0, 1/2, -1, "singlet", "< 1 eV", -6, ["W","Z"]],
+    ["Electron (e)","Lepton",1, -1, -1/2, -1, "singlet", "0.511 MeV", -3.29, ["W","Z","Photon","Higgs"]],
+    ["Muon neutrino (ν_μ)","Lepton",2, 0, 1/2, -1, "singlet", "< 0.05 eV", -6, ["W","Z"]],
+    ["Muon (μ)","Lepton",2, -1, -1/2, -1, "singlet", "105.7 MeV", -1.98, ["W","Z","Photon","Higgs"]],
+    ["Tau neutrino (ν_τ)","Lepton",3, 0, 1/2, -1, "singlet", "< 18.8 MeV", -2.73, ["W","Z"]],
+    ["Tau (τ)","Lepton",3, -1, -1/2, -1, "singlet", "1.777 GeV", 0.25, ["W","Z","Photon","Higgs"]],
+    ["Gluon (g)","Gauge boson",0, 0, null, null, "octet (adjoint)", "0 (massless)", -9, ["Quarks","Gluons"]],
+    ["W⁺ boson","Gauge boson",0, 1, null, null, "singlet", "80.4 GeV", 1.90, ["Fermions (charged current)"]],
+    ["W⁻ boson","Gauge boson",0, -1, null, null, "singlet", "80.4 GeV", 1.90, ["Fermions (charged current)"]],
+    ["Z⁰ boson","Gauge boson",0, 0, null, null, "singlet", "91.2 GeV", 1.96, ["All fermions (neutral current)"]],
+    ["Photon (γ)","Gauge boson",0, 0, null, null, "singlet", "0 (massless)", -9, ["Charged particles"]],
+    ["Higgs boson (H)","Scalar",0, 0, null, null, "singlet", "125.25 GeV", 2.10, ["Massive fermions & W, Z (Yukawa)"]]
+  ];
+
+  function frac(x) {
+    // render a rational-ish number nicely
+    if (x === 0) return "0";
+    var neg = x < 0 ? "−" : "";
+    var a = Math.abs(x);
+    var opts = [[1/3, "1/3"], [2/3, "2/3"], [1/2, "1/2"], [1, "1"], [2, "2"], [3, "3"]];
+    for (var i = 0; i < opts.length; i++) {
+      if (Math.abs(a - opts[i][0]) < 1e-9) return neg + opts[i][1];
+    }
+    return neg + a.toFixed(2);
+  }
+
+  var sel = document.getElementById("sel");
+  var groups = {};
+  P.forEach(function (p, i) {
+    if (!groups[p[1]]) groups[p[1]] = [];
+    groups[p[1]].push(i);
+  });
+  var order = ["Quark", "Lepton", "Gauge boson", "Scalar"];
+  order.forEach(function (g) {
+    var og = document.createElement("optgroup");
+    og.label = g + "s";
+    groups[g].forEach(function (i) {
+      var o = document.createElement("option");
+      o.value = i; o.textContent = P[i][0];
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+
+  function render() {
+    var p = P[parseInt(sel.value, 10)];
+    var name = p[0], cat = p[1], gen = p[2], Q = p[3], T3 = p[4], Y = p[5], color = p[6], mass = p[7], mlog = p[8], couples = p[9];
+    var isFermion = (cat === "Quark" || cat === "Lepton");
+    var tagColor = cat === "Quark" ? "#dc2626" : cat === "Lepton" ? "#2563eb" : cat === "Gauge boson" ? "#16a34a" : "#7c3aed";
+
+    var html = "";
+    html += '<div class="name">' + name + '<span class="tag" style="background:' + tagColor + '22;color:' + tagColor + ';border:1px solid ' + tagColor + '">' + cat + '</span></div>';
+    html += '<div style="margin-top:8px">';
+    html += '<span class="q">Generation: <b>' + (gen ? gen : "—") + '</b></span>';
+    html += '<span class="q">Electric charge Q: <b>' + frac(Q) + '</b></span>';
+    html += '<span class="q">Color: <b>' + color + '</b></span>';
+    html += '<span class="q">Mass: <b>' + mass + '</b></span>';
+    html += '</div>';
+
+    if (isFermion) {
+      html += '<div class="q" style="margin-top:6px">Weak isospin T&#8323;: <b>' + frac(T3) + '</b> &nbsp; Hypercharge Y: <b>' + frac(Y) + '</b></div>';
+      var computed = T3 + Y / 2;
+      var ok = Math.abs(computed - Q) < 1e-9;
+      html += '<div class="check">Charge check (Gell-Mann&ndash;Nishijima):'
+            + '<div class="formula">Q = T&#8323; + Y/2 = ' + frac(T3) + ' + (' + frac(Y) + ')/2 = ' + frac(computed)
+            + (ok ? ' &nbsp;✓ matches the charge' : '') + '</div></div>';
+    } else {
+      html += '<div class="check" style="border-left-color:#94a3b8;background:#f8fafc">Bosons carry their electric charge directly (no T&#8323;/Y decomposition).</div>';
+    }
+
+    // mass bar (log scale from 1e-6 to 1e3 GeV)
+    var lo = -6, hi = 3;
+    var fracPos = Math.max(0, Math.min(1, (mlog - lo) / (hi - lo)));
+    html += '<div class="barlabel">mass scale (log, 1 MeV → 1 TeV)</div>';
+    html += '<div class="bar" style="width:' + Math.round(fracPos * 100) + '%;min-width:2px"></div>';
+
+    html += '<div class="bosons">Couples to: ';
+    if (couples.length) {
+      couples.forEach(function (c) { html += '<span>' + c + '</span>'; });
+    } else {
+      html += '<span class="none">none</span>';
+    }
+    html += '</div>';
+
+    document.getElementById("card").innerHTML = html;
+  }
+
+  sel.addEventListener("change", render);
+  sel.value = 0;
+  render();
+})();
+</script>
+</body>
+</html>

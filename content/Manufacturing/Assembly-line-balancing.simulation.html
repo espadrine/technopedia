@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Line balancing Gantt chart</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; color: #7ec8e3; }
+canvas { background: #0f3460; border-radius: 8px; display: block; margin: 0 auto; }
+.controls { text-align: center; margin-top: 10px; }
+button { padding: 8px 20px; margin: 0 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+.btn-go { background: #4ecca3; color: #1a1a2e; }
+.btn-reset { background: #e94560; color: #fff; }
+.info { text-align: center; margin-top: 8px; font-size: 0.85em; color: #aaa; min-height: 1.4em; }
+</style>
+</head>
+<body>
+<h2>Line balancing: station cycle times vs. takt time</h2>
+<canvas id="cv" width="500" height="320"></canvas>
+<div class="controls">
+<button class="btn-go" onclick="ganttGo()">Animate</button>
+<button class="btn-reset" onclick="ganttReset()">Reset</button>
+</div>
+<div class="info" id="ganttInfo">Gantt chart showing station utilization vs. takt time.</div>
+<script>
+let ganttAnim = 0;
+let ganttRunning = false;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+const stations = [
+  { name: 'Stn 1: Kitting', time: 45 },
+  { name: 'Stn 2: Sub-A', time: 55 },
+  { name: 'Stn 3: Sub-B', time: 50 },
+  { name: 'Stn 4: Combine', time: 55 },
+  { name: 'Stn 5: EOL', time: 60 }
+];
+const takt = 60;
+
+function ganttDraw(progress) {
+  ctx.clearRect(0,0,500,320);
+  const left = 120, top = 30, barH = 40, gap = 8;
+  const scale = 300 / takt; // px per second
+
+  // Takt line
+  const taktX = left + takt * scale;
+  ctx.strokeStyle = '#e94560';
+  ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  ctx.moveTo(taktX, top - 10);
+  ctx.lineTo(taktX, top + stations.length * (barH + gap));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#e94560';
+  ctx.font = '11px system-ui';
+  ctx.fillText('Takt = ' + takt + 's', taktX - 30, top - 14);
+
+  stations.forEach((s, i) => {
+    const y = top + i * (barH + gap);
+    // Label
+    ctx.fillStyle = '#ccc';
+    ctx.font = '12px system-ui';
+    ctx.fillText(s.name, 5, y + barH/2 + 4);
+    // Bar background
+    ctx.fillStyle = '#16213e';
+    ctx.fillRect(left, y, takt * scale, barH);
+    // Bar fill (animated)
+    const fillW = Math.min(s.time * scale, progress * takt * scale);
+    ctx.fillStyle = s.time <= takt ? '#4ecca3' : '#e94560';
+    ctx.fillRect(left, y, fillW, barH);
+    // Time label
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px system-ui';
+    ctx.fillText(s.time + 's', left + s.time * scale + 5, y + barH/2 + 4);
+  });
+
+  // Efficiency
+  const total = stations.reduce((a,s) => a + s.time, 0);
+  const eff = (total / (stations.length * takt) * 100).toFixed(1);
+  ctx.fillStyle = '#7ec8e3';
+  ctx.font = '13px system-ui';
+  ctx.fillText('Line efficiency: ' + eff + '%', left, top + stations.length * (barH + gap) + 20);
+}
+
+function ganttGo() {
+  if (ganttRunning) return;
+  ganttRunning = true;
+  ganttAnim = 0;
+  const start = performance.now();
+  function frame(now) {
+    ganttAnim = Math.min(1, (now - start) / 2000);
+    ganttDraw(ganttAnim);
+    if (ganttAnim < 1) requestAnimationFrame(frame);
+    else { ganttRunning = false; document.getElementById('ganttInfo').textContent = 'All stations within takt time. Efficiency = 88.3%.'; }
+  }
+  requestAnimationFrame(frame);
+}
+
+function ganttReset() {
+  ganttRunning = false;
+  ganttAnim = 0;
+  ganttDraw(0);
+  document.getElementById('ganttInfo').textContent = 'Gantt chart showing station utilization vs. takt time.';
+}
+
+ganttDraw(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ECM Cell Simulation</title>
+<style>
+body { margin: 0; background: #1a1a2e; display: flex; flex-direction: column; align-items: center; font-family: 'Segoe UI', sans-serif; color: #eee; }
+h2 { margin: 12px 0 4px; font-size: 1.1em; }
+#canvas { border: 1px solid #333; border-radius: 6px; margin-top: 8px; }
+.controls { margin-top: 10px; display: flex; gap: 16px; align-items: center; }
+.controls label { font-size: 0.85em; }
+.controls input[type=range] { width: 120px; }
+.legend { display: flex; gap: 18px; margin-top: 8px; font-size: 0.8em; flex-wrap: wrap; justify-content: center; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<h2>Electrochemical Machining (ECM) Cell</h2>
+<canvas id="canvas" width="720" height="400"></canvas>
+<div class="controls">
+<label>Current: <input type="range" id="current" min="10" max="100" value="50"> <span id="curVal">50</span> A/cm²</label>
+<label>Gap: <input type="range" id="gap" min="5" max="30" value="15"> <span id="gapVal">15</span> µm</label>
+</div>
+<div class="legend">
+<span><span class="dot" style="background:#f39c12"></span> Metal ions (anode → electrolyte)</span>
+<span><span class="dot" style="background:#3498db"></span> Electrolyte flow</span>
+<span><span class="dot" style="background:#2ecc71"></span> H₂ bubbles (cathode)</span>
+<span><span class="dot" style="background:#e74c3c"></span> Anode (workpiece)</span>
+<span><span class="dot" style="background:#9b59b6"></span> Cathode (tool)</span>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let currentSlider = document.getElementById('current');
+let gapSlider = document.getElementById('gap');
+let curVal = document.getElementById('curVal');
+let gapVal = document.getElementById('gapVal');
+
+currentSlider.oninput = () => curVal.textContent = currentSlider.value;
+gapSlider.oninput = () => gapVal.textContent = gapSlider.value;
+
+// Particles
+let ions = [];
+let bubbles = [];
+let flowParticles = [];
+let anodeDissolved = 0;
+let time = 0;
+
+function resetParticles() {
+  ions = [];
+  bubbles = [];
+  flowParticles = [];
+  for (let i = 0; i < 40; i++) {
+    flowParticles.push({ x: Math.random() * W, y: H * 0.35 + Math.random() * H * 0.3, vx: 1.5 + Math.random() * 2, life: Math.random() * 100 });
+  }
+}
+resetParticles();
+
+function spawnIon() {
+  const rate = currentSlider.value / 50;
+  if (Math.random() < 0.08 * rate) {
+    ions.push({ x: W * 0.38, y: H * 0.3 + Math.random() * H * 0.4, vx: 1 + Math.random() * 2, vy: (Math.random() - 0.5) * 1.5, life: 80 + Math.random() * 40 });
+  }
+}
+
+function spawnBubble() {
+  const rate = currentSlider.value / 50;
+  if (Math.random() < 0.05 * rate) {
+    bubbles.push({ x: W * 0.62 + (Math.random() - 0.5) * 10, y: H * 0.3 + Math.random() * H * 0.4, r: 2 + Math.random() * 3, vy: -0.5 - Math.random() * 1, life: 60 + Math.random() * 40 });
+  }
+}
+
+function draw() {
+  time++;
+  const gapPx = gapSlider.value * 2;
+  const anodeRight = W * 0.38 - anodeDissolved;
+  const cathodeLeft = W * 0.62;
+  const gapCenter = (anodeRight + cathodeLeft) / 2;
+  const gapWidth = cathodeLeft - anodeRight;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background - electrolyte region
+  const grad = ctx.createLinearGradient(0, 0, W, 0);
+  grad.addColorStop(0, '#1a2a3a');
+  grad.addColorStop(0.38, '#1a3a4a');
+  grad.addColorStop(0.62, '#1a3a4a');
+  grad.addColorStop(1, '#1a2a3a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Anode (workpiece) - red/orange block
+  const anodeW = anodeRight;
+  ctx.fillStyle = '#c0392b';
+  ctx.fillRect(0, H * 0.2, anodeW, H * 0.6);
+  ctx.fillStyle = '#e74c3c';
+  ctx.fillRect(0, H * 0.2, anodeW, 4);
+  ctx.fillRect(0, H * 0.8 - 4, anodeW, 4);
+  // Anode surface (dissolving face)
+  ctx.fillStyle = '#f39c12';
+  ctx.fillRect(anodeRight - 3, H * 0.2, 3, H * 0.6);
+  // Label
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ANODE (workpiece)', anodeW / 2, H * 0.5);
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Fe → Fe²⁺ + 2e⁻', anodeW / 2, H * 0.5 + 18);
+
+  // Cathode (tool) - purple block
+  const cathodeW = W - cathodeLeft;
+  ctx.fillStyle = '#6c3483';
+  ctx.fillRect(cathodeLeft, H * 0.2, cathodeW, H * 0.6);
+  ctx.fillStyle = '#9b59b6';
+  ctx.fillRect(cathodeLeft, H * 0.2, 4, H * 0.6);
+  ctx.fillRect(cathodeLeft, H * 0.8 - 4, cathodeW, 4);
+  // Cathode surface
+  ctx.fillStyle = '#bb8fce';
+  ctx.fillRect(cathodeLeft, H * 0.2, 3, H * 0.6);
+  // Label
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText('CATHODE (tool)', cathodeLeft + cathodeW / 2, H * 0.5);
+  ctx.font = '11px sans-serif';
+  ctx.fillText('2H₂O + 2e⁻ → H₂ + 2OH⁻', cathodeLeft + cathodeW / 2, H * 0.5 + 18);
+
+  // Gap region
+  ctx.fillStyle = 'rgba(52, 152, 219, 0.15)';
+  ctx.fillRect(anodeRight, H * 0.2, gapWidth, H * 0.6);
+
+  // Gap label
+  ctx.fillStyle = '#3498db';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('gap: ' + gapSlider.value + ' µm', gapCenter, H * 0.15);
+
+  // Electrolyte flow arrows (left to right through gap)
+  ctx.strokeStyle = 'rgba(52, 152, 219, 0.6)';
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 5; i++) {
+    const y = H * 0.25 + i * (H * 0.5 / 4);
+    const offset = (time * 2 + i * 30) % (gapWidth + 20);
+    const ax = anodeRight + offset;
+    if (ax < cathodeLeft - 5) {
+      ctx.beginPath();
+      ctx.moveTo(ax, y);
+      ctx.lineTo(ax + 12, y);
+      ctx.lineTo(ax + 8, y - 3);
+      ctx.moveTo(ax + 12, y);
+      ctx.lineTo(ax + 8, y + 3);
+      ctx.stroke();
+    }
+  }
+
+  // Flow particles
+  flowParticles.forEach(p => {
+    p.x += p.vx;
+    p.life--;
+    if (p.x > W || p.life <= 0) {
+      p.x = 0;
+      p.y = H * 0.35 + Math.random() * H * 0.3;
+      p.life = 100;
+    }
+    ctx.fillStyle = 'rgba(52, 152, 219, 0.4)';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Spawn and draw ions
+  spawnIon();
+  ions.forEach((ion, idx) => {
+    ion.x += ion.vx;
+    ion.y += ion.vy;
+    ion.life--;
+    if (ion.life <= 0 || ion.x > W) {
+      ions.splice(idx, 1);
+      return;
+    }
+    const alpha = Math.min(1, ion.life / 30);
+    ctx.fillStyle = `rgba(243, 156, 18, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(ion.x, ion.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Spawn and draw bubbles
+  spawnBubble();
+  bubbles.forEach((b, idx) => {
+    b.y += b.vy;
+    b.x += (Math.random() - 0.5) * 0.5;
+    b.life--;
+    if (b.life <= 0 || b.y < H * 0.1) {
+      bubbles.splice(idx, 1);
+      return;
+    }
+    const alpha = Math.min(1, b.life / 20);
+    ctx.strokeStyle = `rgba(46, 204, 113, ${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Servo feed indicator
+  const servoOffset = Math.sin(time * 0.02) * 2;
+  ctx.fillStyle = '#2ecc71';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('⟵ servo feed ⟶', gapCenter, H * 0.92);
+  ctx.fillText('gap maintained at ' + gapSlider.value + ' µm', gapCenter, H * 0.95);
+
+  // Anode dissolution (very slow)
+  anodeDissolved += 0.003 * (currentSlider.value / 50);
+  if (anodeDissolved > 30) anodeDissolved = 0;
+
+  // Title bar
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, W, 24);
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('ECM: Anodic dissolution | Electrolyte: NaNO₃ 20% | Flow: 10–30 m/s | I: ' + currentSlider.value + ' A/cm²', 10, 16);
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>

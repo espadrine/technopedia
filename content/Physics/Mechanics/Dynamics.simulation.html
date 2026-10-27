@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dynamics Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 10px; }
+h1 { font-size: 1.1em; margin: 8px 0; color: #7ec8e3; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; align-items: center; }
+.controls label { font-size: 0.85em; cursor: pointer; }
+.controls input[type=range] { width: 80px; vertical-align: middle; }
+.controls button { padding: 4px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+.btn-reset { background: #e94560; color: #fff; }
+.btn-pause { background: #f5a623; color: #000; }
+.btn-phase { background: #4a90d9; color: #fff; }
+canvas { border: 1px solid #333; border-radius: 6px; background: #0f0f23; }
+.info { display: flex; gap: 20px; margin: 6px 0; font-size: 0.8em; flex-wrap: wrap; justify-content: center; }
+.info span { background: #2a2a4a; padding: 3px 8px; border-radius: 4px; }
+.energy-bar { display: flex; align-items: center; gap: 4px; font-size: 0.75em; }
+.bar { width: 60px; height: 10px; border-radius: 3px; background: #333; overflow: hidden; }
+.bar-fill { height: 100%; transition: width 0.1s; }
+</style>
+</head>
+<body>
+<h1>Particle Dynamics: Gravity + Spring + Drag</h1>
+<div class="controls">
+  <label><input type="checkbox" id="chkGravity" checked> Gravity</label>
+  <label><input type="checkbox" id="chkSpring" checked> Spring</label>
+  <label><input type="checkbox" id="chkDrag"> Drag</label>
+  <label>g: <input type="range" id="slGravity" min="0" max="20" value="9.8" step="0.1"> <span id="valG">9.8</span></label>
+  <label>k: <input type="range" id="slSpring" min="0" max="20" value="5" step="0.1"> <span id="valK">5.0</span></label>
+  <label>b: <input type="range" id="slDrag" min="0" max="5" value="0.5" step="0.1"> <span id="valB">0.5</span></label>
+  <button class="btn-reset" onclick="resetSim()">Reset</button>
+  <button class="btn-pause" id="btnPause" onclick="togglePause()">Pause</button>
+  <button class="btn-phase" onclick="togglePhase()">Phase Space</button>
+</div>
+<div class="info">
+  <span id="infoPos">x=0, y=0</span>
+  <span id="infoVel">v=0</span>
+  <span id="infoAcc">a=0</span>
+  <span class="energy-bar">KE <div class="bar"><div class="bar-fill" id="barKE" style="background:#e94560;width:0%"></div></div></span>
+  <span class="energy-bar">PE <div class="bar"><div class="bar-fill" id="barPE" style="background:#4a90d9;width:0%"></div></div></span>
+  <span class="energy-bar">E <div class="bar"><div class="bar-fill" id="barE" style="background:#2ecc71;width:0%"></div></div></span>
+</div>
+<canvas id="mainCanvas" width="500" height="350"></canvas>
+<canvas id="phaseCanvas" width="500" height="350" style="display:none;margin-top:6px;"></canvas>
+<script>
+const mainCtx = document.getElementById('mainCanvas').getContext('2d');
+const phaseCtx = document.getElementById('phaseCanvas').getContext('2d');
+const W = 500, H = 350;
+const cx = W/2, cy = H/2;
+const scale = 15; // pixels per unit
+
+let x, y, vx, vy, t;
+let paused = false;
+let showPhase = false;
+let trail = [];
+let phaseTrail = [];
+let maxEnergy = 1;
+
+function resetSim() {
+  x = 3; y = 2; vx = 2; vy = 0; t = 0;
+  trail = [];
+  phaseTrail = [];
+  maxEnergy = 1;
+}
+resetSim();
+
+function getParams() {
+  return {
+    g: parseFloat(document.getElementById('slGravity').value),
+    k: parseFloat(document.getElementById('slSpring').value),
+    b: parseFloat(document.getElementById('slDrag').value),
+    useG: document.getElementById('chkGravity').checked,
+    useK: document.getElementById('chkSpring').checked,
+    useB: document.getElementById('chkDrag').checked
+  };
+}
+
+function computeForces(px, py, pvx, pvy, p) {
+  let fx = 0, fy = 0;
+  if (p.useG) fy -= p.g;
+  if (p.useK) { fx -= p.k * px; fy -= p.k * py; }
+  if (p.useB) { fx -= p.b * pvx; fy -= p.b * pvy; }
+  return { fx, fy };
+}
+
+function step(dt) {
+  const p = getParams();
+  // RK4
+  function deriv(sx, sy, svx, svy) {
+    const f = computeForces(sx, sy, svx, svy, p);
+    return { dx: svx, dy: svy, dvx: f.fx, dvy: f.fy };
+  }
+  const k1 = deriv(x, y, vx, vy);
+  const k2 = deriv(x + dt/2*k1.dx, y + dt/2*k1.dy, vx + dt/2*k1.dvx, vy + dt/2*k1.dvy);
+  const k3 = deriv(x + dt/2*k2.dx, y + dt/2*k2.dy, vx + dt/2*k2.dvx, vy + dt/2*k2.dvy);
+  const k4 = deriv(x + dt*k3.dx, y + dt*k3.dy, vx + dt*k3.dvx, vy + dt*k3.dvy);
+  x += dt/6*(k1.dx + 2*k2.dx + 2*k3.dx + k4.dx);
+  y += dt/6*(k1.dy + 2*k2.dy + 2*k3.dy + k4.dy);
+  vx += dt/6*(k1.dvx + 2*k2.dvx + 2*k3.dvx + k4.dvx);
+  vy += dt/6*(k1.dvy + 2*k2.dvy + 2*k3.dvy + k4.dvy);
+  t += dt;
+}
+
+function energies() {
+  const p = getParams();
+  const KE = 0.5*(vx*vx + vy*vy);
+  let PE = 0;
+  if (p.useG) PE += p.g * y;
+  if (p.useK) PE += 0.5*p.k*(x*x + y*y);
+  return { KE, PE, E: KE + PE };
+}
+
+function draw() {
+  mainCtx.clearRect(0, 0, W, H);
+  // Grid
+  mainCtx.strokeStyle = '#222';
+  mainCtx.lineWidth = 0.5;
+  for (let gx = cx % scale; gx < W; gx += scale) { mainCtx.beginPath(); mainCtx.moveTo(gx,0); mainCtx.lineTo(gx,H); mainCtx.stroke(); }
+  for (let gy = cy % scale; gy < H; gy += scale) { mainCtx.beginPath(); mainCtx.moveTo(0,gy); mainCtx.lineTo(W,gy); mainCtx.stroke(); }
+  // Axes
+  mainCtx.strokeStyle = '#444';
+  mainCtx.lineWidth = 1;
+  mainCtx.beginPath(); mainCtx.moveTo(0, cy); mainCtx.lineTo(W, cy); mainCtx.stroke();
+  mainCtx.beginPath(); mainCtx.moveTo(cx, 0); mainCtx.lineTo(cx, H); mainCtx.stroke();
+  // Spring anchor
+  const p = getParams();
+  if (p.useK) {
+    mainCtx.fillStyle = '#f5a623';
+    mainCtx.beginPath(); mainCtx.arc(cx, cy, 5, 0, Math.PI*2); mainCtx.fill();
+    // Spring line
+    mainCtx.strokeStyle = '#f5a62388';
+    mainCtx.lineWidth = 1.5;
+    mainCtx.beginPath(); mainCtx.moveTo(cx, cy);
+    mainCtx.lineTo(cx + x*scale, cy - y*scale);
+    mainCtx.stroke();
+  }
+  // Trail
+  mainCtx.strokeStyle = '#7ec8e3';
+  mainCtx.lineWidth = 1.5;
+  mainCtx.beginPath();
+  for (let i = 0; i < trail.length; i++) {
+    const tx = cx + trail[i][0]*scale, ty = cy - trail[i][1]*scale;
+    if (i === 0) mainCtx.moveTo(tx, ty); else mainCtx.lineTo(tx, ty);
+  }
+  mainCtx.stroke();
+  // Particle
+  const px = cx + x*scale, py = cy - y*scale;
+  mainCtx.fillStyle = '#e94560';
+  mainCtx.beginPath(); mainCtx.arc(px, py, 7, 0, Math.PI*2); mainCtx.fill();
+  // Velocity vector
+  const vScale = 8;
+  mainCtx.strokeStyle = '#2ecc71';
+  mainCtx.lineWidth = 2;
+  mainCtx.beginPath(); mainCtx.moveTo(px, py);
+  mainCtx.lineTo(px + vx*vScale, py - vy*vScale);
+  mainCtx.stroke();
+  // Arrowhead
+  const angle = Math.atan2(-vy, vx);
+  mainCtx.beginPath();
+  mainCtx.moveTo(px + vx*vScale, py - vy*vScale);
+  mainCtx.lineTo(px + vx*vScale - 8*Math.cos(angle-0.4), py - vy*vScale + 8*Math.sin(angle-0.4));
+  mainCtx.moveTo(px + vx*vScale, py - vy*vScale);
+  mainCtx.lineTo(px + vx*vScale - 8*Math.cos(angle+0.4), py - vy*vScale + 8*Math.sin(angle+0.4));
+  mainCtx.stroke();
+  // Info
+  const speed = Math.sqrt(vx*vx + vy*vy);
+  const f = computeForces(x, y, vx, vy, p);
+  const acc = Math.sqrt(f.fx*f.fx + f.fy*f.fy);
+  document.getElementById('infoPos').textContent = `x=${x.toFixed(2)}, y=${y.toFixed(2)}`;
+  document.getElementById('infoVel').textContent = `|v|=${speed.toFixed(2)}`;
+  document.getElementById('infoAcc').textContent = `|a|=${acc.toFixed(2)}`;
+  // Energy bars
+  const e = energies();
+  maxEnergy = Math.max(maxEnergy, Math.abs(e.E), Math.abs(e.KE), Math.abs(e.PE), 1);
+  document.getElementById('barKE').style.width = Math.min(100, Math.abs(e.KE)/maxEnergy*100) + '%';
+  document.getElementById('barPE').style.width = Math.min(100, Math.abs(e.PE)/maxEnergy*100) + '%';
+  document.getElementById('barE').style.width = Math.min(100, Math.abs(e.E)/maxEnergy*100) + '%';
+}
+
+function drawPhase() {
+  if (!showPhase) return;
+  phaseCtx.clearRect(0, 0, W, H);
+  phaseCtx.strokeStyle = '#222';
+  phaseCtx.lineWidth = 0.5;
+  for (let gx = cx % scale; gx < W; gx += scale) { phaseCtx.beginPath(); phaseCtx.moveTo(gx,0); phaseCtx.lineTo(gx,H); phaseCtx.stroke(); }
+  for (let gy = cy % scale; gy < H; gy += scale) { phaseCtx.beginPath(); phaseCtx.moveTo(0,gy); phaseCtx.lineTo(W,gy); phaseCtx.stroke(); }
+  phaseCtx.strokeStyle = '#444';
+  phaseCtx.lineWidth = 1;
+  phaseCtx.beginPath(); phaseCtx.moveTo(0, cy); phaseCtx.lineTo(W, cy); phaseCtx.stroke();
+  phaseCtx.beginPath(); phaseCtx.moveTo(cx, 0); phaseCtx.lineTo(cx, H); phaseCtx.stroke();
+  // Phase trail
+  phaseCtx.strokeStyle = '#f5a623';
+  phaseCtx.lineWidth = 1.5;
+  phaseCtx.beginPath();
+  for (let i = 0; i < phaseTrail.length; i++) {
+    const tx = cx + phaseTrail[i][0]*scale, ty = cy - phaseTrail[i][1]*scale;
+    if (i === 0) phaseCtx.moveTo(tx, ty); else phaseCtx.lineTo(tx, ty);
+  }
+  phaseCtx.stroke();
+  // Current point
+  const px = cx + x*scale, py = cy - vx*scale;
+  phaseCtx.fillStyle = '#e94560';
+  phaseCtx.beginPath(); phaseCtx.arc(px, py, 5, 0, Math.PI*2); phaseCtx.fill();
+  // Labels
+  phaseCtx.fillStyle = '#888';
+  phaseCtx.font = '11px sans-serif';
+  phaseCtx.fillText('x (position)', W-90, H-10);
+  phaseCtx.fillText('vx (velocity)', 10, 15);
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btnPause').textContent = paused ? 'Resume' : 'Pause';
+}
+
+function togglePhase() {
+  showPhase = !showPhase;
+  document.getElementById('phaseCanvas').style.display = showPhase ? 'block' : 'none';
+  if (showPhase) phaseTrail = [];
+}
+
+// Slider value displays
+document.getElementById('slGravity').oninput = function(){ document.getElementById('valG').textContent = this.value; };
+document.getElementById('slSpring').oninput = function(){ document.getElementById('valK').textContent = parseFloat(this.value).toFixed(1); };
+document.getElementById('slDrag').oninput = function(){ document.getElementById('valB').textContent = this.value; };
+
+let lastTime = null;
+function animate(ts) {
+  if (lastTime === null) lastTime = ts;
+  const dt = Math.min((ts - lastTime)/1000, 0.05);
+  lastTime = ts;
+  if (!paused) {
+    const substeps = 4;
+    const h = dt/substeps;
+    for (let i = 0; i < substeps; i++) step(h);
+    trail.push([x, y]);
+    if (trail.length > 600) trail.shift();
+    if (showPhase) {
+      phaseTrail.push([x, vx]);
+      if (phaseTrail.length > 800) phaseTrail.shift();
+    }
+  }
+  draw();
+  drawPhase();
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

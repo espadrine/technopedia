@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Measure Theory Simulation</title>
+<style>
+body { font-family: 'Segoe UI', sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h2 { color: #64b5f6; margin-bottom: 5px; }
+.controls { margin: 15px 0; }
+.controls label { margin-right: 15px; }
+input[type=range] { vertical-align: middle; }
+canvas { border: 1px solid #444; border-radius: 4px; background: #0d1117; }
+.info { margin-top: 10px; font-size: 14px; color: #aaa; }
+.layer-label { font-size: 13px; color: #888; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h2>Measure Theory: From Sets to Integration</h2>
+<p class="info">Drag the slider to see how a measure is built up layer by layer on the interval [0,1].</p>
+<div class="controls">
+<label>Layer: <span id="layerName">Sigma-algebra</span></label>
+<input type="range" id="layerSlider" min="0" max="4" value="0" step="1">
+<label>Function: <select id="funcSelect">
+<option value="x">f(x) = x</option>
+<option value="x2">f(x) = x²</option>
+<option value="step">Step function</option>
+<option value="dirichlet">Dirichlet (1_Q)</option>
+</select></label>
+</div>
+<canvas id="canvas" width="700" height="400"></canvas>
+<p class="layer-label" id="layerDesc">Layer 1: The sigma-algebra defines which subsets of [0,1] are "measurable" (can be assigned a size).</p>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const slider = document.getElementById('layerSlider');
+const funcSelect = document.getElementById('funcSelect');
+const layerName = document.getElementById('layerName');
+const layerDesc = document.getElementById('layerDesc');
+
+const layers = [
+  {name: 'Sigma-algebra', desc: 'Layer 1: The sigma-algebra defines which subsets of [0,1] are "measurable" (can be assigned a size).'},
+  {name: 'Measure', desc: 'Layer 2: The measure assigns a "size" (length) to each measurable set. Countable additivity: size of union = sum of sizes.'},
+  {name: 'Measurable function', desc: 'Layer 3: A measurable function maps measurable sets to measurable sets (preimages of Borel sets are measurable).'},
+  {name: 'Lebesgue integral', desc: 'Layer 4: The integral sums f(x)·dμ(x) by slicing the range: ∫f dμ = sup of integrals of simple functions ≤ f.'},
+  {name: 'Lp space', desc: 'Layer 5: Lp collects all functions with finite p-norm. The norm ‖f‖p = (∫|f|^p dμ)^(1/p) makes it a complete metric space.'}
+];
+
+function getFunc(x) {
+  const sel = funcSelect.value;
+  if (sel === 'x') return x;
+  if (sel === 'x2') return x * x;
+  if (sel === 'step') return x < 0.5 ? 0.3 : 0.8;
+  if (sel === 'dirichlet') return Math.abs(x - Math.round(x)) < 1e-10 ? 1 : 0;
+  return x;
+}
+
+function draw() {
+  const layer = parseInt(slider.value);
+  layerName.textContent = layers[layer].name;
+  layerDesc.textContent = layers[layer].desc;
+  
+  ctx.clearRect(0, 0, 700, 400);
+  const ox = 80, oy = 320, w = 560, h = 260;
+  
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(ox, oy); ctx.lineTo(ox + w, oy);
+  ctx.moveTo(ox, oy); ctx.lineTo(ox, oy - h);
+  ctx.stroke();
+  
+  // Axis labels
+  ctx.fillStyle = '#888';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('0', ox - 8, oy + 15);
+  ctx.fillText('1', ox + w - 5, oy + 15);
+  ctx.fillText('x', ox + w + 10, oy + 5);
+  ctx.fillText('f', ox - 20, oy - h + 5);
+  
+  // Draw function
+  ctx.strokeStyle = '#64b5f6';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i <= 200; i++) {
+    const x = i / 200;
+    const y = getFunc(x);
+    const px = ox + x * w;
+    const py = oy - y * h * 0.8;
+    if (first) { ctx.moveTo(px, py); first = false; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  
+  if (layer === 0) {
+    // Show sigma-algebra: highlight intervals
+    ctx.fillStyle = 'rgba(100, 181, 246, 0.15)';
+    for (let i = 0; i < 8; i++) {
+      const x0 = i / 8, x1 = (i + 1) / 8;
+      ctx.fillRect(ox + x0 * w, oy - 20, (x1 - x0) * w, 20);
+    }
+    ctx.fillStyle = '#64b5f6';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('Measurable sets (intervals, unions, complements)', ox + 10, oy - 30);
+  } else if (layer === 1) {
+    // Show measure: shade under intervals with labels
+    for (let i = 0; i < 4; i++) {
+      const x0 = i / 4, x1 = (i + 1) / 4;
+      ctx.fillStyle = `rgba(100, 181, 246, ${0.1 + i * 0.05})`;
+      ctx.fillRect(ox + x0 * w, oy - 15, (x1 - x0) * w, 15);
+      ctx.fillStyle = '#aaa';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('μ=' + (0.25).toFixed(2), ox + x0 * w + 5, oy - 20);
+    }
+    ctx.fillStyle = '#64b5f6';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('μ([0,1]) = 1 (countable additivity)', ox + 10, oy - 35);
+  } else if (layer === 2) {
+    // Show measurable function: preimage of [a,b]
+    const a = 0.3, b = 0.7;
+    ctx.fillStyle = 'rgba(255, 183, 77, 0.2)';
+    ctx.fillRect(ox, oy - b * h * 0.8, w, (b - a) * h * 0.8);
+    ctx.strokeStyle = '#ffb74d';
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(ox, oy - a * h * 0.8); ctx.lineTo(ox + w, oy - a * h * 0.8);
+    ctx.moveTo(ox, oy - b * h * 0.8); ctx.lineTo(ox + w, oy - b * h * 0.8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffb74d';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('f⁻¹([0.3, 0.7]) is measurable', ox + 10, oy - 35);
+  } else if (layer === 3) {
+    // Show Lebesgue integral: shade under curve (range-slicing)
+    ctx.fillStyle = 'rgba(102, 187, 106, 0.3)';
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    for (let i = 0; i <= 200; i++) {
+      const x = i / 200;
+      const y = getFunc(x);
+      ctx.lineTo(ox + x * w, oy - y * h * 0.8);
+    }
+    ctx.lineTo(ox + w, oy);
+    ctx.closePath();
+    ctx.fill();
+    // Range-slicing lines
+    ctx.strokeStyle = 'rgba(102, 187, 106, 0.6)';
+    ctx.setLineDash([3, 3]);
+    for (let j = 1; j <= 4; j++) {
+      const yv = j / 5;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy - yv * h * 0.8);
+      ctx.lineTo(ox + w, oy - yv * h * 0.8);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#66bb6a';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('∫f dμ = area under curve (sliced by range)', ox + 10, oy - 35);
+  } else if (layer === 4) {
+    // Show Lp space: p-norm visualization
+    const p = 2;
+    ctx.fillStyle = 'rgba(171, 71, 188, 0.2)';
+    ctx.beginPath();
+    ctx.moveTo(ox, oy);
+    for (let i = 0; i <= 200; i++) {
+      const x = i / 200;
+      const y = Math.pow(getFunc(x), p);
+      ctx.lineTo(ox + x * w, oy - Math.min(y, 1) * h * 0.8);
+    }
+    ctx.lineTo(ox + w, oy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ab47b4';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('‖f‖' + p + ' = (∫|f|^' + p + ' dμ)^(1/' + p + ') — finite ⇒ f ∈ L' + p, ox + 10, oy - 35);
+    // Show the |f|^p curve
+    ctx.strokeStyle = '#ab47b4';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    first = true;
+    for (let i = 0; i <= 200; i++) {
+      const x = i / 200;
+      const y = Math.pow(getFunc(x), p);
+      const py = oy - Math.min(y, 1) * h * 0.8;
+      if (first) { ctx.moveTo(ox + x * w, py); first = false; }
+      else ctx.lineTo(ox + x * w, py);
+    }
+    ctx.stroke();
+  }
+}
+
+slider.oninput = draw;
+funcSelect.onchange = draw;
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Expanding Universe</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+         background:#0b1020; color:#e8ecf5; margin:0; padding:16px; }
+  h1 { font-size:18px; margin:0 0 2px; }
+  .sub { color:#9fb0d0; font-size:13px; margin:0 0 14px; }
+  .wrap { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; }
+  #sky { background:#05070f; border:1px solid #26304a; border-radius:10px; display:block; }
+  .panel { width:300px; flex:1 1 280px; }
+  .row { display:flex; justify-content:space-between; font-size:14px; margin:7px 0; }
+  .row .k { color:#9fb0d0; }
+  .row .v { font-weight:600; color:#7fd1ff; font-variant-numeric: tabular-nums; }
+  .bar { height:22px; border-radius:6px; overflow:hidden; display:flex; margin:12px 0 6px;
+         border:1px solid #26304a; background:#05070f; }
+  .seg { height:100%; transition:width .05s linear; }
+  .legend { font-size:12px; color:#9fb0d0; line-height:1.7; }
+  .legend i { display:inline-block; width:11px; height:11px; margin-right:6px;
+              vertical-align:-1px; border-radius:2px; }
+  .ctl { margin-top:16px; }
+  .ctl label { font-size:13px; color:#9fb0d0; display:block; margin-bottom:6px; }
+  input[type=range] { width:100%; accent-color:#7fd1ff; }
+  .btns { display:flex; gap:8px; margin-top:10px; }
+  button { background:#1b2748; color:#e8ecf5; border:1px solid #33406a; border-radius:7px;
+           padding:7px 14px; font-size:13px; cursor:pointer; }
+  button:hover { background:#243359; }
+  .note { font-size:12px; color:#6f7fa3; margin-top:14px; line-height:1.5; }
+</style>
+</head>
+<body>
+  <h1>The Expanding Universe</h1>
+  <p class="sub">Drag the time slider (or press play) to watch the scale factor, the CMB temperature,
+     and the dominant energy component evolve from the first seconds to the far future.</p>
+
+  <div class="wrap">
+    <canvas id="sky" width="520" height="360"></canvas>
+    <div class="panel">
+      <div class="row"><span class="k">Cosmic time</span><span class="v" id="t">–</span></div>
+      <div class="row"><span class="k">Scale factor a(t)</span><span class="v" id="a">–</span></div>
+      <div class="row"><span class="k">CMB temperature</span><span class="v" id="T">–</span></div>
+      <div class="row"><span class="k">Dominant component</span><span class="v" id="dom">–</span></div>
+      <div class="row"><span class="k">Redshift z</span><span class="v" id="z">–</span></div>
+
+      <div class="bar">
+        <div class="seg" id="sR" style="background:#ff9d4d"></div>
+        <div class="seg" id="sM" style="background:#4d8bff"></div>
+        <div class="seg" id="sL" style="background:#b06bff"></div>
+      </div>
+      <div class="legend">
+        <div><i style="background:#ff9d4d"></i>Radiation &nbsp;<span id="pR"></span></div>
+        <div><i style="background:#4d8bff"></i>Matter &nbsp;<span id="pM"></span></div>
+        <div><i style="background:#b06bff"></i>Dark energy &nbsp;<span id="pL"></span></div>
+      </div>
+
+      <div class="ctl">
+        <label for="time">Cosmic time (log scale)</label>
+        <input type="range" id="time" min="-16.5" max="2" step="0.01" value="0.12">
+        <div class="btns">
+          <button id="play">▶ Play</button>
+          <button id="reset">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">The dots are galaxies at fixed <i>comoving</i> positions; their physical separation
+     grows in proportion to a(t). The background glow tracks the CMB temperature
+     (hot red when the universe was young, cold dark blue today). Flat-ΛCDM parameters:
+     Ω<sub>m</sub>=0.315, Ω<sub>Λ</sub>=0.685, Ω<sub>r</sub>=9.2×10⁻⁵, H₀=70 km/s/Mpc.</p>
+
+<script>
+(function(){
+  // ---- cosmology model (flat LCDM) ----
+  const H0=0.0716, Om=0.315, Ol=0.685, Or=9.2e-5; // H0 in Gyr^-1
+  function H(a){ return H0*Math.sqrt(Om*a**(-3)+Or*a**(-4)+Ol); }
+  function tOfA(a){
+    const N=2000; let t=0;
+    for(let i=0;i<N;i++){
+      const a1=1+(a-1)*(i/N), a2=1+(a-1)*((i+1)/N), am=(a1+a2)/2;
+      t+=(a2-a1)/(H(am)*am);
+    }
+    return t; // Gyr; negative for a<1
+  }
+  const t0=-tOfA(1e-12); // age of the universe in Gyr
+  const table=[];
+  for(let i=0;i<=1200;i++){
+    const a=Math.pow(10,-12+15*i/1200);
+    table.push([t0+tOfA(a), a]);
+  }
+  function aOfT(t){
+    if(t<=table[0][0]) return table[0][1];
+    if(t>=table[table.length-1][0]) return table[table.length-1][1];
+    let lo=0, hi=table.length-1;
+    while(hi-lo>1){ const mid=(lo+hi)>>1; if(table[mid][0]<t) lo=mid; else hi=mid; }
+    const t1=table[lo][0], a1=table[lo][1], t2=table[hi][0], a2=table[hi][1];
+    const f=(t-t1)/(t2-t1);
+    return a1*Math.pow(a2/a1, f);
+  }
+
+  // ---- galaxy field (fixed comoving lattice + jitter) ----
+  const galaxies=[];
+  let seed=12345;
+  function rnd(){ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; }
+  for(let i=-9;i<=9;i++) for(let j=-9;j<=9;j++){
+    galaxies.push([i+(rnd()-0.5)*0.7, j+(rnd()-0.5)*0.7, 0.6+rnd()*0.9]);
+  }
+
+  const cv=document.getElementById('sky'), ctx=cv.getContext('2d');
+  const W=cv.width, Hh=cv.height, cx=W/2, cy=Hh/2;
+
+  function fmtTime(tGyr){
+    if(tGyr<1e-9) return (tGyr*3.1557e16).toExponential(1)+' s';
+    if(tGyr<1e-3) return (tGyr*1e9).toPrecision(3)+' kyr';
+    if(tGyr<1) return (tGyr*1e3).toPrecision(3)+' Myr';
+    return tGyr.toPrecision(3)+' Gyr';
+  }
+  function fmtTemp(T){
+    if(T>1e6) return T.toExponential(2)+' K';
+    if(T>1000) return T.toPrecision(4)+' K';
+    return T.toPrecision(3)+' K';
+  }
+  // background color from temperature: hot->red, cold->dark blue
+  function bgFor(T){
+    // map log10(T) from ~ -0.5 (2.7K) to 12 (1e12 K)
+    const x=Math.max(0,Math.min(1,(Math.log10(T)+0.5)/12.5));
+    const r=Math.round(8+235*Math.pow(x,1.4));
+    const g=Math.round(10+90*Math.pow(x,2.2));
+    const b=Math.round(24+40*(1-x));
+    return 'rgb('+r+','+g+','+b+')';
+  }
+
+  function render(tGyr){
+    const a=aOfT(tGyr);
+    const T=2.725/a;
+    const z=1/a-1;
+    // energy densities (relative to present)
+    const rR=Or*a**(-4), rM=Om*a**(-3), rL=Ol;
+    const tot=rR+rM+rL;
+    const fR=rR/tot, fM=rM/tot, fL=rL/tot;
+    const dom = fR>=fM&&fR>=fL ? 'Radiation' : (fM>=fL ? 'Matter' : 'Dark energy');
+
+    // readouts
+    document.getElementById('t').textContent=fmtTime(tGyr);
+    document.getElementById('a').textContent = a<1e-3? a.toExponential(2) : a.toPrecision(3);
+    document.getElementById('T').textContent=fmtTemp(T);
+    document.getElementById('dom').textContent=dom;
+    document.getElementById('z').textContent = z>1e4? z.toExponential(2) : z.toPrecision(3);
+    document.getElementById('sR').style.width=(fR*100)+'%';
+    document.getElementById('sM').style.width=(fM*100)+'%';
+    document.getElementById('sL').style.width=(fL*100)+'%';
+    document.getElementById('pR').textContent=(fR*100).toFixed(1)+'%';
+    document.getElementById('pM').textContent=(fM*100).toFixed(1)+'%';
+    document.getElementById('pL').textContent=(fL*100).toFixed(1)+'%';
+
+    // draw
+    ctx.fillStyle=bgFor(T);
+    ctx.fillRect(0,0,W,Hh);
+    const spacing=34*a; // physical pixel spacing
+    const bright=Math.max(0.25,Math.min(1,1.6-Math.log10(Math.max(T,1))/4));
+    for(const g of galaxies){
+      const x=cx+g[0]*spacing, y=cy+g[1]*spacing;
+      if(x<-4||x>W+4||y<-4||y>Hh+4) continue;
+      const rad=g[2]*Math.max(1,Math.min(3.2,1.4+0.6*Math.log10(a+1)));
+      ctx.beginPath();
+      ctx.fillStyle='rgba(255,255,255,'+bright.toFixed(2)+')';
+      ctx.arc(x,y,rad,0,6.2832);
+      ctx.fill();
+    }
+    // label
+    ctx.fillStyle='rgba(255,255,255,0.75)';
+    ctx.font='12px sans-serif';
+    ctx.fillText('a = '+(a<1e-3?a.toExponential(1):a.toPrecision(2))+'   T = '+fmtTemp(T), 10, 20);
+  }
+
+  const slider=document.getElementById('time');
+  slider.addEventListener('input',()=>{ stop(); render(Math.pow(10,parseFloat(slider.value))); });
+  document.getElementById('reset').addEventListener('click',()=>{ stop(); slider.value=0.12; render(Math.pow(10,0.12)); });
+
+  let playing=false, raf=null;
+  function stop(){ playing=false; if(raf) cancelAnimationFrame(raf); document.getElementById('play').textContent='▶ Play'; }
+  function tick(){
+    if(!playing) return;
+    let v=parseFloat(slider.value)+0.02;
+    if(v>2){ stop(); return; }
+    slider.value=v; render(Math.pow(10,v));
+    raf=requestAnimationFrame(tick);
+  }
+  document.getElementById('play').addEventListener('click',()=>{
+    if(playing){ stop(); return; }
+    playing=true; document.getElementById('play').textContent='❚❚ Pause';
+    raf=requestAnimationFrame(tick);
+  });
+
+  render(Math.pow(10,parseFloat(slider.value)));
+})();
+</script>
+</body>
+</html>

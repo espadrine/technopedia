@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Measurable Functions — Preimage Explorer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+h1 { font-size: 1.2em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-group label { font-size: 0.8em; color: #aaa; }
+select, button { padding: 6px 10px; border-radius: 4px; border: 1px solid #444; background: #2a2a4a; color: #fff; font-size: 0.9em; cursor: pointer; }
+button:hover { background: #3a3a6a; }
+canvas { border: 1px solid #333; border-radius: 4px; background: #0f0f23; }
+.info { margin-top: 12px; padding: 10px; background: #2a2a4a; border-radius: 4px; font-size: 0.85em; line-height: 1.5; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-weight: bold; font-size: 0.85em; }
+.badge.measurable { background: #1b5e20; color: #a5d6a7; }
+.badge.nonmeasurable { background: #b71c1c; color: #ef9a9a; }
+.legend { display: flex; gap: 16px; margin-top: 8px; font-size: 0.8em; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>Measurable Functions — Preimage Explorer</h1>
+<div class="controls">
+  <div class="control-group">
+    <label>Function f: [0,1] → ℝ</label>
+    <select id="funcSelect">
+      <option value="continuous">Continuous: f(x) = sin(2πx)</option>
+      <option value="step">Step: f(x) = 0 if x<0.5, 1 if x≥0.5</option>
+      <option value="dirichlet">Dirichlet: f(x) = 1 if x∈ℚ, 0 otherwise</option>
+      <option value="vitali">Non-measurable: 1_V (Vitali set)</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Target Borel set B ⊂ ℝ</label>
+    <select id="setSelect">
+      <option value="open">(0.2, 0.8) — open interval</option>
+      <option value="closed">[0.3, 0.7] — closed interval</option>
+      <option value="half">(0, ∞) — half-line</option>
+      <option value="rational">ℚ ∩ [0,1] — countable set</option>
+      <option value="irrational">ℝ \ ℚ — uncountable set</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Sigma-algebra on domain</label>
+    <select id="sigmaSelect">
+      <option value="borel">Borel σ-algebra (full)</option>
+      <option value="trivial">Trivial {∅, X}</option>
+    </select>
+  </div>
+</div>
+<canvas id="canvas" width="720" height="320"></canvas>
+<div class="legend">
+  <span><span class="dot" style="background:#4fc3f7"></span> x where f(x) ∈ B (preimage)</span>
+  <span><span class="dot" style="background:#ef5350"></span> x where f(x) ∉ B</span>
+  <span><span class="dot" style="background:#666"></span> Non-measurable region</span>
+</div>
+<div class="info" id="info">Select a function and target set to explore.</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const N = 2000;
+const xs = Array.from({length: N}, (_, i) => i / (N - 1));
+
+// Rational approximation: use a dense set of rationals for visualization
+const rationals = new Set();
+for (let p = 1; p <= 200; p++) {
+  for (let q = 1; q <= 200; q++) {
+    const r = p / q;
+    if (r >= 0 && r <= 1) rationals.add(r);
+  }
+}
+
+// Pseudo-Vitali set: a non-measurable-looking set (for visualization only)
+const vitaliSet = new Set();
+for (let i = 0; i < N; i++) {
+  // Use a "random-looking" but deterministic pattern that's not Borel
+  const x = i / (N - 1);
+  const bits = Math.floor(x * 1000);
+  let h = 0;
+  for (let j = 0; j < 8; j++) h = ((h << 5) - h + (bits >> j) & 1) | 0;
+  if ((h & 0xFF) % 3 === 0) vitaliSet.add(i);
+}
+
+function evalFunc(x, type) {
+  switch (type) {
+    case 'continuous': return Math.sin(2 * Math.PI * x);
+    case 'step': return x < 0.5 ? 0 : 1;
+    case 'dirichlet': return rationals.has(x) ? 1 : 0;
+    case 'vitali': return vitaliSet.has(Math.floor(x * (N - 1))) ? 1 : 0;
+  }
+}
+
+function inSet(y, type) {
+  switch (type) {
+    case 'open': return y > 0.2 && y < 0.8;
+    case 'closed': return y >= 0.3 && y <= 0.7;
+    case 'half': return y > 0;
+    case 'rational': return rationals.has(y) && y >= 0 && y <= 1;
+    case 'irrational': return !rationals.has(y) && y >= 0 && y <= 1;
+  }
+}
+
+function isMeasurable(funcType, setType, sigmaType) {
+  if (sigmaType === 'trivial') {
+    // Only constant functions are measurable w.r.t. trivial sigma-algebra
+    if (funcType === 'step' || funcType === 'dirichlet' || funcType === 'vitali') {
+      // Check if preimage is empty or full
+      let allIn = true, allOut = true;
+      for (let i = 0; i < N; i++) {
+        const y = evalFunc(xs[i], funcType);
+        if (inSet(y, setType)) allOut = false;
+        else allIn = false;
+      }
+      return allIn || allOut;
+    }
+    // Continuous: check if preimage is empty or full
+    let allIn = true, allOut = true;
+    for (let i = 0; i < N; i++) {
+      const y = evalFunc(xs[i], funcType);
+      if (inSet(y, setType)) allOut = false;
+      else allIn = false;
+    }
+    return allIn || allOut;
+  }
+  // Borel sigma-algebra
+  if (funcType === 'vitali') return false;
+  return true;
+}
+
+function draw() {
+  const funcType = document.getElementById('funcSelect').value;
+  const setType = document.getElementById('setSelect').value;
+  const sigmaType = document.getElementById('sigmaSelect').value;
+
+  const W = canvas.width, H = canvas.height;
+  const pad = { left: 50, right: 20, top: 20, bottom: 40 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw axes
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, H - pad.bottom);
+  ctx.lineTo(W - pad.right, H - pad.bottom);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('x', W - pad.right + 10, H - pad.bottom + 5);
+  ctx.fillText('0', pad.left, H - pad.bottom + 15);
+  ctx.fillText('1', W - pad.right, H - pad.bottom + 15);
+  ctx.save();
+  ctx.translate(12, pad.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('f(x)', 0, 0);
+  ctx.restore();
+
+  // Determine y-range
+  let yMin = 0, yMax = 1;
+  if (funcType === 'continuous') { yMin = -1.1; yMax = 1.1; }
+
+  function yToPixel(y) {
+    return pad.top + plotH * (1 - (y - yMin) / (yMax - yMin));
+  }
+  function xToPixel(x) {
+    return pad.left + plotW * x;
+  }
+
+  // Draw grid lines
+  ctx.strokeStyle = '#2a2a4a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 10; i++) {
+    const x = i / 10;
+    ctx.beginPath();
+    ctx.moveTo(xToPixel(x), pad.top);
+    ctx.lineTo(xToPixel(x), H - pad.bottom);
+    ctx.stroke();
+  }
+
+  // Compute preimage and draw
+  const measurable = isMeasurable(funcType, setType, sigmaType);
+  const preimage = new Array(N);
+
+  for (let i = 0; i < N; i++) {
+    const y = evalFunc(xs[i], funcType);
+    preimage[i] = inSet(y, setType);
+  }
+
+  // Draw function curve (for continuous and step)
+  if (funcType === 'continuous' || funcType === 'step') {
+    ctx.beginPath();
+    ctx.lineWidth = 2;
+    for (let i = 0; i < N; i++) {
+      const y = evalFunc(xs[i], funcType);
+      const px = xToPixel(xs[i]);
+      const py = yToPixel(y);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+  }
+
+  // Draw preimage as colored bars at the bottom
+  const barH = 20;
+  const barY = H - pad.bottom - barH;
+  for (let i = 0; i < N; i++) {
+    const px = xToPixel(xs[i]);
+    const w = plotW / N + 0.5;
+    if (preimage[i]) {
+      ctx.fillStyle = measurable ? '#4fc3f7' : '#666';
+    } else {
+      ctx.fillStyle = '#ef5350';
+    }
+    ctx.fillRect(px, barY, w, barH);
+  }
+
+  // Draw target set B on the y-axis
+  ctx.fillStyle = 'rgba(79, 195, 247, 0.15)';
+  if (setType === 'open') {
+    ctx.fillRect(pad.left, yToPixel(0.8), 4, yToPixel(0.2) - yToPixel(0.8));
+  } else if (setType === 'closed') {
+    ctx.fillRect(pad.left, yToPixel(0.7), 4, yToPixel(0.3) - yToPixel(0.7));
+  } else if (setType === 'half') {
+    ctx.fillRect(pad.left, yToPixel(yMax), 4, yToPixel(0) - yToPixel(yMax));
+  } else if (setType === 'rational') {
+    // Draw dots for rationals
+    ctx.fillStyle = 'rgba(79, 195, 247, 0.6)';
+    for (const r of rationals) {
+      if (r >= 0 && r <= 1) {
+        ctx.beginPath();
+        ctx.arc(pad.left + 2, yToPixel(r), 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+  } else if (setType === 'irrational') {
+    ctx.fillStyle = 'rgba(79, 195, 247, 0.1)';
+    ctx.fillRect(pad.left, yToPixel(1), 4, yToPixel(0) - yToPixel(1));
+  }
+
+  // Label for target set
+  ctx.fillStyle = '#4fc3f7';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('B', pad.left - 15, pad.top + 10);
+
+  // Label for preimage bar
+  ctx.fillStyle = '#aaa';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('f⁻¹(B)', pad.left, barY - 4);
+
+  // Info panel
+  const info = document.getElementById('info');
+  const funcNames = { continuous: 'sin(2πx)', step: 'step function', dirichlet: 'Dirichlet 1_ℚ', vitali: '1_V (Vitali)' };
+  const setNames = { open: '(0.2, 0.8)', closed: '[0.3, 0.7]', half: '(0, ∞)', rational: 'ℚ ∩ [0,1]', irrational: 'ℝ \ ℚ' };
+  const sigmaNames = { borel: 'Borel σ-algebra', trivial: 'Trivial {∅, X}' };
+
+  let html = `<b>f</b> = ${funcNames[funcType]}, <b>B</b> = ${setNames[setType]}, <b>σ-algebra</b>: ${sigmaNames[sigmaType]}<br>`;
+  if (measurable) {
+    html += `<span class="badge measurable">MEASURABLE</span> — f⁻¹(B) is in the sigma-algebra. The preimage (blue bar) is a measurable set.`;
+  } else {
+    html += `<span class="badge nonmeasurable">NOT MEASURABLE</span> — f⁻¹(B) is <i>not</i> in the sigma-algebra. The preimage (grey bar) is a non-measurable set.`;
+  }
+  if (funcType === 'vitali' && sigmaType === 'borel') {
+    html += `<br><i>Note: The Vitali set V is not Lebesgue-measurable, so 1_V is not a measurable function.</i>`;
+  }
+  if (sigmaType === 'trivial') {
+    html += `<br><i>Note: With the trivial sigma-algebra, only constant functions (or those whose preimage of B is ∅ or X) are measurable.</i>`;
+  }
+  info.innerHTML = html;
+}
+
+document.getElementById('funcSelect').addEventListener('change', draw);
+document.getElementById('setSelect').addEventListener('change', draw);
+document.getElementById('sigmaSelect').addEventListener('change', draw);
+draw();
+</script>
+</body>
+</html>

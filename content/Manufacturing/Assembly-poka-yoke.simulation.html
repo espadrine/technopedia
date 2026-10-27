@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Poka-yoke: keyed connector insertion</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; color: #7ec8e3; }
+canvas { background: #0f3460; border-radius: 8px; display: block; margin: 0 auto; }
+.controls { text-align: center; margin-top: 10px; }
+button { padding: 8px 20px; margin: 0 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+.btn-go { background: #4ecca3; color: #1a1a2e; }
+.btn-reset { background: #e94560; color: #fff; }
+.info { text-align: center; margin-top: 8px; font-size: 0.85em; color: #aaa; min-height: 1.4em; }
+</style>
+</head>
+<body>
+<h2>Poka-yoke: keyed connector</h2>
+<canvas id="cv" width="500" height="320"></canvas>
+<div class="controls">
+<button class="btn-go" onclick="pokaGo()">Try Insert</button>
+<button class="btn-reset" onclick="pokaReset()">Reset</button>
+</div>
+<div class="info" id="pokaInfo">Rotate the part (click left/right arrows) and try to insert it into the socket.</div>
+<script>
+let pokaAngle = 0; // 0=correct, 90, 180, 270
+let pokaInserted = false;
+let pokaAttempts = 0;
+let pokaSuccess = false;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function pokaDraw() {
+  ctx.clearRect(0,0,500,320);
+  // Socket (fixed)
+  const sx = 250, sy = 200;
+  ctx.fillStyle = '#2a2a4a';
+  ctx.fillRect(sx-40, sy-10, 80, 40);
+  // Socket opening (keyed: flat on top)
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(sx-25, sy-10, 50, 15);
+  // Key flat indicator
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(sx-25, sy-10, 50, 3);
+  ctx.fillStyle = '#aaa';
+  ctx.font = '11px system-ui';
+  ctx.fillText('Socket (keyed: flat on top)', sx-60, sy+50);
+
+  // Part (movable)
+  const px = 250, py = pokaInserted ? 195 : 120;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(pokaAngle * Math.PI / 180);
+  // Part body (cylinder with flat)
+  ctx.fillStyle = pokaSuccess ? '#4ecca3' : '#7ec8e3';
+  ctx.beginPath();
+  ctx.arc(0, 0, 22, 0, Math.PI*2);
+  ctx.fill();
+  // Flat (key) on top
+  ctx.fillStyle = pokaSuccess ? '#4ecca3' : '#e94560';
+  ctx.fillRect(-22, -25, 44, 5);
+  ctx.restore();
+
+  // Angle indicator
+  ctx.fillStyle = '#fff';
+  ctx.font = '13px system-ui';
+  ctx.fillText('Part orientation: ' + pokaAngle + '\u00B0', 20, 30);
+  ctx.fillText('Attempts: ' + pokaAttempts, 20, 50);
+
+  if (pokaSuccess) {
+    ctx.fillStyle = '#4ecca3';
+    ctx.font = 'bold 16px system-ui';
+    ctx.fillText('\u2713 Correct orientation \u2014 part seated!', 130, 290);
+  } else if (pokaAttempts > 0 && !pokaInserted) {
+    ctx.fillStyle = '#e94560';
+    ctx.font = 'bold 14px system-ui';
+    ctx.fillText('\u2717 Wrong orientation \u2014 cannot insert.', 140, 290);
+  }
+
+  // Arrows for rotation
+  ctx.fillStyle = '#aaa';
+  ctx.font = '20px system-ui';
+  ctx.fillText('\u2190', 180, 120);
+  ctx.fillText('\u2192', 310, 120);
+}
+
+function pokaGo() {
+  if (pokaSuccess) return;
+  pokaAttempts++;
+  if (pokaAngle === 0) {
+    pokaInserted = true;
+    pokaSuccess = true;
+    document.getElementById('pokaInfo').textContent = 'Success! The keyed part only fits in one orientation (0\u00B0). ' + pokaAttempts + ' attempt(s).';
+  } else {
+    document.getElementById('pokaInfo').textContent = 'The part cannot be inserted at ' + pokaAngle + '\u00B0. The key flat does not align with the socket.';
+  }
+  pokaDraw();
+}
+
+function pokaReset() {
+  pokaAngle = 0;
+  pokaInserted = false;
+  pokaAttempts = 0;
+  pokaSuccess = false;
+  document.getElementById('pokaInfo').textContent = 'Rotate the part (click left/right arrows) and try to insert it into the socket.';
+  pokaDraw();
+}
+
+// Click to rotate
+cv.addEventListener('click', function(e) {
+  if (pokaSuccess) return;
+  const rect = cv.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  if (x < 250) pokaAngle = (pokaAngle + 270) % 360;
+  else pokaAngle = (pokaAngle + 90) % 360;
+  pokaDraw();
+});
+
+pokaDraw();
+</script>
+</body>
+</html>

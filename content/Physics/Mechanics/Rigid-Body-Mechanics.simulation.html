@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rigid Body: torque-free precession and heavy top</title>
+<style>
+body{margin:0;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;font-family:sans-serif;color:#eee;}
+canvas{border:1px solid #333;margin-top:8px;}
+.controls{margin:8px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:center;}
+label{font-size:13px;display:flex;align-items:center;gap:4px;}
+input[type=range]{width:90px;}
+.info{font-size:12px;color:#aaa;margin:4px;max-width:640px;text-align:center;}
+button{background:#333;color:#eee;border:1px solid #555;padding:4px 10px;cursor:pointer;border-radius:3px;font-size:12px;}
+button:hover{background:#555;}
+button.active{background:#2a6f4e;border-color:#66bb6a;}
+</style>
+</head>
+<body>
+<h3 style="margin:8px">Rigid Body: Torque-free Precession &amp; Heavy Top</h3>
+<div class="controls">
+<button id="modeFree" class="active">Torque-free</button>
+<button id="modeTop">Gravity (heavy top)</button>
+</div>
+<canvas id="c" width="640" height="420"></canvas>
+<div class="controls" id="freeControls">
+<label>I₁ <input type="range" id="i1" min="0.3" max="3" step="0.1" value="1.0"></label>
+<label>I₂ <input type="range" id="i2" min="0.3" max="3" step="0.1" value="1.5"></label>
+<label>I₃ <input type="range" id="i3" min="0.3" max="3" step="0.1" value="2.0"></label>
+<label>ω₃ <input type="range" id="w3" min="0" max="5" step="0.1" value="3.0"></label>
+<button id="reset">Reset</button>
+</div>
+<div class="controls" id="topControls" style="display:none">
+<label>I₁ <input type="range" id="tI1" min="0.5" max="3" step="0.1" value="1.0"></label>
+<label>I₃ <input type="range" id="tI3" min="0.5" max="3" step="0.1" value="2.0"></label>
+<label>spin ω₃ <input type="range" id="tW3" min="3" max="20" step="0.5" value="10"></label>
+<label>mgl <input type="range" id="tMgl" min="0.5" max="8" step="0.1" value="3"></label>
+<label>θ₀ <input type="range" id="tTh0" min="0.15" max="1.4" step="0.05" value="0.5"></label>
+<button id="release">Release (φ̇₀ = 0)</button>
+<button id="steady">Steady precession</button>
+</div>
+<div class="info" id="info"></div>
+<script>
+"use strict";
+var canvas=document.getElementById('c'),ctx=canvas.getContext('2d');
+var W=canvas.width,H=canvas.height;
+var mode='free';
+
+/* ---------- torque-free mode ---------- */
+var I1=1.0,I2=1.5,I3=2.0;
+var omega=[0.5,0.3,3.0];
+var R=[[1,0,0],[0,1,0],[0,0,1]];
+var boxVerts=[[-1.2,-0.7,-0.5],[1.2,-0.7,-0.5],[1.2,0.7,-0.5],[-1.2,0.7,-0.5],[-1.2,-0.7,0.5],[1.2,-0.7,0.5],[1.2,0.7,0.5],[-1.2,0.7,0.5]];
+var boxEdges=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+function skew(w){return[[0,-w[2],w[1]],[w[2],0,-w[0]],[-w[1],w[0],0]];}
+function matMul(A,B){var C=[[0,0,0],[0,0,0],[0,0,0]];for(var i=0;i<3;i++)for(var j=0;j<3;j++)for(var k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j];return C;}
+function eulerStep(){
+ var w1=omega[0],w2=omega[1],w3=omega[2];
+ var dw1=((I2-I3)*w2*w3)/I1, dw2=((I3-I1)*w3*w1)/I2, dw3=((I1-I2)*w1*w2)/I3;
+ omega=[w1+dw1*0.005,w2+dw2*0.005,w3+dw3*0.005];
+}
+function updateR(){
+ var S=skew(omega),dR=matMul(R,S),i,j;
+ for(i=0;i<3;i++)for(j=0;j<3;j++)R[i][j]+=dR[i][j]*0.005;
+ var a=[R[0][0],R[1][0],R[2][0]],b=[R[0][1],R[1][1],R[2][1]];
+ var na=Math.hypot(a[0],a[1],a[2]);for(i=0;i<3;i++)a[i]/=na;
+ var d=a[0]*b[0]+a[1]*b[1]+a[2]*b[2];for(i=0;i<3;i++)b[i]-=d*a[i];
+ var nb=Math.hypot(b[0],b[1],b[2]);for(i=0;i<3;i++)b[i]/=nb;
+ var c=[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+ R[0][0]=a[0];R[1][0]=a[1];R[2][0]=a[2];
+ R[0][1]=b[0];R[1][1]=b[1];R[2][1]=b[2];
+ R[0][2]=c[0];R[1][2]=c[1];R[2][2]=c[2];
+}
+function resetFree(){omega=[0.5,0.3,3.0];R=[[1,0,0],[0,1,0],[0,0,1]];}
+function project(v){var d=6,scale=d/(d+v[2]);return[W/2+v[0]*scale*70,H/2-v[1]*scale*70];}
+function drawBox(){
+ ctx.strokeStyle='#66bb6a';ctx.lineWidth=1.5;
+ boxEdges.forEach(function(e){
+  var p1=project(matVec(R,boxVerts[e[0]])),p2=project(matVec(R,boxVerts[e[1]]));
+  ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+ });
+}
+function drawAxes(){
+ var axes=[matVec(R,[1.4,0,0]),matVec(R,[0,1.4,0]),matVec(R,[0,0,1.4])];
+ axes.forEach(function(a){drawArrow([0,0,0],a,'#66bb6a',1.5);});
+}
+function drawVectors(){
+ var omegaSpace=matVec(R,omega);
+ var L=[I1*omega[0],I2*omega[1],I3*omega[2]];
+ var LSpace=matVec(R,L);
+ var s=0.25;
+ drawArrow([0,0,0],[omegaSpace[0]*s,omegaSpace[1]*s,omegaSpace[2]*s],'#4fc3f7',3);
+ drawArrow([0,0,0],[LSpace[0]*s,LSpace[1]*s,LSpace[2]*s],'#ff7043',3);
+}
+function matVec(M,v){return[M[0][0]*v[0]+M[0][1]*v[1]+M[0][2]*v[2],M[1][0]*v[0]+M[1][1]*v[1]+M[1][2]*v[2],M[2][0]*v[0]+M[2][1]*v[1]+M[2][2]*v[2]];}
+function drawArrow(from,to,color,width){
+ var p1=project(from),p2=project(to);
+ ctx.strokeStyle=color;ctx.lineWidth=width||2;
+ ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+ var angle=Math.atan2(p2[1]-p1[1],p2[0]-p1[0]),al=10;
+ ctx.beginPath();ctx.moveTo(p2[0],p2[1]);
+ ctx.lineTo(p2[0]-al*Math.cos(angle-0.4),p2[1]-al*Math.sin(angle-0.4));
+ ctx.lineTo(p2[0]-al*Math.cos(angle+0.4),p2[1]-al*Math.sin(angle+0.4));
+ ctx.closePath();ctx.fillStyle=color;ctx.fill();
+}
+
+/* ---------- heavy top mode ---------- */
+var top={th:0.5,thd:0,ph:0,pp:0,w3:10,I1:1,I3:2,mgl:3,t:0,path:[]};
+var steadyMode=false;
+function topParams(){
+ top.I1=parseFloat(document.getElementById('tI1').value);
+ top.I3=parseFloat(document.getElementById('tI3').value);
+ top.w3=parseFloat(document.getElementById('tW3').value);
+ top.mgl=parseFloat(document.getElementById('tMgl').value);
+}
+function resetTop(steady){
+ topParams();
+ top.th=parseFloat(document.getElementById('tTh0').value);
+ top.thd=0; top.ph=0; top.t=0; top.path=[];
+ var pdot=0;
+ if(steady){
+  var A=top.I3*top.w3, disc=A*A-4*top.I1*top.mgl*Math.cos(top.th);
+  pdot=disc>0?(A+Math.sqrt(disc))/(2*top.I1*Math.cos(top.th)):top.mgl/(A);
+ }
+ top.pp=top.I1*Math.sin(top.th)*Math.sin(top.th)*pdot+top.I3*top.w3*Math.cos(top.th);
+ steadyMode=!!steady;
+}
+function phidot(){
+ var s=Math.sin(top.th);
+ if(Math.abs(s)<1e-3)return 0;
+ return (top.pp-top.I3*top.w3*Math.cos(top.th))/(top.I1*s*s);
+}
+function stepTop(dt){
+ var pd=phidot();
+ var thdd=Math.sin(top.th)*(pd*pd*Math.cos(top.th)-(top.I3*top.w3/top.I1)*pd)+(top.mgl/top.I1)*Math.sin(top.th);
+ top.thd+=thdd*dt; top.th+=top.thd*dt; top.ph+=pd*dt; top.t+=dt;
+}
+function proj(v,px,py,s){return[px+v[0]*s,py-(v[1]*0.45+v[2]*0.89)*s];}
+function drawTop(){
+ ctx.clearRect(0,0,W,H);
+ // ground
+ ctx.strokeStyle='#555';ctx.lineWidth=1.5;
+ ctx.beginPath();ctx.ellipse(W/2,300,60,14,0,0,Math.PI*2);ctx.stroke();
+ // vertical reference
+ ctx.strokeStyle='#888';ctx.setLineDash([5,4]);
+ ctx.beginPath();ctx.moveTo(W/2,300);ctx.lineTo(W/2,110);ctx.stroke();
+ ctx.setLineDash([]);
+ ctx.fillStyle='#888';ctx.fillText('vertical',W/2+6,116);
+ // symmetry axis (3-axis)
+ var e3=[Math.sin(top.th)*Math.sin(top.ph),Math.sin(top.th)*Math.cos(top.ph),Math.cos(top.th)];
+ var tip=proj(e3,W/2,300,150);
+ ctx.strokeStyle='#66bb6a';ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(W/2,300);ctx.lineTo(tip[0],tip[1]);ctx.stroke();
+ ctx.fillStyle='#66bb6a';ctx.fillText('3-axis (symmetry)',tip[0]+6,tip[1]);
+ // angular momentum L = I1(thd uTh + phd sin(th) uPh) + I3 w3 e3
+ var pd=phidot();
+ var uTh=[Math.cos(top.th)*Math.sin(top.ph),Math.cos(top.th)*Math.cos(top.ph),-Math.sin(top.th)];
+ var uPh=[Math.cos(top.ph),-Math.sin(top.ph),0];
+ var L=[top.I1*(top.thd*uTh[0]+pd*Math.sin(top.th)*uPh[0])+top.I3*top.w3*e3[0],
+        top.I1*(top.thd*uTh[1]+pd*Math.sin(top.th)*uPh[1])+top.I3*top.w3*e3[1],
+        top.I1*(top.thd*uTh[2]+pd*Math.sin(top.th)*uPh[2])+top.I3*top.w3*e3[2]];
+ var Lm=Math.hypot(L[0],L[1],L[2]);
+ var Lt=proj([L[0]/Lm,L[1]/Lm,L[2]/Lm],W/2,300,110);
+ ctx.strokeStyle='#ff7043';ctx.lineWidth=2.5;
+ ctx.beginPath();ctx.moveTo(W/2,300);ctx.lineTo(Lt[0],Lt[1]);ctx.stroke();
+ ctx.fillStyle='#ff7043';ctx.fillText('L',Lt[0]+6,Lt[1]);
+ // trace of the tip
+ ctx.strokeStyle='rgba(255,112,67,0.8)';ctx.lineWidth=1.5;ctx.beginPath();
+ for(var i=0;i<top.path.length;i++){
+  var p=proj(top.path[i],W/2,300,150);
+  if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);
+ }
+ ctx.stroke();
+ ctx.fillStyle='#aaa';
+ ctx.fillText('θ = '+(top.th*180/Math.PI).toFixed(1)+'°   precession φ̇ = '+pd.toFixed(3)+' rad/unit   steady Ω = mgl/(I₃ω₃) = '+(top.mgl/(top.I3*top.w3)).toFixed(3),10,18);
+ ctx.fillText(steadyMode?'steady precession: the axis sweeps a cone at constant θ':'nutation: released from rest, θ oscillates around the steady value',10,33);
+}
+
+/* ---------- main loop ---------- */
+function animate(){
+ if(mode==='free'){
+  for(var i=0;i<8;i++){eulerStep();updateR();}
+  ctx.clearRect(0,0,W,H);
+  drawBox();drawAxes();drawVectors();
+  ctx.fillStyle='#aaa';
+  ctx.fillText('ω = ['+omega[0].toFixed(2)+', '+omega[1].toFixed(2)+', '+omega[2].toFixed(2)+']',10,18);
+  var L=[I1*omega[0],I2*omega[1],I3*omega[2]];
+  ctx.fillText('L = ['+L[0].toFixed(2)+', '+L[1].toFixed(2)+', '+L[2].toFixed(2)+']',10,33);
+  var wMag=Math.hypot(omega[0],omega[1],omega[2]);
+  var lMag=Math.hypot(L[0],L[1],L[2]);
+  var cosA=(omega[0]*L[0]+omega[1]*L[1]+omega[2]*L[2])/(wMag*lMag);
+  ctx.fillText('angle(ω,L) = '+(Math.acos(Math.max(-1,Math.min(1,cosA)))*180/Math.PI).toFixed(1)+'°',10,48);
+ }else{
+  for(var j=0;j<60;j++)stepTop(0.002);
+  top.path.push([Math.sin(top.th)*Math.sin(top.ph),Math.sin(top.th)*Math.cos(top.ph),Math.cos(top.th)]);
+  if(top.path.length>600)top.path.shift();
+  drawTop();
+ }
+ requestAnimationFrame(animate);
+}
+
+/* ---------- UI ---------- */
+function setMode(m){
+ mode=m;
+ document.getElementById('modeFree').className=(m==='free')?'active':'';
+ document.getElementById('modeTop').className=(m==='top')?'active':'';
+ document.getElementById('freeControls').style.display=(m==='free')?'flex':'none';
+ document.getElementById('topControls').style.display=(m==='top')?'flex':'none';
+ if(m==='top')resetTop(false);
+}
+document.getElementById('modeFree').onclick=function(){setMode('free');};
+document.getElementById('modeTop').onclick=function(){setMode('top');};
+document.getElementById('reset').onclick=function(){resetFree();};
+document.getElementById('release').onclick=function(){resetTop(false);};
+document.getElementById('steady').onclick=function(){resetTop(true);};
+['i1','i2','i3','w3','tI1','tI3','tW3','tMgl','tTh0'].forEach(function(id){
+ document.getElementById(id).oninput=function(){if(mode==='top')resetTop(steadyMode);};
+});
+setMode('free');
+animate();
+</script>
+</body>
+</html>

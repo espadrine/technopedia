@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Compiler Pipeline Simulation</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+  h1 { font-size: 18px; margin-bottom: 15px; color: #7fdbff; }
+  .pipeline { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .stage { background: #16213e; border: 2px solid #0f3460; border-radius: 8px; padding: 10px; width: 140px; text-align: center; transition: all 0.3s; cursor: pointer; }
+  .stage.active { border-color: #e94560; background: #1a1a4e; box-shadow: 0 0 12px rgba(233,69,96,0.4); }
+  .stage.done { border-color: #2ecc71; background: #1a3a2e; }
+  .stage .name { font-size: 13px; font-weight: bold; color: #7fdbff; }
+  .stage .desc { font-size: 10px; color: #888; margin-top: 4px; }
+  .output { background: #0f0f23; border: 1px solid #333; border-radius: 6px; padding: 15px; min-height: 200px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+  .output .label { color: #e94560; font-weight: bold; margin-bottom: 8px; font-size: 12px; }
+  .output .code { color: #a8e6cf; }
+  .output .comment { color: #666; }
+  .controls { margin-top: 15px; display: flex; gap: 10px; }
+  .controls button { background: #0f3460; color: #eee; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 13px; }
+  .controls button:hover { background: #1a5276; }
+  .controls button:disabled { opacity: 0.4; cursor: default; }
+  .arrow { display: flex; align-items: center; color: #555; font-size: 20px; }
+</style>
+</head>
+<body>
+<h1>Compiler Pipeline: Source → Machine Code</h1>
+<div class="pipeline" id="pipeline"></div>
+<div class="output" id="output"></div>
+<div class="controls">
+  <button id="btnNext" onclick="nextStage()">Next Pass →</button>
+  <button id="btnReset" onclick="reset()">Reset</button>
+  <button id="btnAuto" onclick="autoPlay()">Auto Play</button>
+</div>
+<script>
+const stages = [
+  { name: "Source", desc: "C code", output: `<span class="label">INPUT: C source code</span>
+<span class="code">int sum(int *a, int n) {
+    int s = 0;
+    for (int i = 0; i &lt; n; i++)
+        s += a[i];
+    return s;
+}</span>` },
+  { name: "Tokenize", desc: "Lexer → tokens", output: `<span class="label">TOKEN STREAM</span>
+<span class="code">KEYWORD(int) IDENT(sum) LPAREN
+  KEYWORD(int) STAR IDENT(a) COMMA
+  KEYWORD(int) IDENT(n) RPAREN LBRACE
+  KEYWORD(int) IDENT(s) EQ INT(0) SEMI
+  KEYWORD(for) LPAREN KEYWORD(int) IDENT(i)
+    EQ INT(0) SEMI IDENT(i) LT IDENT(n)
+    SEMI IDENT(i) PLUSPLUS RPAREN
+  LBRACE IDENT(s) PLUSEQ STAR IDENT(a)
+    LBRACKET IDENT(i) RBRACKET SEMI RBRACE
+  KEYWORD(return) IDENT(s) SEMI RBRACE</span>` },
+  { name: "Parse", desc: "Tokens → AST", output: `<span class="label">ABSTRACT SYNTAX TREE</span>
+<span class="code">FunctionDef "sum" (params: [a: int*, n: int])
+├── VarDecl s : int = 0
+├── ForLoop (i: int, 0, i &lt; n, i++)
+│   └── AugAssign s += *(a + i)
+└── Return s</span>` },
+  { name: "Type Check", desc: "AST → typed AST", output: `<span class="label">TYPED AST (types verified ✓)</span>
+<span class="code">FunctionDef "sum" : (int*, int) → int
+├── VarDecl s : int = 0  <span class="comment">// int ✓</span>
+├── ForLoop (i : int, 0 : int, i &lt; n : int, i++)
+│   └── AugAssign s : int += *(a + i) : int  <span class="comment">// int* + int → int* → * → int ✓</span>
+└── Return s : int  <span class="comment">// matches return type ✓</span></span>` },
+  { name: "IR Gen", desc: "Typed AST → SSA IR", output: `<span class="label">SSA IR (three-address, static single assignment)</span>
+<span class="code">entry:
+  s0 = 0
+  i0 = 0
+loop:
+  i1 = φ(i0, i3)
+  cond = i1 &lt; n
+  br cond, body, exit
+body:
+  addr = a + i1 * 4
+  val = load addr
+  s1 = s0 + val
+  i2 = i1 + 1
+  br loop
+exit:
+  s2 = φ(s0, s1)
+  ret s2</span>` },
+  { name: "Optimize", desc: "IR → optimized IR", output: `<span class="label">OPTIMIZED IR</span>
+<span class="comment">// Loop-invariant code motion: a + 0*4 → a
+// Strength reduction: i*4 → ptr increment
+// Dead code elimination: removed unused phi
+</span><span class="code">entry:
+  s0 = 0
+  ptr0 = a
+loop:
+  cond = ptr0 &lt; a + n*4
+  br cond, body, exit
+body:
+  val = load ptr0
+  s1 = s0 + val
+  ptr1 = ptr0 + 4
+  br loop
+exit:
+  ret s1</span>` },
+  { name: "Code Gen", desc: "IR → x86-64 asm", output: `<span class="label">X86-64 ASSEMBLY (code generation)</span>
+<span class="code">sum:                          <span class="comment">; int sum(int *a, int n)</span>
+  mov  rax, 0                 <span class="comment">; s = 0</span>
+  mov  rcx, rdi               <span class="comment">; ptr = a</span>
+  lea  r11, [rdi + rsi*4]    <span class="comment">; end = a + n*4</span>
+.loop:
+  cmp  rcx, r11
+  jae  .done
+  mov  rdx, [rcx]            <span class="comment">; val = *ptr</span>
+  add  rax, rdx              <span class="comment">; s += val</span>
+  add  rcx, 4                <span class="comment">; ptr += 4</span>
+  jmp  .loop
+.done:
+  ret</span>` },
+  { name: "Link", desc: "Objects → executable", output: `<span class="label">LINKER OUTPUT (ELF executable)</span>
+<span class="code">$ ld -o main main.o sum.o -lc
+
+  Resolving symbols:
+    main.o: _sum → sum.o:sum  ✓
+    main.o: _printf → libc.so:printf  ✓ (dynamic)
+
+  Relocations applied: 14
+  Sections: .text .data .bss .rodata .got .plt
+  Output: ELF 64-bit LSB executable, x86-64</span>` }
+];
+
+let current = -1;
+let autoTimer = null;
+
+function render() {
+  const pipe = document.getElementById('pipeline');
+  pipe.innerHTML = '';
+  stages.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'stage' + (i === current ? ' active' : i < current ? ' done' : '');
+    div.innerHTML = `<div class="name">${s.name}</div><div class="desc">${s.desc}</div>`;
+    div.onclick = () => { current = i; render(); };
+    pipe.appendChild(div);
+    if (i < stages.length - 1) {
+      const arrow = document.createElement('div');
+      arrow.className = 'arrow';
+      arrow.textContent = '→';
+      pipe.appendChild(arrow);
+    }
+  });
+  const out = document.getElementById('output');
+  if (current >= 0) {
+    out.innerHTML = stages[current].output;
+  } else {
+    out.innerHTML = '<span class="comment">Click "Next Pass" or a stage to begin.</span>';
+  }
+  document.getElementById('btnNext').disabled = current >= stages.length - 1;
+}
+
+function nextStage() {
+  if (current < stages.length - 1) { current++; render(); }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  current = -1; render();
+}
+
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; return; }
+  current = -1; render();
+  autoTimer = setInterval(() => {
+    if (current >= stages.length - 1) { clearInterval(autoTimer); autoTimer = null; return; }
+    nextStage();
+  }, 2000);
+}
+
+render();
+</script>
+</body>
+</html>

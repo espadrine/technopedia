@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Online Migration – Shadow Table Algorithm</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:20px;min-height:100vh}
+h1{font-size:1.2em;margin-bottom:4px;color:#fff}
+.subtitle{font-size:.85em;color:#888;margin-bottom:16px}
+.controls{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.controls button{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:.85em;font-weight:600}
+#btnPlay{background:#4ecdc4;color:#1a1a2e}
+#btnStep{background:#555;color:#fff}
+#btnReset{background:#e74c3c;color:#fff}
+#btnSpeed{background:#333;color:#ccc}
+.status{margin-bottom:12px;padding:8px 12px;background:#16213e;border-radius:4px;font-size:.9em;min-height:36px}
+.status .step-label{color:#4ecdc4;font-weight:700}
+.tables{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.table-wrap{flex:1;min-width:280px;max-width:420px}
+.table-wrap h3{font-size:.9em;margin-bottom:6px;padding:4px 8px;border-radius:3px 3px 0 0}
+.table-wrap.original h3{background:#2d3a5c}
+.table-wrap.shadow h3{background:#1e4d3a}
+.table-wrap.backup h3{background:#5c2d2d}
+table{width:100%;border-collapse:collapse;font-size:.78em}
+th{background:#222;padding:5px 8px;text-align:left;border-bottom:2px solid #444}
+td{padding:4px 8px;border-bottom:1px solid #333}
+tr.copied td{background:#1e4d3a33}
+tr.new-row td{background:#4ecdc422;animation:flash .6s}
+tr.pending td{background:#e74c3c22}
+@keyframes flash{0%{background:#4ecdc466}100%{background:#4ecdc422}}
+.progress-bar{width:100%;height:6px;background:#333;border-radius:3px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;background:#4ecdc4;transition:width .3s;border-radius:3px}
+.legend{display:flex;gap:16px;margin-top:14px;font-size:.78em;flex-wrap:wrap}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend .dot{width:12px;height:12px;border-radius:2px}
+.dot.copied{background:#1e4d3a}
+.dot.new{background:#4ecdc4}
+.dot.pending{background:#e74c3c}
+.dot.original{background:#2d3a5c}
+.arrow{font-size:1.4em;color:#4ecdc4;text-align:center;margin:8px 0;min-height:30px;display:flex;align-items:center;justify-content:center}
+.arrow span{animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.wal-log{margin-top:12px;padding:8px;background:#16213e;border-radius:4px;font-size:.75em;max-height:80px;overflow-y:auto;font-family:monospace}
+.wal-log .entry{padding:2px 0;border-bottom:1px solid #2a2a4a}
+.wal-log .ts{color:#888}
+.wal-log .op{color:#4ecdc4}
+</style>
+</head>
+<body>
+<h1>Online Migration – Shadow Table Algorithm</h1>
+<p class="subtitle">gh-ost / pt-online-schema-change: copy rows in batches, tail the WAL, atomic swap</p>
+
+<div class="controls">
+<button id="btnPlay">▶ Play</button>
+<button id="btnStep">⏭ Step</button>
+<button id="btnReset">↺ Reset</button>
+<button id="btnSpeed">Speed: 1×</button>
+</div>
+
+<div class="status" id="status">Press <b>Play</b> or <b>Step</b> to begin.</div>
+
+<div class="tables">
+<div class="table-wrap original" id="origWrap">
+<h3>users (original)</h3>
+<table id="origTable">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<div class="table-wrap shadow" id="shadowWrap" style="display:none">
+<h3>users_gho (shadow)</h3>
+<table id="shadowTable">
+<thead><tr><th>id</th><th>name</th><th>email</th><th>status</th></tr></thead>
+<tbody></tbody>
+</table>
+<div class="progress-bar"><div class="progress-fill" id="copyProgress" style="width:0%"></div></div>
+</div>
+</div>
+
+<div class="arrow" id="arrow"></div>
+
+<div class="wal-log" id="walLog" style="display:none">
+<div style="color:#888;margin-bottom:4px">WAL / binlog tail:</div>
+<div id="walEntries"></div>
+</div>
+
+<div class="legend">
+<span><span class="dot original"></span>Original row</span>
+<span><span class="dot copied"></span>Copied to shadow</span>
+<span><span class="dot new"></span>New / concurrent write</span>
+<span><span class="dot pending"></span>Pending (not yet copied)</span>
+</div>
+
+<script>
+const ROWS=[
+{id:1,name:'Alice',email:'alice@ex.com'},
+{id:2,name:'Bob',email:'bob@ex.com'},
+{id:3,name:'Carol',email:'carol@ex.com'},
+{id:4,name:'Dave',email:'dave@ex.com'},
+{id:5,name:'Eve',email:'eve@ex.com'},
+{id:6,name:'Frank',email:'frank@ex.com'},
+{id:7,name:'Grace',email:'grace@ex.com'},
+{id:8,name:'Heidi',email:'heidi@ex.com'}
+];
+const BATCH=3;
+const CONCURRENT_WROITES=[
+{type:'INSERT',row:{id:9,name:'Ivan',email:'ivan@ex.com'},at:2},
+{type:'UPDATE',id:3,field:'email',val:'carol.new@ex.com',at:4},
+{type:'INSERT',row:{id:10,name:'Judy',email:'judy@ex.com'},at:5}
+];
+
+let state={phase:0,step:0,playing:false,speed:1,timer:null,copied:0,concurrentApplied:[]};
+const phases=[
+{id:0,label:'Idle',desc:'Press Play or Step to begin the online migration.'},
+{id:1,label:'Create shadow table',desc:'CREATE TABLE users_gho (id, name, email, status TEXT DEFAULT \'active\');'},
+{id:2,label:'Copy batch 1',desc:'Copying rows 1–3 from users → users_gho in a batch.'},
+{id:3,label:'Copy batch 2',desc:'Copying rows 4–6 from users → users_gho in a batch.'},
+{id:4,label:'Copy batch 3',desc:'Copying rows 7–8 from users → users_gho in a batch.'},
+{id:5,label:'Tail WAL',desc:'Applying concurrent writes (INSERT id=9, UPDATE id=3, INSERT id=10) to the shadow table via WAL tail.'},
+{id:6,label:'Atomic swap',desc:'RENAME TABLE users → users_old, users_gho → users;  (brief lock, ~ms)'},
+{id:7,label:'Drop backup',desc:'DROP TABLE users_old;  Migration complete.'}
+];
+
+function render(){
+const s=state;
+const statusEl=document.getElementById('status');
+const ph=phases[s.phase];
+statusEl.innerHTML='<span class="step-label">Step '+s.phase+'/'+(phases.length-1)+': '+ph.label+'</span> — '+ph.desc;
+
+// Original table
+const origBody=document.querySelector('#origTable tbody');
+origBody.innerHTML='';
+ROWS.forEach((r,i)=>{
+const tr=document.createElement('tr');
+const isCopied=i<BATCH*3 && s.phase>=2;
+const isPending=i>=BATCH*3 && s.phase>=2 && s.phase<5;
+tr.className=isCopied?'copied':(isPending?'pending':'');
+tr.innerHTML='<td>'+r.id+'</td><td>'+r.name+'</td><td>'+r.email+'</td>';
+origBody.appendChild(tr);
+});
+// Show concurrent inserts in original
+CONCURRENT_WROITES.forEach(w=>{
+if(w.type==='INSERT' && s.phase>=5){
+const tr=document.createElement('tr');
+tr.className='new-row';
+tr.innerHTML='<td>'+w.row.id+'</td><td>'+w.row.name+'</td><td>'+w.row.email+'</td>';
+origBody.appendChild(tr);
+}
+});
+
+// Shadow table
+const shadowWrap=document.getElementById('shadowWrap');
+const shadowBody=document.querySelector('#shadowTable tbody');
+shadowBody.innerHTML='';
+if(s.phase>=1){
+shadowWrap.style.display='';
+const numCopied=Math.min(s.phase-1,3)*BATCH;
+const actualCopied=Math.min(numCopied,ROWS.length);
+for(let i=0;i<actualCopied;i++){
+const r=ROWS[i];
+const tr=document.createElement('tr');
+tr.className='copied';
+const email=(s.phase>=5 && CONCURRENT_WROITES.some(w=>w.type==='UPDATE'&&w.id===r.id))?
+CONCURRENT_WROITES.find(w=>w.type==='UPDATE'&&w.id===r.id).val:r.email;
+tr.innerHTML='<td>'+r.id+'</td><td>'+r.name+'</td><td>'+email+'</td><td>active</td>';
+shadowBody.appendChild(tr);
+}
+if(s.phase>=5){
+CONCURRENT_WROITES.forEach(w=>{
+if(w.type==='INSERT'){
+const tr=document.createElement('tr');
+tr.className='new-row';
+tr.innerHTML='<td>'+w.row.id+'</td><td>'+w.row.name+'</td><td>'+w.row.email+'</td><td>active</td>';
+shadowBody.appendChild(tr);
+}
+});
+}
+}
+
+// Progress
+const total=ROWS.length;
+const done=s.phase<2?0:Math.min((s.phase-1)*BATCH,total);
+const pct=s.phase>=6?100:Math.round(done/total*100);
+document.getElementById('copyProgress').style.width=pct+'%';
+
+// Arrow
+const arrowEl=document.getElementById('arrow');
+if(s.phase>=2&&s.phase<6){arrowEl.innerHTML='<span>↓ copying ↓</span>'}
+else if(s.phase===6){arrowEl.innerHTML='<span>⇄ swap ⇄</span>'}
+else{arrowEl.innerHTML=''}
+
+// WAL log
+const walLog=document.getElementById('walLog');
+const walEntries=document.getElementById('walEntries');
+if(s.phase>=5){
+walLog.style.display='';
+let html='';
+CONCURRENT_WROITES.forEach((w,i)=>{
+const applied=s.phase>=5;
+html+='<div class="entry"><span class="ts">t+'+(i+1)+'</s> <span class="op">'+w.type+'</span> ';
+if(w.type==='INSERT') html+='id='+w.row.id+' name='+w.row.name;
+else html+='id='+w.id+' SET '+w.field+'=\''+w.val+'\'';
+html+='</div>';
+});
+walEntries.innerHTML=html;
+}
+else{walLog.style.display='none';}
+
+// Phase 6+: rename labels
+if(s.phase>=6){
+document.querySelector('#origWrap h3').textContent='users_old (backup)';
+document.querySelector('#origWrap').className='table-wrap backup';
+document.querySelector('#shadowWrap h3').textContent='users (new)';
+}
+if(s.phase>=7){
+document.getElementById('origWrap').style.opacity='0.3';
+document.querySelector('#origWrap h3').textContent='users_old (dropped)';
+}
+}
+
+function advance(){
+if(state.phase>=phases.length-1){stop();return}
+state.phase++;
+render();
+if(state.phase>=phases.length-1) stop();
+}
+
+function play(){
+if(state.playing)return;
+state.playing=true;
+document.getElementById('btnPlay').textContent='⏸ Pause';
+tick();
+}
+function tick(){
+if(!state.playing)return;
+advance();
+if(state.playing){
+state.timer=setTimeout(tick,1800/state.speed);
+}
+}
+function stop(){
+state.playing=false;
+document.getElementById('btnPlay').textContent='▶ Play';
+if(state.timer)clearTimeout(state.timer);
+}
+function reset(){
+stop();
+state={phase:0,step:0,playing:false,speed:state.speed,timer:null,copied:0,concurrentApplied:[]};
+document.querySelector('#origWrap h3').textContent='users (original)';
+document.querySelector('#origWrap').className='table-wrap original';
+document.querySelector('#shadowWrap h3').textContent='users_gho (shadow)';
+document.getElementById('origWrap').style.opacity='1';
+render();
+}
+
+document.getElementById('btnPlay').onclick=()=>{if(state.playing)stop();else play()};
+document.getElementById('btnStep').onclick=()=>{stop();advance()};
+document.getElementById('btnReset').onclick=reset;
+document.getElementById('btnSpeed').onclick=function(){
+const speeds=[1,2,4];
+const idx=speeds.indexOf(state.speed);
+state.speed=speeds[(idx+1)%speeds.length];
+this.textContent='Speed: '+state.speed+'×';
+};
+
+render();
+</script>
+</body>
+</html>

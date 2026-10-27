@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Canonical Ensemble – Two-Level System</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;padding:16px;min-height:100vh}
+h1{font-size:1.1rem;margin-bottom:8px;color:#a8d8ea}
+.controls{display:flex;align-items:center;gap:12px;margin:10px 0;flex-wrap:wrap;justify-content:center}
+.controls label{font-size:.85rem}
+input[type=range]{width:200px;accent-color:#f4a261}
+.val{font-weight:bold;color:#f4a261;min-width:60px;display:inline-block}
+.canvas-wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:12px}
+canvas{background:#16213e;border-radius:8px;border:1px solid #333}
+.legend{font-size:.75rem;color:#aaa;margin-top:4px;text-align:center}
+</style>
+</head>
+<body>
+<h1>Canonical Ensemble: Two-Level System</h1>
+<div class="controls">
+<label>Temperature T/ε:</label>
+<input type="range" id="tempSlider" min="0.01" max="5" step="0.01" value="1">
+<span class="val" id="tempVal">1.00</span>
+</div>
+<div class="canvas-wrap">
+<div>
+<canvas id="levels" width="220" height="260"></canvas>
+<div class="legend">Energy levels &amp; probabilities</div>
+</div>
+<div>
+<canvas id="energy" width="320" height="200"></canvas>
+<div class="legend">⟨E⟩/ε vs T/ε</div>
+</div>
+<div>
+<canvas id="heatcap" width="320" height="200"></canvas>
+<div class="legend">C<sub>V</sub>/k<sub>B</sub> vs T/ε (Schottky anomaly)</div>
+</div>
+</div>
+<script>
+const slider=document.getElementById('tempSlider');
+const tempVal=document.getElementById('tempVal');
+const cL=document.getElementById('levels'),cE=document.getElementById('energy'),cH=document.getElementById('heatcap');
+const xL=cL.getContext('2d'),xE=cE.getContext('2d'),xH=cH.getContext('2d');
+
+function boltzmann(T){
+  const b=1/T;
+  const Z=1+Math.exp(-b);
+  const p1=Math.exp(-b)/Z;
+  const p0=1-p1;
+  const E=p1; // mean energy in units of ε
+  const CV=b*b*Math.exp(-b)/Math.pow(1+Math.exp(-b),2); // C_V/k_B in units of ε
+  return{p0,p1,E,CV,Z};
+}
+
+function drawLevels(T){
+  const{p0,p1}=boltzmann(T);
+  xL.clearRect(0,0,220,260);
+  // Energy axis
+  xL.strokeStyle='#555';xL.lineWidth=1;
+  xL.beginPath();xL.moveTo(30,20);xL.lineTo(30,240);xL.stroke();
+  xL.fillStyle='#888';xL.font='11px system-ui';
+  xL.fillText('E',20,15);
+  // Level 0 at bottom
+  const y0=210,y1=60;
+  xL.strokeStyle='#4ecdc4';xL.lineWidth=3;
+  xL.beginPath();xL.moveTo(50,y0);xL.lineTo(120,y0);xL.stroke();
+  xL.fillStyle='#4ecdc4';xL.fillText('E₀ = 0',125,y0+4);
+  // Level 1 at top
+  xL.strokeStyle='#f4a261';
+  xL.beginPath();xL.moveTo(50,y1);xL.lineTo(120,y1);xL.stroke();
+  xL.fillStyle='#f4a261';xL.fillText('E₁ = ε',125,y1+4);
+  // Probability bars
+  const barW=14;
+  xL.fillStyle='rgba(78,205,196,0.7)';
+  xL.fillRect(140,y0-4,barW*(p0/0.5),8);
+  xL.fillStyle='rgba(244,162,97,0.7)';
+  xL.fillRect(140,y1-4,barW*(p1/0.5),8);
+  xL.fillStyle='#ccc';xL.font='10px system-ui';
+  xL.fillText('P₀='+p0.toFixed(3),140,y0+16);
+  xL.fillText('P₁='+p1.toFixed(3),140,y1+16);
+  // Boltzmann factor label
+  xL.fillStyle='#a8d8ea';xL.font='11px system-ui';
+  xL.fillText('e^{-βE₁} = '+Math.exp(-1/T).toFixed(4),140,y1-10);
+}
+
+function drawEnergy(){
+  xE.clearRect(0,0,320,200);
+  const pad={l:45,r:15,t:15,b:30};
+  const w=320-pad.l-pad.r,h=200-pad.t-pad.b;
+  // Axes
+  xE.strokeStyle='#555';xE.lineWidth=1;
+  xE.beginPath();xE.moveTo(pad.l,pad.t);xE.lineTo(pad.l,pad.t+h);xE.lineTo(pad.l+w,pad.t+h);xE.stroke();
+  xE.fillStyle='#888';xE.font='10px system-ui';
+  xE.fillText('⟨E⟩/ε',5,pad.t-3);
+  xE.fillText('T/ε',pad.l+w/2-10,195);
+  // Ticks
+  for(let t=0;t<=5;t+=1){
+    const x=pad.l+(t/5)*w;
+    xE.fillText(t,x-3,pad.t+h+14);
+  }
+  for(let e=0;e<=1;e+=0.25){
+    const y=pad.t+h-(e/1)*h;
+    xE.fillText(e.toFixed(2),pad.l-30,y+3);
+  }
+  // Curve
+  xE.strokeStyle='#4ecdc4';xE.lineWidth=2;
+  xE.beginPath();
+  for(let i=0;i<=200;i++){
+    const T=0.01+(i/200)*4.99;
+    const{E}=boltzmann(T);
+    const x=pad.l+(T/5)*w;
+    const y=pad.t+h-(E/1)*h;
+    i===0?xE.moveTo(x,y):xE.lineTo(x,y);
+  }
+  xE.stroke();
+  // Current point
+  const T=parseFloat(slider.value);
+  const{E}=boltzmann(T);
+  const cx=pad.l+(T/5)*w,cy=pad.t+h-(E/1)*h;
+  xE.fillStyle='#f4a261';xE.beginPath();xE.arc(cx,cy,5,0,Math.PI*2);xE.fill();
+}
+
+function drawHeatCap(){
+  xH.clearRect(0,0,320,200);
+  const pad={l:45,r:15,t:15,b:30};
+  const w=320-pad.l-pad.r,h=200-pad.t-pad.b;
+  xH.strokeStyle='#555';xH.lineWidth=1;
+  xH.beginPath();xH.moveTo(pad.l,pad.t);xH.lineTo(pad.l,pad.t+h);xH.lineTo(pad.l+w,pad.t+h);xH.stroke();
+  xH.fillStyle='#888';xH.font='10px system-ui';
+  xH.fillText('C_V/k_B',5,pad.t-3);
+  xH.fillText('T/ε',pad.l+w/2-10,195);
+  for(let t=0;t<=5;t+=1){
+    const x=pad.l+(t/5)*w;
+    xH.fillText(t,x-3,pad.t+h+14);
+  }
+  // Find max CV for scaling
+  let maxCV=0;
+  for(let i=0;i<=500;i++){const T=0.01+(i/500)*4.99;const{CV}=boltzmann(T);if(CV>maxCV)maxCV=CV;}
+  for(let c=0;c<=maxCV;c+=maxCV/4){
+    const y=pad.t+h-(c/maxCV)*h;
+    xH.fillText(c.toFixed(2),pad.l-30,y+3);
+  }
+  // Curve
+  xH.strokeStyle='#f4a261';xH.lineWidth=2;
+  xH.beginPath();
+  for(let i=0;i<=300;i++){
+    const T=0.01+(i/300)*4.99;
+    const{CV}=boltzmann(T);
+    const x=pad.l+(T/5)*w;
+    const y=pad.t+h-(CV/maxCV)*h;
+    i===0?xH.moveTo(x,y):xH.lineTo(x,y);
+  }
+  xH.stroke();
+  // Current point
+  const T=parseFloat(slider.value);
+  const{CV}=boltzmann(T);
+  const cx=pad.l+(T/5)*w,cy=pad.t+h-(CV/maxCV)*h;
+  xH.fillStyle='#4ecdc4';xH.beginPath();xH.arc(cx,cy,5,0,Math.PI*2);xH.fill();
+}
+
+function update(){
+  const T=parseFloat(slider.value);
+  tempVal.textContent=T.toFixed(2);
+  drawLevels(T);drawEnergy();drawHeatCap();
+}
+slider.addEventListener('input',update);
+update();
+</script>
+</body>
+</html>

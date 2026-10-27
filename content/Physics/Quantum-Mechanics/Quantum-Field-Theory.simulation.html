@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Running Coupling Explorer</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px 0; font-size: 1.1em; color: #fff; }
+.container { max-width: 700px; margin: 0 auto; }
+canvas { background: #0f0f23; border-radius: 8px; display: block; margin: 12px 0; }
+.controls { display: flex; align-items: center; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+input[type=range] { width: 200px; accent-color: #4fc3f7; }
+.readout { font-size: 0.95em; margin: 8px 0; line-height: 1.6; }
+.readout span { font-weight: bold; }
+.qed { color: #4fc3f7; }
+.qcd { color: #ff7043; }
+.note { font-size: 0.8em; color: #999; margin-top: 12px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="container">
+<h2>Running Coupling Explorer: α(μ) vs Energy Scale</h2>
+<div class="controls">
+<label>Energy scale μ:</label>
+<input type="range" id="muSlider" min="0" max="100" value="50" step="0.1">
+<span id="muLabel" style="font-size:0.9em;min-width:120px"></span>
+</div>
+<canvas id="plot" width="660" height="320"></canvas>
+<div class="readout" id="readout"></div>
+<div class="note">
+One-loop RG: QED (n<sub>f</sub>=3 leptons): 1/α(μ) = 1/α(μ₀) − n<sub>f</sub>·ln(μ/μ₀)/(6π), α(μ₀)=1/137 at μ₀=0.511 MeV.<br>
+QCD (N<sub>c</sub>=3, n<sub>f</sub>=5): 1/α<sub>s</sub>(μ) = 1/α<sub>s</sub>(μ₀) + (11N<sub>c</sub>−2n<sub>f</sub>)·ln(μ/μ₀)/(24π), α<sub>s</sub>(μ₀)=0.118 at μ₀=91.2 GeV.
+</div>
+</div>
+<script>
+(function(){
+var canvas = document.getElementById('plot');
+var ctx = canvas.getContext('2d');
+var slider = document.getElementById('muSlider');
+var muLabel = document.getElementById('muLabel');
+var readout = document.getElementById('readout');
+
+// Parameters
+var alpha0_qed = 1/137, mu0_qed = 0.511e-3; // GeV (0.511 MeV)
+var nf_qed = 3;
+var alpha0_qcd = 0.118, mu0_qcd = 91.2; // GeV
+var Nc = 3, nf_qcd = 5;
+
+// Log range: mu from 1 MeV to 10^6 GeV
+var logMin = Math.log10(1e-3); // 1 MeV in GeV
+var logMax = Math.log10(1e6);  // 10^6 GeV
+
+function alphaQED(mu) {
+  var val = 1/alpha0_qed - nf_qed * Math.log(mu/mu0_qed)/(6*Math.PI);
+  if (val <= 0) return Infinity;
+  return 1/val;
+}
+
+function alphaQCD(mu) {
+  var val = 1/alpha0_qcd + (11*Nc - 2*nf_qcd) * Math.log(mu/mu0_qcd)/(24*Math.PI);
+  if (val <= 0) return Infinity;
+  return 1/val;
+}
+
+function sliderToMu(v) {
+  // v in [0,100] -> log10(mu) in [logMin, logMax]
+  var logMu = logMin + (v/100)*(logMax - logMin);
+  return Math.pow(10, logMu);
+}
+
+function muToSlider(mu) {
+  var logMu = Math.log10(mu);
+  return (logMu - logMin)/(logMax - logMin)*100;
+}
+
+function formatMu(mu) {
+  if (mu < 1e-3) return (mu*1e6).toFixed(1) + ' keV';
+  if (mu < 1) return (mu*1e3).toFixed(1) + ' MeV';
+  if (mu < 1e3) return mu.toFixed(1) + ' GeV';
+  if (mu < 1e6) return (mu/1e3).toFixed(1) + ' TeV';
+  return (mu/1e6).toFixed(1) + ' PeV';
+}
+
+function draw() {
+  var W = canvas.width, H = canvas.height;
+  var padL = 55, padR = 20, padT = 25, padB = 40;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Y range: 0 to 0.6
+  var yMin = 0, yMax = 0.6;
+
+  function xScale(logMu) { return padL + (logMu - logMin)/(logMax - logMin)*plotW; }
+  function yScale(alpha) { return padT + (1 - (alpha - yMin)/(yMax - yMin))*plotH; }
+
+  // Grid
+  ctx.strokeStyle = '#2a2a4a';
+  ctx.lineWidth = 0.5;
+  for (var i = 0; i <= 10; i++) {
+    var x = padL + i*plotW/10;
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT+plotH); ctx.stroke();
+  }
+  for (var a = 0; a <= 0.6; a += 0.1) {
+    var y = yScale(a);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL+plotW, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+plotH); ctx.lineTo(padL+plotW, padT+plotH); ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'center';
+  var ticks = [1e-3, 1e-2, 1e-1, 1, 10, 100, 1e3, 1e4, 1e5, 1e6];
+  var tickLabels = ['1 MeV','10 MeV','100 MeV','1 GeV','10 GeV','100 GeV','1 TeV','10 TeV','100 TeV','1 PeV'];
+  for (var i = 0; i < ticks.length; i++) {
+    var x = xScale(Math.log10(ticks[i]));
+    ctx.fillText(tickLabels[i], x, padT+plotH+15);
+  }
+  ctx.fillText('μ (energy scale)', padL+plotW/2, H-5);
+
+  ctx.save();
+  ctx.translate(12, padT+plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('α(μ)', 0, 0);
+  ctx.restore();
+
+  // Y tick labels
+  ctx.textAlign = 'right';
+  for (var a = 0; a <= 0.6; a += 0.1) {
+    ctx.fillText(a.toFixed(1), padL-5, yScale(a)+4);
+  }
+
+  // QED curve
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  var started = false;
+  for (var i = 0; i <= 200; i++) {
+    var logMu = logMin + (i/200)*(logMax - logMin);
+    var mu = Math.pow(10, logMu);
+    var a = alphaQED(mu);
+    if (a > yMax || !isFinite(a)) { started = false; continue; }
+    var x = xScale(logMu), y = yScale(a);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // QCD curve
+  ctx.strokeStyle = '#ff7043';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  started = false;
+  for (var i = 0; i <= 200; i++) {
+    var logMu = logMin + (i/200)*(logMax - logMin);
+    var mu = Math.pow(10, logMu);
+    var a = alphaQCD(mu);
+    if (a > yMax || !isFinite(a)) { started = false; continue; }
+    var x = xScale(logMu), y = yScale(a);
+    if (!started) { ctx.moveTo(x, y); started = true; }
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Current mu marker
+  var mu = sliderToMu(parseFloat(slider.value));
+  var xMark = xScale(Math.log10(mu));
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(xMark, padT); ctx.lineTo(xMark, padT+plotH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dots at current mu
+  var aQED = alphaQED(mu), aQCD = alphaQCD(mu);
+  if (aQED <= yMax && isFinite(aQED)) {
+    ctx.fillStyle = '#4fc3f7';
+    ctx.beginPath(); ctx.arc(xMark, yScale(aQED), 5, 0, 2*Math.PI); ctx.fill();
+  }
+  if (aQCD <= yMax && isFinite(aQCD)) {
+    ctx.fillStyle = '#ff7043';
+    ctx.beginPath(); ctx.arc(xMark, yScale(aQCD), 5, 0, 2*Math.PI); ctx.fill();
+  }
+
+  // Legend
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fillRect(padL+10, padT+8, 20, 3);
+  ctx.fillStyle = '#ccc';
+  ctx.textAlign = 'left';
+  ctx.fillText('α_QED(μ)', padL+35, padT+13);
+  ctx.fillStyle = '#ff7043';
+  ctx.fillRect(padL+10, padT+22, 20, 3);
+  ctx.fillStyle = '#ccc';
+  ctx.fillText('α_QCD(μ)', padL+35, padT+27);
+
+  // Readout
+  muLabel.textContent = formatMu(mu);
+  var qedStr = isFinite(aQED) && aQED < 10 ? '1/' + (1/aQED).toFixed(1) : '∞ (Landau pole)';
+  var qcdStr = isFinite(aQCD) && aQCD < 10 ? aQCD.toFixed(4) : '∞';
+  readout.innerHTML = '<span class="qed">α_QED(' + formatMu(mu) + ') = ' + qedStr + '</span><br>' +
+    '<span class="qcd">α_QCD(' + formatMu(mu) + ') = ' + qcdStr + '</span>';
+}
+
+slider.addEventListener('input', draw);
+draw();
+})();
+</script>
+</body>
+</html>

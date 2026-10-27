@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Martingales — optional stopping</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a; background: #fff;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p.sub { font-size: 12px; margin: 0 0 12px; color: #555; line-height: 1.4; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 10px; }
+  .controls label { font-size: 13px; font-weight: 600; }
+  .controls input[type=range] { width: 120px; vertical-align: middle; }
+  .controls button {
+    font-size: 13px; padding: 6px 14px; border: 1px solid #bbb; border-radius: 6px;
+    background: #f4f4f4; cursor: pointer;
+  }
+  .controls button:hover { background: #e8e8e8; }
+  .controls button.primary { background: #1565c0; color: #fff; border-color: #1565c0; }
+  .controls button.primary:hover { background: #0d47a1; }
+  .val { font-variant-numeric: tabular-nums; font-weight: 700; color: #1565c0; }
+  .stats { display: flex; gap: 22px; font-size: 13px; margin-bottom: 8px; flex-wrap: wrap; }
+  .stats span b { font-variant-numeric: tabular-nums; }
+  canvas { width: 100%; height: auto; display: block; border: 1px solid #e0e0e0; border-radius: 6px; background: #fcfcfc; }
+  .legend { font-size: 12px; color: #555; margin-top: 8px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+  .bar { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 12px; }
+  .bar .track { flex: 1; height: 14px; background: #eee; border-radius: 7px; overflow: hidden; position: relative; }
+  .bar .fill { height: 100%; background: #2e7d32; width: 0%; }
+  .bar .mark { position: absolute; top: -2px; width: 2px; height: 18px; background: #d32f2f; left: 30%; }
+</style>
+</head>
+<body>
+  <h1>Martingale &mdash; optional stopping (gambler's ruin)</h1>
+  <p class="sub">A fair random walk (a martingale) starts at <b>start</b> and is stopped the first time it hits the <b>lower</b> or <b>upper</b> boundary. The optional stopping theorem says the win probability is exactly <i>start</i>/<i>upper</i> (with lower = 0): no stopping rule can beat the fair game. Press <b>Run trials</b> to watch the empirical win rate converge to the theoretical value (red tick).</p>
+
+  <div class="controls">
+    <label>Start = <span class="val" id="startVal">30</span>
+      <input type="range" id="start" min="1" max="199" step="1" value="30">
+    </label>
+    <label>Upper = <span class="val" id="upperVal">100</span>
+      <input type="range" id="upper" min="10" max="200" step="1" value="100">
+    </label>
+    <label>Speed
+      <input type="range" id="speed" min="1" max="200" step="1" value="20">
+    </label>
+    <button class="primary" id="play">Pause</button>
+    <button id="reset">Reset</button>
+    <button id="trials">Run 2000 trials</button>
+  </div>
+
+  <div class="stats">
+    <span>fortune <b id="fVal">30</b></span>
+    <span>steps <b id="sVal">0</b></span>
+    <span>outcome <b id="oVal">playing</b></span>
+    <span>theoretical win prob <b id="theoVal">0.300</b></span>
+    <span>empirical win prob <b id="empVal">&mdash;</b></span>
+  </div>
+
+  <canvas id="cv" width="760" height="340"></canvas>
+
+  <div class="bar">
+    <span>win rate</span>
+    <div class="track"><div class="fill" id="fill"></div><div class="mark" id="mark"></div></div>
+    <span>green = empirical, red tick = theoretical</span>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#1565c0"></i>fortune path</span>
+    <span><i style="background:#2e7d32"></i>upper boundary (win)</span>
+    <span><i style="background:#c62828"></i>lower boundary (bust)</span>
+    <span><i style="background:#f9a825"></i>start level</span>
+  </div>
+
+<script>
+(function () {
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  var padL = 44, padR = 16, padT = 16, padB = 34;
+  var plotW = W - padL - padR;
+  var plotH = H - padT - padB;
+
+  var lower = 0;
+  var start = 30, upper = 100;
+  var speed = 20;
+  var running = true;
+  var path = [start];
+  var outcome = null; // 'win' | 'lose' | null
+
+  function reset() {
+    path = [start];
+    outcome = null;
+  }
+
+  function step() {
+    if (outcome) return;
+    var cur = path[path.length - 1];
+    var next = cur + (Math.random() < 0.5 ? 1 : -1);
+    path.push(next);
+    if (next >= upper) { outcome = 'win'; running = false; }
+    else if (next <= lower) { outcome = 'lose'; running = false; }
+  }
+
+  function xOf(i) {
+    var maxSteps = Math.max(path.length - 1, 1);
+    return padL + (i / maxSteps) * plotW;
+  }
+  function yOf(v) {
+    return padT + plotH - ((v - lower) / (upper - lower)) * plotH;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // axes
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT + plotH); ctx.lineTo(padL + plotW, padT + plotH);
+    ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH);
+    ctx.stroke();
+
+    // boundaries
+    ctx.setLineDash([6, 4]); ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2e7d32';
+    ctx.beginPath(); ctx.moveTo(padL, yOf(upper)); ctx.lineTo(padL + plotW, yOf(upper)); ctx.stroke();
+    ctx.strokeStyle = '#c62828';
+    ctx.beginPath(); ctx.moveTo(padL, yOf(lower)); ctx.lineTo(padL + plotW, yOf(lower)); ctx.stroke();
+    // start level
+    ctx.strokeStyle = '#f9a825'; ctx.lineWidth = 1; ctx.setLineDash([2, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, yOf(start)); ctx.lineTo(padL + plotW, yOf(start)); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // y labels
+    ctx.fillStyle = '#666'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(String(upper), padL - 6, yOf(upper) + 3);
+    ctx.fillText(String(lower), padL - 6, yOf(lower) + 3);
+    ctx.fillText(String(start), padL - 6, yOf(start) + 3);
+
+    // path
+    ctx.strokeStyle = '#1565c0'; ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(xOf(0), yOf(path[0]));
+    for (var i = 1; i < path.length; i++) ctx.lineTo(xOf(i), yOf(path[i]));
+    ctx.stroke();
+
+    // endpoint dot
+    var last = path[path.length - 1];
+    ctx.fillStyle = outcome === 'win' ? '#2e7d32' : (outcome === 'lose' ? '#c62828' : '#1565c0');
+    ctx.beginPath(); ctx.arc(xOf(path.length - 1), yOf(last), 4, 0, Math.PI * 2); ctx.fill();
+
+    // x label
+    ctx.fillStyle = '#666'; ctx.textAlign = 'center';
+    ctx.fillText('step', padL + plotW / 2, H - 6);
+
+    // stats
+    document.getElementById('fVal').textContent = String(last);
+    document.getElementById('sVal').textContent = String(path.length - 1);
+    document.getElementById('oVal').textContent = outcome === 'win' ? 'WIN' : (outcome === 'lose' ? 'BUST' : 'playing');
+  }
+
+  function frame() {
+    if (running) {
+      for (var k = 0; k < speed; k++) step();
+      if (outcome) {
+        setTimeout(function () { reset(); running = true; }, 900);
+      }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function runTrials() {
+    var N = 2000, wins = 0;
+    for (var r = 0; r < N; r++) {
+      var x = start;
+      while (x < upper && x > lower) x += (Math.random() < 0.5 ? 1 : -1);
+      if (x >= upper) wins++;
+    }
+    var emp = wins / N;
+    var theo = (start - lower) / (upper - lower);
+    document.getElementById('empVal').textContent = emp.toFixed(3);
+    document.getElementById('theoVal').textContent = theo.toFixed(3);
+    document.getElementById('fill').style.width = (emp * 100) + '%';
+    document.getElementById('mark').style.left = (theo * 100) + '%';
+  }
+
+  // controls
+  var startEl = document.getElementById('start');
+  var upperEl = document.getElementById('upper');
+  var speedEl = document.getElementById('speed');
+  var playBtn = document.getElementById('play');
+  var resetBtn = document.getElementById('reset');
+  var trialsBtn = document.getElementById('trials');
+
+  function syncBounds() {
+    start = parseInt(startEl.value, 10);
+    upper = parseInt(upperEl.value, 10);
+    if (start >= upper) { start = upper - 1; startEl.value = String(start); }
+    document.getElementById('startVal').textContent = String(start);
+    document.getElementById('upperVal').textContent = String(upper);
+    var theo = (start - lower) / (upper - lower);
+    document.getElementById('theoVal').textContent = theo.toFixed(3);
+    document.getElementById('mark').style.left = (theo * 100) + '%';
+    reset();
+  }
+
+  startEl.addEventListener('input', syncBounds);
+  upperEl.addEventListener('input', syncBounds);
+  speedEl.addEventListener('input', function () { speed = parseInt(speedEl.value, 10); });
+  playBtn.addEventListener('click', function () {
+    if (outcome) reset();
+    running = !running;
+    playBtn.textContent = running ? 'Pause' : 'Play';
+  });
+  resetBtn.addEventListener('click', function () { reset(); running = true; playBtn.textContent = 'Pause'; });
+  trialsBtn.addEventListener('click', runTrials);
+
+  syncBounds();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Memory Hierarchy Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s; }
+button.sequential { background: #4ecdc4; color: #1a1a2e; }
+button.random { background: #ff6b6b; color: #fff; }
+button.hot { background: #ffd93d; color: #1a1a2e; }
+button.active { transform: scale(1.05); box-shadow: 0 0 12px rgba(255,255,255,0.3); }
+button:hover { opacity: 0.85; }
+.toggle-group { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; font-size: 0.85em; }
+.toggle-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.toggle-group input[type=checkbox] { accent-color: #4ecdc4; }
+.hierarchy { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.level { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: #16213e; transition: all 0.3s; position: relative; }
+.level.hit { background: #0f3460; box-shadow: 0 0 8px rgba(78,205,196,0.4); }
+.level.miss { background: #3d1a1a; box-shadow: 0 0 8px rgba(255,107,107,0.4); }
+.level.prefetch-hit { background: #1a3a2a; box-shadow: 0 0 8px rgba(85,239,196,0.4); }
+.level.page-fault { background: #4a1a4a; box-shadow: 0 0 12px rgba(155,89,182,0.6); }
+.level .name { width: 100px; font-weight: 600; font-size: 0.85em; }
+.level .bar-container { flex: 1; height: 20px; background: #0f0f23; border-radius: 4px; overflow: hidden; position: relative; }
+.level .bar { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.level .latency { width: 130px; text-align: right; font-size: 0.8em; color: #aaa; }
+.level .hits { width: 60px; text-align: right; font-size: 0.8em; font-weight: 700; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #16213e; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-card .label { font-size: 0.75em; color: #888; margin-bottom: 4px; }
+.stat-card .value { font-size: 1.3em; font-weight: 700; }
+.stat-card .value.good { color: #4ecdc4; }
+.stat-card .value.bad { color: #ff6b6b; }
+.stat-card .value.neutral { color: #ffd93d; }
+.stat-card .value.warn { color: #9b59b6; }
+.legend { display: flex; gap: 14px; margin-bottom: 12px; font-size: 0.8em; color: #888; flex-wrap: wrap; }
+.legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.legend .l-hit::before { background: #4ecdc4; }
+.legend .l-miss::before { background: #ff6b6b; }
+.legend .l-prefetch::before { background: #55efc4; border: 1px dashed #55efc4; }
+.legend .l-fault::before { background: #9b59b6; }
+.animation-area { background: #0f0f23; border-radius: 8px; padding: 16px; min-height: 60px; margin-bottom: 12px; font-family: monospace; font-size: 0.85em; }
+.animation-area .access { display: inline-block; margin: 2px 4px; padding: 3px 8px; border-radius: 4px; font-size: 0.9em; }
+.access.hit-l1 { background: #0f3460; color: #4ecdc4; }
+.access.hit-l2 { background: #1a2a4a; color: #74b9ff; }
+.access.hit-l3 { background: #2a1a4a; color: #a29bfe; }
+.access.hit-dram { background: #3d1a1a; color: #ff6b6b; }
+.access.prefetch { background: #1a3a2a; color: #55efc4; border: 1px dashed #55efc4; }
+.access.page-fault { background: #2d1a3d; color: #9b59b6; border: 1px solid #9b59b6; }
+.access.numa-remote { background: #3d2a1a; color: #f39c12; border: 1px solid #f39c12; }
+.speed-control { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.85em; }
+.speed-control input { width: 100px; }
+.numa-indicator { display: none; margin-bottom: 8px; padding: 6px 12px; background: #3d2a1a; border-radius: 4px; font-size: 0.8em; color: #f39c12; }
+.numa-indicator.visible { display: block; }
+</style>
+</head>
+<body>
+<h1>Memory Hierarchy — Access Pattern Simulator</h1>
+<div class="controls">
+<button class="sequential active" onclick="setPattern('sequential')">Sequential Scan</button>
+<button class="random" onclick="setPattern('random')">Random Access</button>
+<button class="hot" onclick="setPattern('hot')">Hot Working Set</button>
+</div>
+<div class="toggle-group">
+<label><input type="checkbox" id="showPrefetch" checked> Show prefetch</label>
+<label><input type="checkbox" id="numaToggle"> NUMA (remote +60 cyc)</label>
+<label><input type="checkbox" id="pageFaultToggle"> Page faults (every 5000th access)</label>
+</div>
+<div class="speed-control">
+<label>Speed:</label>
+<input type="range" id="speed" min="1" max="20" value="5" oninput="speedVal=+this.value;document.getElementById('speedLabel').textContent=this.value">
+<span id="speedLabel">5</span>
+</div>
+<div class="numa-indicator" id="numaIndicator">⚡ NUMA mode: DRAM accesses add +60 cycles (remote node)</div>
+<div class="legend"><span class="l-hit">Hit</span><span class="l-miss">Miss</span><span class="l-prefetch">Prefetch hit</span><span class="l-fault">Page fault</span></div>
+<div class="hierarchy" id="hierarchy"></div>
+<div class="stats" id="stats"></div>
+<div class="animation-area" id="animArea"><span style="color:#666;">Click a pattern to start the simulation...</span></div>
+<script>
+const LEVELS = [
+  { name: 'Registers', latency: 1, color: '#e17055', capacity: 'KB' },
+  { name: 'L1 Cache', latency: 4, color: '#4ecdc4', capacity: '32–64 KB' },
+  { name: 'L2 Cache', latency: 12, color: '#74b9ff', capacity: '256 KB–1 MB' },
+  { name: 'L3 Cache', latency: 40, color: '#a29bfe', capacity: '8–64 MB' },
+  { name: 'DRAM', latency: 100, color: '#ff6b6b', capacity: '8–128 GB' },
+  { name: 'SSD', latency: 100000, color: '#fdcb6e', capacity: '256 GB–8 TB' },
+  { name: 'HDD', latency: 10000000, color: '#636e72', capacity: '1–20 TB' }
+];
+const NUMA_EXTRA = 60;
+const PAGE_FAULT_CYCLES = 100000; // ~100 µs at 1 GHz
+let pattern = 'sequential';
+let speedVal = 5;
+let animTimer = null;
+let accessCount = 0;
+let hitCounts = [0,0,0,0,0,0,0];
+let totalCycles = 0;
+let prefetchHits = 0;
+let pageFaults = 0;
+let numaHits = 0;
+
+function setPattern(p) {
+  pattern = p;
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.querySelector('.' + p).classList.add('active');
+  resetSim();
+  startAnim();
+}
+
+function resetSim() {
+  if (animTimer) clearInterval(animTimer);
+  accessCount = 0;
+  hitCounts = [0,0,0,0,0,0,0];
+  totalCycles = 0;
+  prefetchHits = 0;
+  pageFaults = 0;
+  numaHits = 0;
+  document.getElementById('animArea').innerHTML = '';
+  updateStats();
+  document.querySelectorAll('.level').forEach(l => l.classList.remove('hit','miss','prefetch-hit','page-fault'));
+}
+
+function generateAccess() {
+  if (pattern === 'sequential') {
+    return { addr: accessCount % 16384, type: 'seq' };
+  } else if (pattern === 'random') {
+    return { addr: Math.floor(Math.random() * 16384), type: 'rand' };
+  } else {
+    if (Math.random() < 0.8) {
+      return { addr: Math.floor(Math.random() * 512), type: 'hot' };
+    } else {
+      return { addr: Math.floor(Math.random() * 16384), type: 'cold' };
+    }
+  }
+}
+
+function simulateAccess(access) {
+  let hitLevel = -1;
+  let isPrefetch = false;
+  let isPageFault = false;
+  let isNumaRemote = false;
+  const showPref = document.getElementById('showPrefetch').checked;
+  const numaOn = document.getElementById('numaToggle').checked;
+  const pfOn = document.getElementById('pageFaultToggle').checked;
+
+  // Page fault check (every 5000th access)
+  if (pfOn && (accessCount + 1) % 5000 === 0) {
+    isPageFault = true;
+    hitLevel = 4; // resolves at DRAM level
+  } else if (pattern === 'sequential') {
+    if (showPref) {
+      const r = Math.random();
+      if (r < 0.5) { hitLevel = 1; isPrefetch = true; }
+      else if (r < 0.8) { hitLevel = 2; }
+      else if (r < 0.95) { hitLevel = 3; }
+      else { hitLevel = 4; }
+    } else {
+      const r = Math.random();
+      if (r < 0.03) { hitLevel = 1; }
+      else if (r < 0.13) { hitLevel = 2; }
+      else if (r < 0.33) { hitLevel = 3; }
+      else { hitLevel = 4; }
+    }
+  } else if (pattern === 'random') {
+    const r = Math.random();
+    if (r < 0.01) { hitLevel = 1; }
+    else if (r < 0.06) { hitLevel = 2; }
+    else if (r < 0.21) { hitLevel = 3; }
+    else { hitLevel = 4; }
+  } else {
+    if (access.type === 'hot') {
+      const r = Math.random();
+      if (r < 0.9) { hitLevel = 1; }
+      else if (r < 0.97) { hitLevel = 2; }
+      else { hitLevel = 3; }
+    } else {
+      const r = Math.random();
+      if (r < 0.05) { hitLevel = 1; }
+      else if (r < 0.25) { hitLevel = 2; }
+      else if (r < 0.75) { hitLevel = 3; }
+      else { hitLevel = 4; }
+    }
+  }
+
+  // NUMA: if hitting DRAM and NUMA is on, add extra latency
+  if (numaOn && hitLevel === 4 && !isPageFault) {
+    isNumaRemote = true;
+  }
+
+  return { hitLevel, isPrefetch, isPageFault, isNumaRemote };
+}
+
+function startAnim() {
+  if (animTimer) clearInterval(animTimer);
+  const interval = Math.max(30, 300 - speedVal * 25);
+  animTimer = setInterval(() => {
+    const access = generateAccess();
+    const result = simulateAccess(access);
+    accessCount++;
+    hitCounts[result.hitLevel]++;
+
+    // Calculate cycles for this access
+    let cycles = LEVELS[result.hitLevel].latency;
+    if (result.isPageFault) {
+      cycles = PAGE_FAULT_CYCLES;
+      pageFaults++;
+    } else if (result.isNumaRemote) {
+      cycles += NUMA_EXTRA;
+      numaHits++;
+    }
+    totalCycles += cycles;
+    if (result.isPrefetch) prefetchHits++;
+
+    // Update hierarchy visualization
+    const levels = document.querySelectorAll('.level');
+    levels.forEach((l, i) => {
+      l.classList.remove('hit', 'miss', 'prefetch-hit', 'page-fault');
+      if (result.isPageFault && i === 4) l.classList.add('page-fault');
+      else if (i === result.hitLevel) {
+        if (result.isPrefetch) l.classList.add('prefetch-hit');
+        else l.classList.add('hit');
+      } else if (i < result.hitLevel) l.classList.add('miss');
+    });
+
+    // Update animation area
+    const area = document.getElementById('animArea');
+    let cls, label;
+    if (result.isPageFault) { cls = 'page-fault'; label = 'PF!'; }
+    else if (result.isNumaRemote) { cls = 'numa-remote'; label = 'N' + (result.hitLevel + 1); }
+    else if (result.isPrefetch) { cls = 'prefetch'; label = 'PF' + (result.hitLevel + 1); }
+    else { cls = 'hit-l' + (result.hitLevel + 1); label = 'H' + (result.hitLevel + 1); }
+    const span = document.createElement('span');
+    span.className = 'access ' + cls;
+    span.textContent = label;
+    area.appendChild(span);
+    if (area.children.length > 50) area.removeChild(area.firstChild);
+
+    // Update NUMA indicator
+    const numaInd = document.getElementById('numaIndicator');
+    if (document.getElementById('numaToggle').checked) numaInd.classList.add('visible');
+    else numaInd.classList.remove('visible');
+
+    updateStats();
+  }, interval);
+}
+
+function updateStats() {
+  const total = accessCount || 1;
+  const avgCycles = totalCycles / total;
+  const l1Rate = (hitCounts[1] / total * 100).toFixed(1);
+  const l2Rate = (hitCounts[2] / total * 100).toFixed(1);
+  const l3Rate = (hitCounts[3] / total * 100).toFixed(1);
+  const dramRate = (hitCounts[4] / total * 100).toFixed(1);
+
+  const statsEl = document.getElementById('stats');
+  let extraStats = '';
+  if (prefetchHits > 0) extraStats += `<div class="stat-card"><div class="label">Prefetch Hits</div><div class="value good">${prefetchHits}</div></div>`;
+  if (pageFaults > 0) extraStats += `<div class="stat-card"><div class="label">Page Faults</div><div class="value warn">${pageFaults}</div></div>`;
+  if (numaHits > 0) extraStats += `<div class="stat-card"><div class="label">NUMA Remote</div><div class="value neutral">${numaHits}</div></div>`;
+
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="label">Avg Access Time</div><div class="value ${avgCycles < 20 ? 'good' : avgCycles < 50 ? 'neutral' : 'bad'}">${avgCycles.toFixed(1)} cyc</div></div>
+    <div class="stat-card"><div class="label">L1 Hit Rate</div><div class="value ${l1Rate > 50 ? 'good' : l1Rate > 10 ? 'neutral' : 'bad'}">${l1Rate}%</div></div>
+    <div class="stat-card"><div class="label">L2 Hit Rate</div><div class="value">${l2Rate}%</div></div>
+    <div class="stat-card"><div class="label">L3 Hit Rate</div><div class="value">${l3Rate}%</div></div>
+    <div class="stat-card"><div class="label">DRAM Miss Rate</div><div class="value ${dramRate > 50 ? 'bad' : 'neutral'}">${dramRate}%</div></div>
+    <div class="stat-card"><div class="label">Total Accesses</div><div class="value neutral">${accessCount}</div></div>
+    ${extraStats}
+  `;
+
+  // Update bars
+  const levels = document.querySelectorAll('.level');
+  levels.forEach((l, i) => {
+    if (i >= 1 && i <= 4) {
+      const rate = hitCounts[i] / total * 100;
+      const bar = l.querySelector('.bar');
+      if (bar) bar.style.width = Math.min(rate, 100) + '%';
+      const hitsEl = l.querySelector('.hits');
+      if (hitsEl) hitsEl.textContent = rate.toFixed(1) + '%';
+    }
+  });
+}
+
+function buildHierarchy() {
+  const el = document.getElementById('hierarchy');
+  el.innerHTML = LEVELS.map((lv, i) => `
+    <div class="level" id="level-${i}">
+      <span class="name">${lv.name}</span>
+      <div class="bar-container"><div class="bar" style="width:0%;background:${lv.color};"></div></div>
+      <span class="latency">${lv.latency.toLocaleString()} cyc</span>
+      <span class="hits">—</span>
+    </div>
+  `).join('');
+}
+
+buildHierarchy();
+</script>
+</body>
+</html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Memory Hierarchy Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s; }
+button.sequential { background: #4ecdc4; color: #1a1a2e; }
+button.random { background: #ff6b6b; color: #fff; }
+button.hot { background: #ffd93d; color: #1a1a2e; }
+button.active { transform: scale(1.05); box-shadow: 0 0 12px rgba(255,255,255,0.3); }
+button:hover { opacity: 0.85; }
+.hierarchy { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.level { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; background: #16213e; transition: all 0.3s; position: relative; }
+.level.hit { background: #0f3460; box-shadow: 0 0 8px rgba(78,205,196,0.4); }
+.level.miss { background: #3d1a1a; box-shadow: 0 0 8px rgba(255,107,107,0.4); }
+.level .name { width: 100px; font-weight: 600; font-size: 0.85em; }
+.level .bar-container { flex: 1; height: 20px; background: #0f0f23; border-radius: 4px; overflow: hidden; position: relative; }
+.level .bar { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.level .latency { width: 120px; text-align: right; font-size: 0.8em; color: #aaa; }
+.level .hits { width: 60px; text-align: right; font-size: 0.8em; font-weight: 700; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #16213e; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-card .label { font-size: 0.75em; color: #888; margin-bottom: 4px; }
+.stat-card .value { font-size: 1.4em; font-weight: 700; }
+.stat-card .value.good { color: #4ecdc4; }
+.stat-card .value.bad { color: #ff6b6b; }
+.stat-card .value.neutral { color: #ffd93d; }
+.legend { display: flex; gap: 16px; margin-bottom: 12px; font-size: 0.8em; color: #888; }
+.legend span::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+.legend .l-hit::before { background: #4ecdc4; }
+.legend .l-miss::before { background: #ff6b6b; }
+.animation-area { background: #0f0f23; border-radius: 8px; padding: 16px; min-height: 60px; margin-bottom: 12px; font-family: monospace; font-size: 0.85em; }
+.animation-area .access { display: inline-block; margin: 2px 4px; padding: 3px 8px; border-radius: 4px; font-size: 0.9em; }
+.access.hit-l1 { background: #0f3460; color: #4ecdc4; }
+.access.hit-l2 { background: #1a2a4a; color: #74b9ff; }
+.access.hit-l3 { background: #2a1a4a; color: #a29bfe; }
+.access.hit-dram { background: #3d1a1a; color: #ff6b6b; }
+.access.prefetch { background: #1a3a2a; color: #55efc4; border: 1px dashed #55efc4; }
+.speed-control { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 0.85em; }
+.speed-control input { width: 100px; }
+</style>
+</head>
+<body>
+<h1>Memory Hierarchy — Access Pattern Simulator</h1>
+<div class="controls">
+<button class="sequential active" onclick="setPattern('sequential')">Sequential Scan</button>
+<button class="random" onclick="setPattern('random')">Random Access</button>
+<button class="hot" onclick="setPattern('hot')">Hot Working Set</button>
+</div>
+<div class="speed-control">
+<label>Speed:</label>
+<input type="range" id="speed" min="1" max="20" value="5" oninput="speedVal=+this.value">
+<span id="speedLabel">5</span>
+<label style="margin-left:16px;"><input type="checkbox" id="showPrefetch" checked> Show prefetch</label>
+</div>
+<div class="legend"><span class="l-hit">Hit</span><span class="l-miss">Miss</span></div>
+<div class="hierarchy" id="hierarchy"></div>
+<div class="stats" id="stats"></div>
+<div class="animation-area" id="animArea"><span style="color:#666;">Click a pattern to start the simulation...</span></div>
+<script>
+const LEVELS = [
+  { name: 'Registers', latency: 1, color: '#e17055', capacity: 'KB' },
+  { name: 'L1 Cache', latency: 4, color: '#4ecdc4', capacity: '32–64 KB' },
+  { name: 'L2 Cache', latency: 12, color: '#74b9ff', capacity: '256 KB–1 MB' },
+  { name: 'L3 Cache', latency: 40, color: '#a29bfe', capacity: '8–64 MB' },
+  { name: 'DRAM', latency: 100, color: '#ff6b6b', capacity: '8–128 GB' },
+  { name: 'SSD', latency: 100000, color: '#fdcb6e', capacity: '256 GB–8 TB' },
+  { name: 'HDD', latency: 10000000, color: '#636e72', capacity: '1–20 TB' }
+];
+let pattern = 'sequential';
+let speedVal = 5;
+let animTimer = null;
+let accessCount = 0;
+let hitCounts = [0,0,0,0,0,0,0];
+let totalCycles = 0;
+let prefetchHits = 0;
+
+function setPattern(p) {
+  pattern = p;
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.querySelector('.' + p).classList.add('active');
+  resetSim();
+  startAnim();
+}
+
+function resetSim() {
+  if (animTimer) clearInterval(animTimer);
+  accessCount = 0;
+  hitCounts = [0,0,0,0,0,0,0];
+  totalCycles = 0;
+  prefetchHits = 0;
+  document.getElementById('animArea').innerHTML = '';
+  updateStats();
+  document.querySelectorAll('.level').forEach(l => { l.classList.remove('hit','miss'); });
+}
+
+function generateAccess() {
+  if (pattern === 'sequential') {
+    return { addr: accessCount % 16384, type: 'seq' };
+  } else if (pattern === 'random') {
+    return { addr: Math.floor(Math.random() * 16384), type: 'rand' };
+  } else {
+    // Hot working set: 80% of accesses hit within first 512 lines (L1 sized)
+    if (Math.random() < 0.8) {
+      return { addr: Math.floor(Math.random() * 512), type: 'hot' };
+    } else {
+      return { addr: Math.floor(Math.random() * 16384), type: 'cold' };
+    }
+  }
+}
+
+function simulateAccess(access) {
+  // Simplified cache simulation
+  let hitLevel = -1;
+  let isPrefetch = false;
+  const showPref = document.getElementById('showPrefetch').checked;
+
+  if (pattern === 'sequential') {
+    // Sequential: L1 hit rate ~3% (512/16384), but prefetch helps
+    // Without prefetch: mostly L2/DRAM misses
+    // With prefetch: L1 hit rate improves to ~50%
+    if (showPref) {
+      if (Math.random() < 0.5) { hitLevel = 1; isPrefetch = true; }
+      else if (Math.random() < 0.3) { hitLevel = 2; }
+      else if (Math.random() < 0.15) { hitLevel = 3; }
+      else { hitLevel = 4; }
+    } else {
+      if (Math.random() < 0.03) { hitLevel = 1; }
+      else if (Math.random() < 0.1) { hitLevel = 2; }
+      else if (Math.random() < 0.2) { hitLevel = 3; }
+      else { hitLevel = 4; }
+    }
+  } else if (pattern === 'random') {
+    // Random: very low hit rates
+    if (Math.random() < 0.01) { hitLevel = 1; }
+    else if (Math.random() < 0.05) { hitLevel = 2; }
+    else if (Math.random() < 0.15) { hitLevel = 3; }
+    else { hitLevel = 4; }
+  } else {
+    // Hot working set: high L1 hit rate
+    if (access.type === 'hot') {
+      if (Math.random() < 0.9) { hitLevel = 1; }
+      else if (Math.random() < 0.5) { hitLevel = 2; }
+      else { hitLevel = 3; }
+    } else {
+      if (Math.random() < 0.05) { hitLevel = 1; }
+      else if (Math.random() < 0.2) { hitLevel = 2; }
+      else if (Math.random() < 0.5) { hitLevel = 3; }
+      else { hitLevel = 4; }
+    }
+  }
+  return { hitLevel, isPrefetch };
+}
+
+function startAnim() {
+  if (animTimer) clearInterval(animTimer);
+  const interval = Math.max(30, 300 - speedVal * 25);
+  animTimer = setInterval(() => {
+    const access = generateAccess();
+    const result = simulateAccess(access);
+    accessCount++;
+    hitCounts[result.hitLevel]++;
+    totalCycles += LEVELS[result.hitLevel].latency;
+    if (result.isPrefetch) prefetchHits++;
+
+    // Update hierarchy visualization
+    const levels = document.querySelectorAll('.level');
+    levels.forEach((l, i) => {
+      l.classList.remove('hit', 'miss');
+      if (i === result.hitLevel) l.classList.add('hit');
+      else if (i < result.hitLevel) l.classList.add('miss');
+    });
+
+    // Update animation area
+    const area = document.getElementById('animArea');
+    const cls = result.isPrefetch ? 'prefetch' : 'hit-l' + (result.hitLevel + 1);
+    const label = result.isPrefetch ? 'PF' : 'H' + (result.hitLevel + 1);
+    const span = document.createElement('span');
+    span.className = 'access ' + cls;
+    span.textContent = label;
+    area.appendChild(span);
+    if (area.children.length > 40) area.removeChild(area.firstChild);
+
+    updateStats();
+  }, interval);
+}
+
+function updateStats() {
+  const total = accessCount || 1;
+  const avgCycles = totalCycles / total;
+  const l1Rate = (hitCounts[1] / total * 100).toFixed(1);
+  const l2Rate = (hitCounts[2] / total * 100).toFixed(1);
+  const l3Rate = (hitCounts[3] / total * 100).toFixed(1);
+  const dramRate = (hitCounts[4] / total * 100).toFixed(1);
+
+  const statsEl = document.getElementById('stats');
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="label">Avg Access Time</div><div class="value ${avgCycles < 20 ? 'good' : avgCycles < 50 ? 'neutral' : 'bad'}">${avgCycles.toFixed(1)} cyc</div></div>
+    <div class="stat-card"><div class="label">L1 Hit Rate</div><div class="value ${l1Rate > 50 ? 'good' : l1Rate > 10 ? 'neutral' : 'bad'}">${l1Rate}%</div></div>
+    <div class="stat-card"><div class="label">L2 Hit Rate</div><div class="value">${l2Rate}%</div></div>
+    <div class="stat-card"><div class="label">L3 Hit Rate</div><div class="value">${l3Rate}%</div></div>
+    <div class="stat-card"><div class="label">DRAM Miss Rate</div><div class="value ${dramRate > 50 ? 'bad' : 'neutral'}">${dramRate}%</div></div>
+    <div class="stat-card"><div class="label">Total Accesses</div><div class="value neutral">${accessCount}</div></div>
+  `;
+
+  // Update bars
+  const levels = document.querySelectorAll('.level');
+  levels.forEach((l, i) => {
+    if (i >= 1 && i <= 4) {
+      const rate = hitCounts[i] / total * 100;
+      const bar = l.querySelector('.bar');
+      if (bar) bar.style.width = Math.min(rate, 100) + '%';
+      const hitsEl = l.querySelector('.hits');
+      if (hitsEl) hitsEl.textContent = rate.toFixed(1) + '%';
+    }
+  });
+}
+
+function buildHierarchy() {
+  const el = document.getElementById('hierarchy');
+  el.innerHTML = LEVELS.map((lv, i) => `
+    <div class="level" id="level-${i}">
+      <span class="name">${lv.name}</span>
+      <div class="bar-container"><div class="bar" style="width:0%;background:${lv.color};"></div></div>
+      <span class="latency">${lv.latency.toLocaleString()} cyc</span>
+      <span class="hits">—</span>
+    </div>
+  `).join('');
+}
+
+buildHierarchy();
+</script>
+</body>
+</html>

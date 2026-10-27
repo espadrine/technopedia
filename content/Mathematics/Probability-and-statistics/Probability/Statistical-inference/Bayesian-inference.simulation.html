@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bayesian Coin-Flipping: Prior → Posterior</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 12px; color: #fff; }
+.container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 900px; margin: 0 auto; }
+.panel { background: #16213e; border-radius: 10px; padding: 16px; flex: 1; min-width: 280px; }
+.panel h2 { font-size: 1em; color: #a0c4ff; margin-bottom: 10px; }
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+button { padding: 10px 18px; border: none; border-radius: 6px; font-size: 1em; cursor: pointer; font-weight: 600; }
+.btn-heads { background: #4caf50; color: #fff; }
+.btn-tails { background: #f44336; color: #fff; }
+.btn-reset { background: #555; color: #fff; }
+button:hover { opacity: 0.85; }
+.stats { margin-top: 12px; font-size: 0.9em; line-height: 1.7; }
+.stats span { color: #ffd54f; font-weight: 600; }
+canvas { width: 100%; height: auto; display: block; margin-top: 8px; }
+.prior-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.prior-controls label { font-size: 0.85em; }
+.prior-controls input { width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #444; background: #0f3460; color: #fff; }
+.legend { display: flex; gap: 16px; margin-top: 8px; font-size: 0.8em; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>Bayesian Inference: Coin-Flipping Demo</h1>
+<div class="container">
+<div class="panel">
+<h2>Controls</h2>
+<div class="prior-controls">
+<label>Prior α: <input type="number" id="alpha" value="2" min="0.1" step="0.5"></label>
+<label>Prior β: <input type="number" id="beta" value="2" min="0.1" step="0.5"></label>
+</div>
+<div class="controls">
+<button class="btn-heads" onclick="flip(1)">🪙 Heads</button>
+<button class="btn-tails" onclick="flip(0)">🪙 Tails</button>
+<button class="btn-reset" onclick="reset()">Reset</button>
+</div>
+<div class="stats" id="stats"></div>
+</div>
+<div class="panel">
+<h2>Densities</h2>
+<canvas id="chart" width="400" height="280"></canvas>
+<div class="legend">
+<div class="legend-item"><div class="legend-swatch" style="background:#4488cc"></div>Prior</div>
+<div class="legend-item"><div class="legend-swatch" style="background:#cc4444"></div>Likelihood</div>
+<div class="legend-item"><div class="legend-swatch" style="background:#44aa44"></div>Posterior</div>
+</div>
+</div>
+</div>
+<script>
+let alpha = 2, beta = 2, heads = 0, tails = 0;
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+
+function betaPDF(x, a, b) {
+  if (x <= 0 || x >= 1) return 0;
+  // Use log-gamma via Stirling for stability
+  return Math.exp(logBetaPDF(x, a, b));
+}
+function logBetaPDF(x, a, b) {
+  return (a-1)*Math.log(x) + (b-1)*Math.log(1-x) - logBeta(a, b);
+}
+function logBeta(a, b) {
+  return logGamma(a) + logGamma(b) - logGamma(a+b);
+}
+function logGamma(n) {
+  // Lanczos approximation
+  const g = 7;
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+             771.32342877765313, -176.61502916214059, 12.507343278686905,
+             -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (n < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * n)) - logGamma(1 - n);
+  n -= 1;
+  let x = c[0];
+  for (let i = 1; i < g + 2; i++) x += c[i] / (n + i);
+  const t = n + g + 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (n + 0.5) * Math.log(t) - t + Math.log(x);
+}
+
+function betaQuantile(a, b, p) {
+  // Inverse CDF via bisection
+  let lo = 0.001, hi = 0.999;
+  for (let i = 0; i < 80; i++) {
+    const mid = (lo + hi) / 2;
+    if (betaCDF(mid, a, b) < p) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+function betaCDF(x, a, b) {
+  // Numerical integration
+  const n = 500;
+  const dx = x / n;
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    const xi = (i + 0.5) * dx;
+    sum += betaPDF(xi, a, b) * dx;
+  }
+  return sum;
+}
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  const pad = { l: 40, r: 20, t: 20, b: 35 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  ctx.clearRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, H - pad.b);
+  ctx.lineTo(W - pad.r, H - pad.b);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, H - pad.b);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 10; i++) {
+    const x = pad.l + (i / 10) * pw;
+    ctx.fillText((i / 10).toFixed(1), x, H - pad.b + 15);
+  }
+  ctx.fillText('θ (probability of heads)', pad.l + pw / 2, H - 5);
+
+  const a0 = alpha, b0 = beta;
+  const a1 = alpha + heads, b1 = beta + tails;
+  const n = heads + tails;
+
+  // Compute max density for scaling
+  let maxD = 0;
+  for (let i = 0; i <= 200; i++) {
+    const x = 0.005 + (i / 200) * 0.99;
+    maxD = Math.max(maxD, betaPDF(x, a0, b0), betaPDF(x, a1, b1));
+    if (n > 0) {
+      // Likelihood ∝ θ^heads (1-θ)^tails
+      const lk = Math.exp(heads * Math.log(x) + tails * Math.log(1 - x));
+      maxD = Math.max(maxD, lk);
+    }
+  }
+  // Scale likelihood to be comparable
+  const lkScale = maxD > 0 ? 1 : 1;
+
+  function plot(fn, color, width) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    for (let i = 0; i <= 200; i++) {
+      const x = 0.005 + (i / 200) * 0.99;
+      const y = fn(x);
+      const px = pad.l + x * pw;
+      const py = H - pad.b - (y / maxD) * ph;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Plot prior
+  plot(x => betaPDF(x, a0, b0), '#4488cc', 2);
+  // Plot likelihood (scaled)
+  if (n > 0) {
+    plot(x => Math.exp(heads * Math.log(x) + tails * Math.log(1 - x)), '#cc4444', 2);
+  }
+  // Plot posterior
+  plot(x => betaPDF(x, a1, b1), '#44aa44', 2.5);
+
+  // Update stats
+  const mean = a1 / (a1 + b1);
+  const q025 = betaQuantile(a1, b1, 0.025);
+  const q975 = betaQuantile(a1, b1, 0.975);
+  document.getElementById('stats').innerHTML =
+    `Flips: <span>${n}</span> (H: ${heads}, T: ${tails})<br>` +
+    `Prior: Beta(${a0}, ${b0})<br>` +
+    `Posterior: Beta(${a1}, ${b1})<br>` +
+    `Posterior mean: <span>${mean.toFixed(3)}</span><br>` +
+    `95% CrI: <span>[${q025.toFixed(3)}, ${q975.toFixed(3)}]</span>`;
+}
+
+function flip(result) {
+  if (result === 1) heads++; else tails++;
+  draw();
+}
+function reset() {
+  heads = 0; tails = 0;
+  alpha = parseFloat(document.getElementById('alpha').value);
+  beta = parseFloat(document.getElementById('beta').value);
+  draw();
+}
+document.getElementById('alpha').addEventListener('change', reset);
+document.getElementById('beta').addEventListener('change', reset);
+draw();
+</script>
+</body>
+</html>

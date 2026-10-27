@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Transactions Simulation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 16px; }
+h1 { font-size: 1.2em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: bold; }
+#stepBtn { background: #4a90d9; color: white; }
+#stepBtn:hover { background: #357abd; }
+#resetBtn { background: #555; color: white; }
+#resetBtn:hover { background: #777; }
+.mode-toggle { display: flex; gap: 0; border-radius: 6px; overflow: hidden; }
+.mode-toggle button { border-radius: 0; }
+.mode-toggle button.active { background: #5cb85c; color: white; }
+.mode-toggle button:not(.active) { background: #333; color: #aaa; }
+.schedule { display: grid; grid-template-columns: 60px 1fr 1fr; gap: 4px; margin-bottom: 16px; }
+.schedule-header { font-weight: bold; font-size: 0.85em; padding: 6px; text-align: center; }
+.t1-header { background: #2c5f8a; border-radius: 4px 4px 0 0; }
+.t2-header { background: #c07d1a; border-radius: 4px 4px 0 0; }
+.step-label { font-size: 0.8em; color: #888; padding: 4px; display: flex; align-items: center; justify-content: center; }
+.op-cell { padding: 6px 8px; font-size: 0.82em; border-radius: 4px; background: #252540; min-height: 32px; display: flex; align-items: center; }
+.op-cell.active { background: #3a3a6a; outline: 2px solid #4a90d9; }
+.op-cell .read { color: #5cb85c; }
+.op-cell .write { color: #f0ad4e; }
+.op-cell .commit { color: #5cb85c; font-weight: bold; }
+.op-cell .abort { color: #d9534f; font-weight: bold; }
+.data-panel { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.data-item { background: #252540; border-radius: 8px; padding: 12px; min-width: 140px; flex: 1; }
+.data-item h3 { font-size: 0.85em; color: #aaa; margin-bottom: 6px; }
+.data-item .value { font-size: 1.4em; font-weight: bold; color: #fff; }
+.data-item .versions { margin-top: 8px; }
+.version-tag { display: inline-block; padding: 2px 6px; margin: 2px; border-radius: 3px; font-size: 0.7em; }
+.version-tag.live { background: #5cb85c; color: white; }
+.version-tag.dead { background: #555; color: #999; text-decoration: line-through; }
+.version-tag.pending { background: #f0ad4e; color: white; }
+.lock-panel { margin-bottom: 16px; }
+.lock-panel h3 { font-size: 0.85em; color: #aaa; margin-bottom: 8px; }
+.lock-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lock-cell { padding: 8px; border-radius: 4px; text-align: center; font-size: 0.8em; background: #252540; }
+.lock-cell .lock-type { font-weight: bold; }
+.lock-cell .lock-type.S { color: #5cb85c; }
+.lock-cell .lock-type.X { color: #d9534f; }
+.lock-cell .lock-type.none { color: #555; }
+.status-panel { background: #252540; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.status-panel h3 { font-size: 0.85em; color: #aaa; margin-bottom: 6px; }
+.status-panel p { font-size: 0.9em; line-height: 1.5; }
+.status-panel .highlight { color: #f0ad4e; font-weight: bold; }
+.status-panel .error { color: #d9534f; font-weight: bold; }
+.status-panel .success { color: #5cb85c; font-weight: bold; }
+.mvcc-view { display: none; }
+.lock-view { display: none; }
+.mode-lock .lock-view { display: block; }
+.mode-mvcc .mvcc-view { display: block; }
+</style>
+</head>
+<body class="mode-lock">
+<h1>Concurrent Transactions: Locking vs MVCC</h1>
+<div class="controls">
+  <button id="stepBtn">Step ▶</button>
+  <button id="resetBtn">Reset</button>
+  <div class="mode-toggle">
+    <button id="lockMode" class="active">Locking (2PL)</button>
+    <button id="mvccMode">MVCC</button>
+  </div>
+</div>
+
+<div class="schedule" id="schedule"></div>
+
+<div class="data-panel" id="dataPanel"></div>
+
+<div class="lock-panel lock-view" id="lockPanel">
+  <h3>Lock Table</h3>
+  <div class="lock-grid" id="lockGrid"></div>
+</div>
+
+<div class="lock-panel mvcc-view" id="mvccPanel">
+  <h3>Version Chains</h3>
+  <div id="versionChains"></div>
+</div>
+
+<div class="status-panel">
+  <h3>Status</h3>
+  <p id="statusText">Press "Step" to begin. T1 transfers $100 from A to B. T2 transfers $50 from B to C.</p>
+</div>
+
+<script>
+const steps = [
+  { t1: "BEGIN", t2: "", status: "T1 begins. Reads A (value=1000).", data: {A:1000, B:500, C:200}, locks: {A:{t1:'S'},B:{},C:{}}, versions: {A:[{v:1000,tx:1,state:'live'}],B:[{v:500,tx:0,state:'live'}],C:[{v:200,tx:0,state:'live'}]} },
+  { t1: "R(A)=1000", t2: "BEGIN", status: "T1 reads A=1000 (holds S-lock on A). T2 begins.", data: {A:1000, B:500, C:200}, locks: {A:{t1:'S'},B:{},C:{}}, versions: {A:[{v:1000,tx:1,state:'live'}],B:[{v:500,tx:0,state:'live'}],C:[{v:200,tx:0,state:'live'}]} },
+  { t1: "W(A)=900", t2: "R(B)=500", status: "T1 upgrades A to X-lock, writes A=900. T2 reads B=500 (holds S-lock on B).", data: {A:900, B:500, C:200}, locks: {A:{t1:'X'},B:{t2:'S'},C:{}}, versions: {A:[{v:1000,tx:0,state:'dead'},{v:900,tx:1,state:'live'}],B:[{v:500,tx:2,state:'live'}],C:[{v:200,tx:0,state:'live'}]} },
+  { t1: "R(B)=500", t2: "W(B)=450", status: "T1 reads B=500 (acquires S-lock on B). T2 upgrades B to X-lock, writes B=450.", data: {A:900, B:450, C:200}, locks: {A:{t1:'X'},B:{t2:'X'},C:{}}, versions: {A:[{v:1000,tx:0,state:'dead'},{v:900,tx:1,state:'live'}],B:[{v:500,tx:0,state:'dead'},{v:450,tx:2,state:'live'}],C:[{v:200,tx:0,state:'live'}]} },
+  { t1: "W(B)=600", t2: "R(C)=200", status: "T1 writes B=600 (upgrades B to X-lock). T2 reads C=200 (acquires S-lock on C).", data: {A:900, B:600, C:200}, locks: {A:{t1:'X'},B:{t1:'X'},C:{t2:'S'}}, versions: {A:[{v:1000,tx:0,state:'dead'},{v:900,tx:1,state:'live'}],B:[{v:500,tx:0,state:'dead'},{v:450,tx:2,state:'dead'},{v:600,tx:1,state:'live'}],C:[{v:200,tx:3,state:'live'}]} },
+  { t1: "COMMIT", t2: "W(C)=250", status: "T1 commits (releases all locks). T2 writes C=250 (upgrades C to X-lock).", data: {A:900, B:600, C:250}, locks: {A:{},B:{},C:{t2:'X'}}, versions: {A:[{v:1000,tx:0,state:'dead'},{v:900,tx:1,state:'live'}],B:[{v:500,tx:0,state:'dead'},{v:450,tx:2,state:'dead'},{v:600,tx:1,state:'live'}],C:[{v:200,tx:0,state:'dead'},{v:250,tx:3,state:'live'}]} },
+  { t1: "TERMINATED", t2: "COMMIT", status: "T2 commits (releases all locks). Both transactions complete. Final: A=900, B=600, C=250.", data: {A:900, B:600, C:250}, locks: {A:{},B:{},C:{}}, versions: {A:[{v:1000,tx:0,state:'dead'},{v:900,tx:1,state:'live'}],B:[{v:500,tx:0,state:'dead'},{v:450,tx:2,state:'dead'},{v:600,tx:1,state:'live'}],C:[{v:200,tx:0,state:'dead'},{v:250,tx:3,state:'live'}]} }
+];
+
+let currentStep = -1;
+let mode = 'lock';
+
+function render() {
+  // Schedule
+  const sched = document.getElementById('schedule');
+  let html = '<div class="schedule-header"></div><div class="schedule-header t1-header">T1</div><div class="schedule-header t2-header">T2</div>';
+  for (let i = 0; i < steps.length; i++) {
+    const active = i === currentStep ? ' active' : '';
+    html += '<div class="step-label">' + (i+1) + '</div>';
+    html += '<div class="op-cell' + active + '">' + formatOp(steps[i].t1) + '</div>';
+    html += '<div class="op-cell' + active + '">' + formatOp(steps[i].t2) + '</div>';
+  }
+  sched.innerHTML = html;
+
+  // Data
+  const dp = document.getElementById('dataPanel');
+  const s = currentStep >= 0 ? steps[currentStep] : steps[0];
+  let dhtml = '';
+  for (const key of ['A','B','C']) {
+    dhtml += '<div class="data-item"><h3>Account ' + key + '</h3><div class="value">' + s.data[key] + '</div>';
+    if (mode === 'mvcc') {
+      dhtml += '<div class="versions">';
+      for (const v of s.versions[key]) {
+        dhtml += '<span class="version-tag ' + v.state + '">v=' + v.v + ' (tx=' + v.tx + ')</span>';
+      }
+      dhtml += '</div>';
+    }
+    dhtml += '</div>';
+  }
+  dp.innerHTML = dhtml;
+
+  // Locks
+  if (mode === 'lock') {
+    const lg = document.getElementById('lockGrid');
+    let lhtml = '';
+    for (const item of ['A','B','C']) {
+      const lock = s.locks[item];
+      const holders = Object.entries(lock);
+      if (holders.length === 0) {
+        lhtml += '<div class="lock-cell"><span class="lock-type none">—</span><br>Item ' + item + '</div>';
+      } else {
+        for (const [tx, type] of holders) {
+          lhtml += '<div class="lock-cell"><span class="lock-type ' + type + '">' + type + '-lock</span><br>' + tx + ' → ' + item + '</div>';
+        }
+      }
+    }
+    lg.innerHTML = lhtml;
+  }
+
+  // MVCC versions
+  if (mode === 'mvcc') {
+    const vc = document.getElementById('versionChains');
+    let vhtml = '';
+    for (const key of ['A','B','C']) {
+      vhtml += '<div style="margin-bottom:8px;"><strong>Item ' + key + ':</strong> ';
+      for (const v of s.versions[key]) {
+        vhtml += '<span class="version-tag ' + v.state + '">v=' + v.v + ' (tx=' + v.tx + ')</span> ';
+      }
+      vhtml += '</div>';
+    }
+    vc.innerHTML = vhtml;
+  }
+
+  // Status
+  document.getElementById('statusText').innerHTML = currentStep >= 0 ? s.status : 'Press "Step" to begin. T1 transfers $100 from A to B. T2 transfers $50 from B to C.';
+}
+
+function formatOp(op) {
+  if (!op) return '';
+  if (op.startsWith('R(')) return '<span class="read">' + op + '</span>';
+  if (op.startsWith('W(')) return '<span class="write">' + op + '</span>';
+  if (op === 'COMMIT') return '<span class="commit">COMMIT</span>';
+  if (op === 'ABORT') return '<span class="abort">ABORT</span>';
+  return op;
+}
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    render();
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  currentStep = -1;
+  render();
+});
+
+document.getElementById('lockMode').addEventListener('click', () => {
+  mode = 'lock';
+  document.body.className = 'mode-lock';
+  document.getElementById('lockMode').classList.add('active');
+  document.getElementById('mvccMode').classList.remove('active');
+  render();
+});
+
+document.getElementById('mvccMode').addEventListener('click', () => {
+  mode = 'mvcc';
+  document.body.className = 'mode-mvcc';
+  document.getElementById('mvccMode').classList.add('active');
+  document.getElementById('lockMode').classList.remove('active');
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

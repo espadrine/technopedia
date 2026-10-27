@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Fourier partial sums</title>
+<style>
+  body { font-family: sans-serif; margin: 8px; background: #fff; }
+  #controls { margin-bottom: 6px; font-size: 13px; }
+  canvas { background: #fafafa; border: 1px solid #ccc; display: block; }
+  #legend { font-size: 12px; color: #444; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="controls">
+  Target function:
+  <select id="fn">
+    <option value="square">Square wave</option>
+    <option value="saw">Sawtooth</option>
+    <option value="tri">Triangle</option>
+    <option value="abs">|sin x|</option>
+  </select>
+  &nbsp; Terms N: <input type="range" id="N" min="1" max="60" value="5" style="width:160px">
+  <span id="Nv">5</span>
+</div>
+<canvas id="c" width="680" height="340"></canvas>
+<div id="legend">Blue: Fourier partial sum with N terms. Gray dashed: target function. The Gibbs overshoot near the square wave's jumps never disappears.</div>
+<script>
+(function () {
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var XMIN = -Math.PI, XMAX = Math.PI, YMIN = -1.6, YMAX = 1.6;
+
+  function sx(x) { return (x - XMIN) / (XMAX - XMIN) * W; }
+  function sy(y) { return H - (y - YMIN) / (YMAX - YMIN) * H; }
+
+  var targets = {
+    square: function (x) { return Math.sin(x) >= 0 ? 0.8 : -0.8; },
+    saw: function (x) { return x / Math.PI; },
+    tri: function (x) { return 2 / Math.PI * Math.asin(Math.sin(x)); },
+    abs: function (x) { return Math.abs(Math.sin(x)); }
+  };
+
+  // Precompute Fourier coefficients a_n, b_n for each target by trapezoid quadrature.
+  var M = 4000; // quadrature points
+  var cache = {};
+  function coeffs(name) {
+    if (cache[name]) return cache[name];
+    var f = targets[name], NMAX = 60;
+    var a = [], b = [];
+    for (var n = 0; n <= NMAX; n++) { a.push(0); b.push(0); }
+    for (var i = 0; i < M; i++) {
+      var x = XMIN + (i + 0.5) * (XMAX - XMIN) / M;
+      var fx = f(x);
+      for (var n = 1; n <= NMAX; n++) {
+        a[n] += fx * Math.cos(n * x);
+        b[n] += fx * Math.sin(n * x);
+      }
+      a[0] += fx;
+    }
+    var w = (XMAX - XMIN) / M / Math.PI;
+    for (var n = 0; n <= NMAX; n++) { a[n] *= w; b[n] *= w; }
+    a[0] /= 2;
+    cache[name] = { a: a, b: b };
+    return cache[name];
+  }
+
+  function partialSum(name, N, x) {
+    var c = coeffs(name), s = c.a[0];
+    for (var n = 1; n <= N; n++) {
+      s += c.a[n] * Math.cos(n * x) + c.b[n] * Math.sin(n * x);
+    }
+    return s;
+  }
+
+  function draw() {
+    var name = document.getElementById('fn').value;
+    var N = parseInt(document.getElementById('N').value, 10);
+    document.getElementById('Nv').textContent = N;
+    ctx.clearRect(0, 0, W, H);
+    // axes
+    ctx.strokeStyle = '#ddd';
+    ctx.beginPath();
+    ctx.moveTo(0, sy(0)); ctx.lineTo(W, sy(0));
+    ctx.moveTo(sx(0), 0); ctx.lineTo(sx(0), H);
+    ctx.stroke();
+    // target (dashed gray)
+    ctx.strokeStyle = '#999';
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    for (var i = 0; i <= 800; i++) {
+      var x = XMIN + i * (XMAX - XMIN) / 800;
+      var y = targets[name](x);
+      if (i === 0) ctx.moveTo(sx(x), sy(y)); else ctx.lineTo(sx(x), sy(y));
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // partial sum (blue)
+    ctx.strokeStyle = '#1a56c4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var i = 0; i <= 800; i++) {
+      var x = XMIN + i * (XMAX - XMIN) / 800;
+      var y = partialSum(name, N, x);
+      if (i === 0) ctx.moveTo(sx(x), sy(y)); else ctx.lineTo(sx(x), sy(y));
+    }
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    // labels
+    ctx.fillStyle = '#333';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('target (dashed) vs Fourier partial sum, N = ' + N, 10, 16);
+  }
+
+  document.getElementById('fn').addEventListener('change', draw);
+  document.getElementById('N').addEventListener('input', draw);
+  draw();
+})();
+</script>
+</body>
+</html>

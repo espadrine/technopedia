@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Distributions: CDF Explorer</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h2 { margin: 0 0 10px; font-size: 1.1em; }
+.controls { margin: 10px 0; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
+.controls label { font-size: 0.9em; }
+.controls input[type=range] { width: 120px; }
+.controls select { font-size: 0.9em; }
+canvas { border: 1px solid #ccc; background: #fff; display: block; margin: 10px 0; }
+.legend { font-size: 0.85em; margin: 5px 0; }
+.legend span { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: middle; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; max-width: 700px; }
+</style>
+</head>
+<body>
+<h2>Probability Distributions: CDF Explorer</h2>
+<div class="controls">
+<label>Type: <select id="distType">
+<option value="poisson">Poisson (atomic)</option>
+<option value="normal">Normal (continuous)</option>
+<option value="exponential">Exponential (continuous)</option>
+<option value="cantor">Cantor (singular)</option>
+<option value="mixed">Mixed (spike + exponential)</option>
+</select></label>
+<label id="paramLabel">λ = <span id="paramVal">3</span>
+<input type="range" id="param" min="0.5" max="10" step="0.1" value="3">
+</label>
+<label id="param2Label" style="display:none">p = <span id="param2Val">0.3</span>
+<input type="range" id="param2" min="0.05" max="0.9" step="0.05" value="0.3">
+</label>
+</div>
+<canvas id="plot" width="700" height="350"></canvas>
+<div class="legend" id="legend"></div>
+<div class="info" id="info"></div>
+<script>
+var canvas = document.getElementById('plot');
+var ctx = canvas.getContext('2d');
+var W = canvas.width, H = canvas.height;
+var pad = {l:50, r:20, t:20, b:40};
+var pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+function poissonPMF(k, lam) {
+  if (k < 0) return 0;
+  var logP = -lam + k * Math.log(lam);
+  for (var i = 2; i <= k; i++) logP -= Math.log(i);
+  return Math.exp(logP);
+}
+
+function poissonCDF(x, lam) {
+  if (x < 0) return 0;
+  var n = Math.floor(x);
+  var cdf = 0;
+  for (var k = 0; k <= n; k++) cdf += poissonPMF(k, lam);
+  return Math.min(cdf, 1);
+}
+
+function normalCDF(x, mu, sigma) {
+  var z = (x - mu) / sigma;
+  return 0.5 * (1 + erf(z / Math.sqrt(2)));
+}
+
+function erf(x) {
+  var a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  var sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  var t = 1/(1+p*x);
+  var y = 1 - (((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t)*Math.exp(-x*x);
+  return sign*y;
+}
+
+function expCDF(x, lam) {
+  if (x < 0) return 0;
+  return 1 - Math.exp(-lam * x);
+}
+
+function cantorCDF(x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  var result = 0, power = 0.5;
+  var n = x;
+  for (var i = 0; i < 30; i++) {
+    n *= 3;
+    var digit = Math.floor(n);
+    n -= digit;
+    if (digit === 0) { result += 0; }
+    else if (digit === 2) { result += power; }
+    else { return result + power * n; }
+    power /= 2;
+  }
+  return result;
+}
+
+function mixedCDF(x, p, lam) {
+  if (x < 0) return 0;
+  if (x === 0) return p;
+  return p + (1-p) * (1 - Math.exp(-lam * x));
+}
+
+function getCDF(x) {
+  var type = document.getElementById('distType').value;
+  var p = parseFloat(document.getElementById('param').value);
+  var p2 = parseFloat(document.getElementById('param2').value);
+  switch(type) {
+    case 'poisson': return poissonCDF(x, p);
+    case 'normal': return normalCDF(x, 0, 1);
+    case 'exponential': return expCDF(x, p);
+    case 'cantor': return cantorCDF(x);
+    case 'mixed': return mixedCDF(x, p2, 2);
+  }
+}
+
+function draw() {
+  var type = document.getElementById('distType').value;
+  var p = parseFloat(document.getElementById('param').value);
+  var p2 = parseFloat(document.getElementById('param2').value);
+
+  // Determine x range
+  var xMin, xMax;
+  if (type === 'poisson') { xMin = -0.5; xMax = Math.ceil(p + 4*Math.sqrt(p) + 2); }
+  else if (type === 'normal') { xMin = -4; xMax = 4; }
+  else if (type === 'exponential') { xMin = -0.5; xMax = 5/p; }
+  else if (type === 'cantor') { xMin = -0.1; xMax = 1.1; }
+  else { xMin = -0.5; xMax = 3; }
+
+  // Update labels
+  var pl = document.getElementById('paramLabel');
+  var p2l = document.getElementById('param2Label');
+  if (type === 'poisson') { pl.style.display=''; p2l.style.display='none'; document.getElementById('paramVal').textContent = p.toFixed(1); }
+  else if (type === 'exponential') { pl.style.display=''; p2l.style.display='none'; document.getElementById('paramVal').textContent = p.toFixed(1); }
+  else if (type === 'mixed') { pl.style.display='none'; p2l.style.display=''; document.getElementById('param2Val').textContent = p2.toFixed(2); }
+  else { pl.style.display='none'; p2l.style.display='none'; }
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 1;
+  for (var i = 0; i <= 10; i++) {
+    var gy = pad.t + ph * i / 10;
+    ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(pad.l+pw, gy); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph);
+  ctx.stroke();
+
+  // Y-axis labels
+  ctx.fillStyle = '#333';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'right';
+  for (var i = 0; i <= 4; i++) {
+    var val = i / 4;
+    var y = pad.t + ph - ph * val;
+    ctx.fillText(val.toFixed(1), pad.l - 5, y + 4);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  var xTicks = 8;
+  for (var i = 0; i <= xTicks; i++) {
+    var xv = xMin + (xMax - xMin) * i / xTicks;
+    var x = pad.l + pw * i / xTicks;
+    ctx.fillText(xv.toFixed(1), x, pad.t + ph + 18);
+  }
+
+  // Plot CDF
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  var steps = 1000;
+  var first = true;
+  for (var i = 0; i <= steps; i++) {
+    var xv = xMin + (xMax - xMin) * i / steps;
+    var yv = getCDF(xv);
+    var px = pad.l + pw * (xv - xMin) / (xMax - xMin);
+    var py = pad.t + ph - ph * yv;
+    if (first) { ctx.moveTo(px, py); first = false; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // For atomic: draw jump markers
+  if (type === 'poisson') {
+    ctx.fillStyle = '#dc2626';
+    for (var k = 0; k <= Math.ceil(p + 4*Math.sqrt(p) + 1); k++) {
+      var jump = poissonPMF(k, p);
+      var px = pad.l + pw * (k - xMin) / (xMax - xMin);
+      var pyBottom = pad.t + ph - ph * poissonCDF(k - 0.001, p);
+      var pyTop = pad.t + ph - ph * poissonCDF(k, p);
+      ctx.beginPath();
+      ctx.arc(px, pyTop, 3, 0, 2*Math.PI);
+      ctx.fill();
+    }
+  }
+
+  // For mixed: draw the spike
+  if (type === 'mixed') {
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 2;
+    var px0 = pad.l + pw * (0 - xMin) / (xMax - xMin);
+    var py0 = pad.t + ph - ph * p2;
+    ctx.beginPath();
+    ctx.moveTo(px0, pad.t + ph);
+    ctx.lineTo(px0, py0);
+    ctx.stroke();
+    ctx.fillStyle = '#dc2626';
+    ctx.beginPath();
+    ctx.arc(px0, py0, 4, 0, 2*Math.PI);
+    ctx.fill();
+  }
+
+  // Legend
+  var legend = document.getElementById('legend');
+  if (type === 'poisson') {
+    legend.innerHTML = '<span style="background:#2563eb"></span> CDF (step function) &nbsp; <span style="background:#dc2626"></span> Atoms (jumps)';
+  } else if (type === 'mixed') {
+    legend.innerHTML = '<span style="background:#2563eb"></span> CDF &nbsp; <span style="background:#dc2626"></span> Point mass at 0';
+  } else {
+    legend.innerHTML = '<span style="background:#2563eb"></span> CDF';
+  }
+
+  // Info
+  var info = document.getElementById('info');
+  var infos = {
+    poisson: 'Atomic distribution: the CDF is a step function with jumps of size p(k) at each integer k. The parameter λ controls the mean and variance (both equal to λ).',
+    normal: 'Absolutely continuous distribution: the CDF is smooth and differentiable everywhere. The normal is the universal limit of sums (CLT) and the only stable law with finite variance.',
+    exponential: 'Absolutely continuous distribution: the CDF is 1 − e^(−λx) for x ≥ 0. The exponential is memoryless and is the Gamma(1, λ) distribution.',
+    cantor: 'Singular continuous distribution: the CDF (Cantor function / devil\'s staircase) is continuous but flat almost everywhere. It increases only on the Cantor set, which has Lebesgue measure zero.',
+    mixed: 'Mixed distribution: a point mass of size p at 0 (atomic) plus a continuous exponential tail with weight (1−p). The CDF has a jump at 0 and is smooth elsewhere.'
+  };
+  info.textContent = infos[type] || '';
+}
+
+document.getElementById('distType').addEventListener('change', draw);
+document.getElementById('param').addEventListener('input', draw);
+document.getElementById('param2').addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

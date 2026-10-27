@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Process Scheduler Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.2em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s; }
+button.fcfs { background: #4a90d9; color: #fff; }
+button.sjf { background: #50b86c; color: #fff; }
+button.rr { background: #e8853d; color: #fff; }
+button.active { box-shadow: 0 0 0 3px #fff; transform: scale(1.05); }
+button.reset { background: #555; color: #fff; }
+select { padding: 6px 10px; border-radius: 6px; background: #2a2a4a; color: #e0e0e0; border: 1px solid #444; font-size: 0.9em; }
+.gantt-container { background: #16213e; border-radius: 8px; padding: 16px; margin-bottom: 16px; overflow-x: auto; }
+.gantt-row { display: flex; align-items: center; margin-bottom: 4px; min-height: 36px; }
+.gantt-label { width: 60px; font-size: 0.8em; font-weight: 600; color: #aaa; flex-shrink: 0; }
+.gantt-bar { height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: 700; color: #fff; min-width: 2px; transition: width 0.4s ease; position: relative; }
+.gantt-bar.idle { background: #333; }
+.gantt-bar.p0 { background: #4a90d9; }
+.gantt-bar.p1 { background: #50b86c; }
+.gantt-bar.p2 { background: #e8853d; }
+.gantt-bar.p3 { background: #c44dff; }
+.gantt-bar.p4 { background: #ff6b6b; }
+.time-axis { display: flex; margin-left: 60px; margin-top: 8px; border-top: 1px solid #444; padding-top: 4px; }
+.time-tick { font-size: 0.7em; color: #888; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #16213e; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-value { font-size: 1.4em; font-weight: 700; color: #fff; }
+.stat-label { font-size: 0.75em; color: #888; margin-top: 4px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8em; }
+.legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+.info { font-size: 0.8em; color: #888; margin-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Process Scheduler — Gantt Chart</h1>
+<div class="controls">
+  <button class="fcfs active" onclick="setAlgo('fcfs')">FCFS</button>
+  <button class="sjf" onclick="setAlgo('sjf')">SJF</button>
+  <button class="rr" onclick="setAlgo('rr')">Round Robin</button>
+  <select id="quantum" onchange="render()">
+    <option value="2">Quantum = 2</option>
+    <option value="3" selected>Quantum = 3</option>
+    <option value="4">Quantum = 4</option>
+    <option value="5">Quantum = 5</option>
+  </select>
+  <button class="reset" onclick="randomize()">Randomize</button>
+</div>
+<div class="legend" id="legend"></div>
+<div class="gantt-container" id="gantt"></div>
+<div class="stats" id="stats"></div>
+<div class="info" id="info"></div>
+<script>
+const COLORS = ['#4a90d9','#50b86c','#e8853d','#c44dff','#ff6b6b'];
+let processes = [
+  { name: 'P0', arrival: 0, burst: 7 },
+  { name: 'P1', arrival: 2, burst: 4 },
+  { name: 'P2', arrival: 4, burst: 1 },
+  { name: 'P3', arrival: 5, burst: 4 }
+];
+let algo = 'fcfs';
+
+function setAlgo(a) {
+  algo = a;
+  document.querySelectorAll('.fcfs,.sjf,.rr').forEach(b => b.classList.remove('active'));
+  document.querySelector('.' + a).classList.add('active');
+  render();
+}
+
+function randomize() {
+  const n = 3 + Math.floor(Math.random() * 3);
+  processes = [];
+  let t = 0;
+  for (let i = 0; i < n; i++) {
+    t += Math.floor(Math.random() * 4);
+    processes.push({ name: 'P' + i, arrival: t, burst: 1 + Math.floor(Math.random() * 8) });
+  }
+  render();
+}
+
+function schedule() {
+  const q = parseInt(document.getElementById('quantum').value);
+  let timeline = [];
+  let time = 0;
+  let remaining = processes.map(p => p.burst);
+  let done = processes.map(() => false);
+  let completed = 0;
+  const n = processes.length;
+
+  if (algo === 'fcfs') {
+    const order = processes.map((p, i) => i).sort((a, b) => processes[a].arrival - processes[b].arrival);
+    for (const idx of order) {
+      const start = Math.max(time, processes[idx].arrival);
+      timeline.push({ proc: idx, start, end: start + remaining[idx] });
+      time = start + remaining[idx];
+      remaining[idx] = 0;
+      done[idx] = true;
+      completed++;
+    }
+  } else if (algo === 'sjf') {
+    while (completed < n) {
+      let best = -1, bestBurst = Infinity;
+      for (let i = 0; i < n; i++) {
+        if (!done[i] && processes[i].arrival <= time && remaining[i] < bestBurst) {
+          bestBurst = remaining[i];
+          best = i;
+        }
+      }
+      if (best === -1) {
+        let minArr = Infinity;
+        for (let i = 0; i < n; i++) if (!done[i] && processes[i].arrival < minArr) minArr = processes[i].arrival;
+        time = minArr;
+        continue;
+      }
+      timeline.push({ proc: best, start: time, end: time + remaining[best] });
+      time += remaining[best];
+      remaining[best] = 0;
+      done[best] = true;
+      completed++;
+    }
+  } else {
+    // Round Robin
+    let queue = [];
+    let added = new Set();
+    while (completed < n) {
+      for (let i = 0; i < n; i++) {
+        if (!done[i] && processes[i].arrival <= time && !added.has(i)) {
+          queue.push(i);
+          added.add(i);
+        }
+      }
+      if (queue.length === 0) {
+        let minArr = Infinity;
+        for (let i = 0; i < n; i++) if (!done[i] && processes[i].arrival < minArr) minArr = processes[i].arrival;
+        time = minArr;
+        added.clear();
+        continue;
+      }
+      const idx = queue.shift();
+      added.delete(idx);
+      const run = Math.min(q, remaining[idx]);
+      timeline.push({ proc: idx, start: time, end: time + run });
+      time += run;
+      remaining[idx] -= run;
+      if (remaining[idx] === 0) {
+        done[idx] = true;
+        completed++;
+      } else {
+        queue.push(idx);
+      }
+    }
+  }
+  return timeline;
+}
+
+function render() {
+  const timeline = schedule();
+  const totalTime = timeline.length > 0 ? timeline[timeline.length - 1].end : 0;
+  const pxPerUnit = Math.max(20, Math.min(50, 600 / Math.max(totalTime, 1)));
+
+  // Legend
+  const legend = document.getElementById('legend');
+  legend.innerHTML = processes.map((p, i) =>
+    `<div class="legend-item"><div class="legend-swatch" style="background:${COLORS[i]}"></div>${p.name} (arr=${p.arrival}, burst=${p.burst})</div>`
+  ).join('');
+
+  // Gantt
+  const gantt = document.getElementById('gantt');
+  let html = '';
+  for (let i = 0; i < processes.length; i++) {
+    html += `<div class="gantt-row"><div class="gantt-label">${processes[i].name}</div><div style="display:flex;flex:1;position:relative;height:32px;">`;
+    const segs = timeline.filter(s => s.proc === i);
+    for (const seg of segs) {
+      const left = seg.start * pxPerUnit;
+      const width = (seg.end - seg.start) * pxPerUnit;
+      html += `<div class="gantt-bar p${i}" style="position:absolute;left:${left}px;width:${width}px;top:0;">${seg.end - seg.start}</div>`;
+    }
+    html += `</div></div>`;
+  }
+  // Time axis
+  html += `<div class="time-axis" style="width:${totalTime * pxPerUnit}px;">`;
+  for (let t = 0; t <= totalTime; t += Math.max(1, Math.round(totalTime / 15))) {
+    html += `<div class="time-tick" style="position:absolute;left:${t * pxPerUnit}px;">${t}</div>`;
+  }
+  html += `</div>`;
+  gantt.innerHTML = html;
+
+  // Stats
+  const completion = timeline.map(s => s.end).reduce((a, b) => Math.max(a, b), 0);
+  const turnaround = processes.map((p, i) => {
+    const last = timeline.filter(s => s.proc === i).pop();
+    return last ? last.end - p.arrival : 0;
+  });
+  const waiting = processes.map((p, i) => {
+    const segs = timeline.filter(s => s.proc === i);
+    const totalRun = segs.reduce((a, s) => a + (s.end - s.start), 0);
+    const last = segs.pop();
+    return last ? (last.end - p.arrival) - totalRun : 0;
+  });
+  const avgTurn = (turnaround.reduce((a, b) => a + b, 0) / processes.length).toFixed(2);
+  const avgWait = (waiting.reduce((a, b) => a + b, 0) / processes.length).toFixed(2);
+  const ctxSwitches = timeline.length - 1;
+
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${completion}</div><div class="stat-label">Makespan</div></div>
+    <div class="stat-card"><div class="stat-value">${avgTurn}</div><div class="stat-label">Avg Turnaround</div></div>
+    <div class="stat-card"><div class="stat-value">${avgWait}</div><div class="stat-label">Avg Waiting</div></div>
+    <div class="stat-card"><div class="stat-value">${ctxSwitches}</div><div class="stat-label">Context Switches</div></div>
+  `;
+
+  const algoNames = { fcfs: 'FCFS (First-Come, First-Served)', sjf: 'SJF (Shortest Job First)', rr: 'Round Robin' };
+  const q = parseInt(document.getElementById('quantum').value);
+  let info = `Algorithm: <strong>${algoNames[algo]}</strong>`;
+  if (algo === 'rr') info += ` (quantum = ${q})`;
+  info += `<br>FCFS: simple, no preemption. SJF: optimal avg waiting (non-preemptive). Round Robin: fair, preemptive with time quantum.`;
+  document.getElementById('info').innerHTML = info;
+}
+
+render();
+</script>
+</body>
+</html>

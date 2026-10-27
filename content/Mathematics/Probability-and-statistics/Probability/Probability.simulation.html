@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Probability: LLN and Bayes</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h2 { color: #64ffda; margin-bottom: 4px; }
+.controls { margin: 10px 0; }
+button { background: #0f3460; color: #eee; border: 1px solid #64ffda; padding: 6px 14px; margin: 4px; cursor: pointer; border-radius: 4px; }
+button:hover { background: #16213e; }
+input[type=range] { vertical-align: middle; }
+label { font-size: 14px; }
+#chart { border: 1px solid #333; border-radius: 4px; margin-top: 10px; }
+.info { font-size: 13px; color: #aaa; margin-top: 6px; }
+.tabs { display: flex; gap: 0; margin-bottom: 0; }
+.tab { padding: 8px 16px; background: #16213e; cursor: pointer; border: 1px solid #333; border-bottom: none; border-radius: 6px 6px 0 0; }
+.tab.active { background: #0f3460; color: #64ffda; }
+.panel { display: none; border: 1px solid #333; border-radius: 0 6px 6px 6px; padding: 16px; }
+.panel.active { display: block; }
+</style>
+</head>
+<body>
+<h2>Probability: Interactive Demo</h2>
+<div class="tabs">
+<div class="tab active" onclick="switchTab(0)">Law of Large Numbers</div>
+<div class="tab" onclick="switchTab(1)">Bayes' Theorem</div>
+</div>
+
+<div id="panel0" class="panel active">
+<p>Flip a coin and watch the running proportion of heads converge to 0.5.</p>
+<div class="controls">
+<button onclick="flipOnce()">Flip once</button>
+<button onclick="flip100()">Flip 100</button>
+<button onclick="flip1000()">Flip 1000</button>
+<button onclick="resetLLN()">Reset</button>
+<label>Speed: <input type="range" id="speed" min="1" max="50" value="5"></label>
+</div>
+<canvas id="chart" width="700" height="300"></canvas>
+<p class="info" id="llnInfo">Flips: 0 | Proportion of heads: —</p>
+</div>
+
+<div id="panel1" class="panel">
+<p>Adjust the prior, sensitivity, and specificity to see how the posterior changes.</p>
+<div class="controls">
+<label>Prior P(D): <input type="range" id="prior" min="1" max="10000" value="1"> <span id="priorVal">1/10000</span></label><br>
+<label>Sensitivity P(T|D): <input type="range" id="sens" min="50" max="100" value="99"> <span id="sensVal">99%</span></label><br>
+<label>Specificity P(T|D̄): <input type="range" id="spec" min="0" max="50" value="5"> <span id="specVal">0.5%</span></label>
+</div>
+<canvas id="bayesChart" width="700" height="250"></canvas>
+<p class="info" id="bayesInfo">P(D|T) = —</p>
+</div>
+
+<script>
+// Tab switching
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', j===i));
+  if(i===1) drawBayes();
+}
+
+// LLN simulation
+let flips = 0, heads = 0, history = [];
+function doFlip() {
+  flips++;
+  if(Math.random() < 0.5) heads++;
+  history.push(heads/flips);
+  if(history.length > 2000) history.shift();
+  drawLLN();
+}
+function flipOnce() { doFlip(); }
+function flip100() { for(let i=0;i<100;i++) doFlip(); }
+function flip1000() { for(let i=0;i<1000;i++) doFlip(); }
+function resetLLN() { flips=0; heads=0; history=[]; drawLLN(); }
+
+function drawLLN() {
+  const c = document.getElementById('chart');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  // axes
+  ctx.strokeStyle='#444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(50,10); ctx.lineTo(50,c.height-30); ctx.lineTo(c.width-10,c.height-30); ctx.stroke();
+  // y labels
+  ctx.fillStyle='#aaa'; ctx.font='11px sans-serif';
+  for(let v=0; v<=1; v+=0.25) {
+    const y = c.height-30 - v*(c.height-50);
+    ctx.fillText(v.toFixed(2), 10, y+4);
+    ctx.strokeStyle='#333'; ctx.beginPath(); ctx.moveTo(50,y); ctx.lineTo(c.width-10,y); ctx.stroke();
+  }
+  // 0.5 line
+  const y05 = c.height-30 - 0.5*(c.height-50);
+  ctx.strokeStyle='#64ffda'; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(50,y05); ctx.lineTo(c.width-10,y05); ctx.stroke(); ctx.setLineDash([]);
+  // plot
+  if(history.length > 1) {
+    ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=1.5; ctx.beginPath();
+    const step = (c.width-60)/Math.max(history.length-1,1);
+    for(let i=0;i<history.length;i++) {
+      const x = 50 + i*step;
+      const y = c.height-30 - history[i]*(c.height-50);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  document.getElementById('llnInfo').textContent = 'Flips: '+flips+' | Proportion of heads: '+(flips>0?(heads/flips).toFixed(4):'—');
+}
+
+// Bayes simulation
+function drawBayes() {
+  const prior = document.getElementById('prior').value;
+  const sens = document.getElementById('sens').value/100;
+  const spec = document.getElementById('spec').value/100;
+  const pD = prior/10000;
+  const pT = sens*pD + spec*(1-pD);
+  const pDgivenT = (sens*pD)/pT;
+  document.getElementById('priorVal').textContent = prior+'/10000';
+  document.getElementById('sensVal').textContent = (sens*100).toFixed(0)+'%';
+  document.getElementById('specVal').textContent = (spec*100).toFixed(1)+'%';
+  document.getElementById('bayesInfo').textContent = 'P(D|T) = '+(pDgivenT*100).toFixed(2)+'%  (prior was '+(pD*100).toFixed(3)+'%)';
+
+  const c = document.getElementById('bayesChart');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  // bars
+  const bars = [
+    {label:'P(D)', val:pD, color:'#64ffda'},
+    {label:'P(T|D)', val:sens, color:'#ff6b6b'},
+    {label:'P(T|D̄)', val:spec, color:'#ffd93d'},
+    {label:'P(D|T)', val:pDgivenT, color:'#c084fc'}
+  ];
+  const bw = 120, gap = 40, startX = 60;
+  const maxH = c.height - 60;
+  bars.forEach((b,i) => {
+    const x = startX + i*(bw+gap);
+    const h = Math.max(b.val*maxH, 2);
+    ctx.fillStyle = b.color;
+    ctx.fillRect(x, c.height-30-h, bw, h);
+    ctx.fillStyle = '#eee'; ctx.font='12px sans-serif';
+    ctx.fillText(b.label, x, c.height-10);
+    ctx.fillText((b.val*100).toFixed(2)+'%', x+bw/2-20, c.height-35-h);
+  });
+}
+
+// init
+drawLLN();
+drawBayes();
+document.getElementById('prior').addEventListener('input', drawBayes);
+document.getElementById('sens').addEventListener('input', drawBayes);
+document.getElementById('spec').addEventListener('input', drawBayes);
+</script>
+</body>
+</html>

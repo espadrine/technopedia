@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Multi-coat system</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}
+h1{font-size:1.2em;margin-bottom:10px;color:#fff}
+.container{display:flex;gap:30px;flex-wrap:wrap;justify-content:center;align-items:flex-start}
+.canvas-wrap{position:relative}
+canvas{border:1px solid #333;border-radius:8px;background:#0f0f1a}
+.controls{display:flex;flex-direction:column;gap:12px;min-width:260px}
+.control-group{background:#16213e;border-radius:8px;padding:12px}
+.control-group label{display:block;font-size:0.85em;margin-bottom:6px;color:#a0c4ff}
+.control-group input[type=range]{width:100%;accent-color:#4fc3f7}
+.val{font-size:0.8em;color:#4fc3f7;float:right}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:center}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:0.75em}
+.legend-swatch{width:14px;height:14px;border-radius:3px;border:1px solid #555}
+.info{font-size:0.75em;color:#888;margin-top:10px;text-align:center;max-width:500px}
+</style>
+</head>
+<body>
+<h1>Multi-coat system: layered structure</h1>
+<div class="container">
+<div class="canvas-wrap"><canvas id="cv" width="420" height="320"></canvas></div>
+<div class="controls">
+<div class="control-group"><label>Steel substrate <span class="val" id="v0">200 µm</span></label><input type="range" id="s0" min="50" max="500" value="200" step="10"></div>
+<div class="control-group"><label>Copper undercoat <span class="val" id="v1">25 µm</span></label><input type="range" id="s1" min="0" max="100" value="25" step="1"></div>
+<div class="control-group"><label>Nickel plate <span class="val" id="v2">20 µm</span></label><input type="range" id="s2" min="0" max="100" value="20" step="1"></div>
+<div class="control-group"><label>Hard chrome <span class="val" id="v3">50 µm</span></label><input type="range" id="s3" min="0" max="250" value="50" step="1"></div>
+<div class="control-group"><label>Decorative chrome <span class="val" id="v4">0.5 µm</span></label><input type="range" id="s4" min="0" max="1" value="0.5" step="0.05"></div>
+</div>
+</div>
+<div class="legend" id="legend"></div>
+<p class="info">Drag sliders to adjust layer thicknesses. The cross-section is drawn to a logarithmic scale so thin layers remain visible. Total thickness is shown at the top.</p>
+<script>
+const layers=[
+{name:'Steel substrate',color:'#78909c',id:'s0',vid:'v0',unit:'µm',min:50,max:500},
+{name:'Copper undercoat',color:'#e65100',id:'s1',vid:'v1',unit:'µm',min:0,max:100},
+{name:'Nickel plate',color:'#b0bec5',id:'s2',vid:'v2',unit:'µm',min:0,max:100},
+{name:'Hard chrome',color:'#4fc3f7',id:'s3',vid:'v3',unit:'µm',min:0,max:250},
+{name:'Decorative chrome',color:'#ffd54f',id:'s4',vid:'v4',unit:'µm',min:0,max:1}
+];
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const legend=document.getElementById('legend');
+layers.forEach(l=>{
+const d=document.createElement('div');d.className='legend-item';
+d.innerHTML='<span class="legend-swatch" style="background:'+l.color+'"></span>'+l.name;
+legend.appendChild(d);
+});
+function draw(){
+const W=cv.width,H=cv.height;
+ctx.clearRect(0,0,W,H);
+const vals=layers.map(l=>parseFloat(document.getElementById(l.id).value));
+const total=vals.reduce((a,b)=>a+b,0);
+const pad=40;
+const drawH=H-2*pad;
+// Use log scale for visibility
+const logVals=vals.map(v=>v>0?Math.log10(v+1):0);
+const logTotal=logVals.reduce((a,b)=>a+b,0)||1;
+let y=pad;
+for(let i=0;i<layers.length;i++){
+const h=logTotal>0?(logVals[i]/logTotal)*drawH:0;
+if(h>0.5){
+ctx.fillStyle=layers[i].color;
+ctx.fillRect(pad,y,W-2*pad,h);
+ctx.strokeStyle='#222';ctx.lineWidth=1;
+ctx.strokeRect(pad,y,W-2*pad,h);
+// Label
+ctx.fillStyle='#fff';ctx.font='11px system-ui';
+const label=layers[i].name+' ('+vals[i]+layers[i].unit+')';
+const ly=y+h/2+4;
+if(h>14){ctx.fillText(label,pad+8,ly);}
+else{ctx.fillText(label,pad+8,ly);}
+}
+y+=h;
+}
+// Total thickness
+ctx.fillStyle='#fff';ctx.font='bold 13px system-ui';
+ctx.fillText('Total: '+total.toFixed(1)+' µm',pad,20);
+// Update value displays
+layers.forEach((l,i)=>{
+const v=vals[i];
+document.getElementById(l.vid).textContent=v+l.unit;
+});
+}
+layers.forEach(l=>{
+document.getElementById(l.id).addEventListener('input',draw);
+});
+draw();
+</script>
+</body>
+</html>

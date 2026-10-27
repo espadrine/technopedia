@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Scale Hierarchy: Quarks to the Universe</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #0a0a1a; color: #e0e0e0; overflow: hidden; }
+#container { width: 100vw; height: 100vh; position: relative; }
+#slider-container { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 80%; max-width: 700px; z-index: 10; }
+#slider { width: 100%; height: 6px; -webkit-appearance: none; appearance: none; background: linear-gradient(90deg, #ff6b6b, #ffa500, #4ecdc4, #45b7d1, #6c5ce7); border-radius: 3px; outline: none; cursor: pointer; }
+#slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #4ecdc4; cursor: pointer; }
+#label { text-align: center; margin-top: 8px; font-size: 14px; color: #aaa; }
+#info { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 10; }
+#info h1 { font-size: 22px; color: #4ecdc4; margin-bottom: 4px; }
+#info p { font-size: 14px; color: #ccc; }
+#scale-label { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); font-size: 18px; color: #ffa500; font-weight: bold; }
+canvas { display: block; }
+</style>
+</head>
+<body>
+<div id="container">
+<canvas id="canvas"></canvas>
+<div id="info">
+<h1>Scale Hierarchy</h1>
+<p>From quarks to the observable universe</p>
+</div>
+<div id="scale-label"></div>
+<div id="slider-container">
+<input type="range" id="slider" min="0" max="1000" value="0">
+<div id="label">Drag to explore scales</div>
+</div>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const slider = document.getElementById('slider');
+const scaleLabel = document.getElementById('scale-label');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const scales = [
+  { name: 'Quarks', scale: '≤ 10⁻¹⁸ m', color: '#ff6b6b', desc: 'Point-like fundamental particles' },
+  { name: 'Hadrons (protons, neutrons)', scale: '~10⁻¹⁵ m', color: '#ff8e53', desc: 'Quarks bound by the strong force' },
+  { name: 'Nuclei', scale: '~10⁻¹⁴ m', color: '#ffa500', desc: 'Protons and neutrons bound by residual strong force' },
+  { name: 'Atoms', scale: '~10⁻¹⁰ m', color: '#4ecdc4', desc: 'Nucleus + electrons bound by EM force' },
+  { name: 'Molecules', scale: '~10⁻⁹ m', color: '#45b7d1', desc: 'Atoms bound by chemical bonds' },
+  { name: 'Cells', scale: '~10⁻⁵ m', color: '#6c5ce7', desc: 'Basic unit of life' },
+  { name: 'Human', scale: '~1 m', color: '#a29bfe', desc: 'Macroscopic organism' },
+  { name: 'Earth', scale: '~10⁷ m', color: '#00b894', desc: 'Planetary scale' },
+  { name: 'Solar System', scale: '~10¹³ m', color: '#fdcb6e', desc: 'Star + planets' },
+  { name: 'Galaxy', scale: '~10²¹ m', color: '#e17055', desc: '~100 billion stars' },
+  { name: 'Observable Universe', scale: '~10²⁶ m', color: '#d63031', desc: 'All observable matter and energy' }
+];
+
+let currentScale = 0;
+let particles = [];
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 3 + 1,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+initParticles();
+
+function draw() {
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const t = Date.now() * 0.001;
+  const progress = slider.value / 1000;
+  const idx = Math.min(Math.floor(progress * scales.length), scales.length - 1);
+  const frac = (progress * scales.length) - idx;
+  const s = scales[idx];
+
+  scaleLabel.textContent = s.name + '  (' + s.scale + ')';
+  scaleLabel.style.color = s.color;
+
+  // Draw concentric rings representing the hierarchy
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const maxR = Math.min(canvas.width, canvas.height) * 0.38;
+
+  for (let i = scales.length - 1; i >= 0; i--) {
+    const ringR = maxR * (i + 1) / scales.length;
+    const alpha = i <= idx ? 0.6 : 0.15;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+    ctx.strokeStyle = scales[i].color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = i === idx ? 3 : 1;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw the active ring with glow
+  const activeR = maxR * (idx + 1) / scales.length;
+  ctx.beginPath();
+  ctx.arc(cx, cy, activeR, 0, Math.PI * 2);
+  ctx.strokeStyle = s.color;
+  ctx.lineWidth = 3;
+  ctx.shadowColor = s.color;
+  ctx.shadowBlur = 20;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Draw particles inside the active ring
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.phase += 0.02;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > activeR) {
+      p.x = cx + (Math.random() - 0.5) * activeR * 2;
+      p.y = cy + (Math.random() - 0.5) * activeR * 2;
+    }
+    const pr = p.r * (1 + 0.3 * Math.sin(p.phase));
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, pr, 0, Math.PI * 2);
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = 0.7;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+
+  // Draw scale labels around the rings
+  ctx.font = '11px sans-serif';
+  for (let i = 0; i < scales.length; i++) {
+    const ringR = maxR * (i + 1) / scales.length;
+    const angle = -Math.PI / 2 + (i / scales.length) * Math.PI * 0.5;
+    const lx = cx + ringR * Math.cos(angle) + 5;
+    const ly = cy + ringR * Math.sin(angle) - 5;
+    ctx.fillStyle = i <= idx ? scales[i].color : '#555';
+    ctx.globalAlpha = i <= idx ? 0.9 : 0.4;
+    ctx.fillText(scales[i].name, lx, ly);
+    ctx.globalAlpha = 1;
+  }
+
+  // Description
+  ctx.font = '14px sans-serif';
+  ctx.fillStyle = '#ccc';
+  ctx.textAlign = 'center';
+  ctx.fillText(s.desc, cx, cy + maxR + 40);
+  ctx.textAlign = 'left';
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

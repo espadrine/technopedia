@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mathematics: Dependency Graph</title>
+<style>
+body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #1a1a2e; color: #eee; overflow: hidden; }
+h2 { color: #64b5f6; margin: 12px 20px 4px; font-size: 18px; }
+.info { margin: 0 20px 8px; font-size: 13px; color: #aaa; }
+canvas { display: block; margin: 0 auto; }
+.tooltip { position: absolute; background: #2a2a4a; border: 1px solid #64b5f6; border-radius: 6px; padding: 8px 12px; font-size: 12px; color: #eee; pointer-events: none; display: none; max-width: 280px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<h2>Dependency Graph of the Five Classes of Mathematics</h2>
+<p class="info">Click a node to highlight its dependencies. Arrows point from a class to the classes it draws upon.</p>
+<canvas id="canvas" width="800" height="520"></canvas>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+
+const nodes = [
+  { id: 0, name: 'Logic &\nFoundations', x: 400, y: 80, color: '#ef5350', desc: 'The bedrock: mathematical logic, set theory, proof theory, model theory, computability, category theory, type theory. Every other class rests on it.' },
+  { id: 1, name: 'Algebra &\nDiscrete Math', x: 160, y: 240, color: '#66bb6a', desc: 'Groups, rings, fields, vector spaces, symmetries, integers, primes, counting, graphs, combinatorial structures.' },
+  { id: 2, name: 'Analysis', x: 400, y: 240, color: '#42a5f5', desc: 'Limits, functions, continuity, convergence, derivatives, integration, differential equations, functional analysis.' },
+  { id: 3, name: 'Geometry &\nTopology', x: 640, y: 240, color: '#ab47bc', desc: 'Shapes, spaces, distances, open sets, connectedness, compactness, curvature, manifolds.' },
+  { id: 4, name: 'Probability &\nStatistics', x: 400, y: 420, color: '#ffb74d', desc: 'Random variables, distributions, expectation, stochastic processes, measure theory, statistical inference.' }
+];
+
+const edges = [
+  { from: 1, to: 0, label: 'proofs, sets' },
+  { from: 2, to: 0, label: 'axioms, logic' },
+  { from: 3, to: 0, label: 'axioms, logic' },
+  { from: 4, to: 0, label: 'axioms, logic' },
+  { from: 2, to: 1, label: 'vector spaces, algebras' },
+  { from: 2, to: 3, label: 'topology, manifolds' },
+  { from: 3, to: 1, label: 'symmetry groups' },
+  { from: 4, to: 2, label: 'convergence, integration' },
+  { from: 4, to: 1, label: 'sigma-algebras, maps' },
+  { from: 4, to: 3, label: 'topological spaces' }
+];
+
+let selectedNode = -1;
+
+function drawArrow(x1, y1, x2, y2, color, width) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const ux = dx / len, uy = dy / len;
+  const ax = x2 - ux * 28, ay = y2 - uy * 28;
+  
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(ax, ay);
+  ctx.stroke();
+  
+  const aSize = 8;
+  const px = -uy, py = ux;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax - ux * aSize + px * aSize * 0.5, ay - uy * aSize + py * aSize * 0.5);
+  ctx.lineTo(ax - ux * aSize - px * aSize * 0.5, ay - uy * aSize - py * aSize * 0.5);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 800, 520);
+  
+  edges.forEach(e => {
+    const n1 = nodes[e.from], n2 = nodes[e.to];
+    let color = '#444', width = 1.5;
+    if (selectedNode >= 0 && (e.from === selectedNode || e.to === selectedNode)) {
+      color = '#64b5f6';
+      width = 2.5;
+    }
+    drawArrow(n1.x, n1.y, n2.x, n2.y, color, width);
+    
+    if (selectedNode >= 0 && (e.from === selectedNode || e.to === selectedNode)) {
+      const mx = (n1.x + n2.x) / 2, my = (n1.y + n2.y) / 2;
+      ctx.fillStyle = '#aaa';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(e.label, mx, my - 5);
+    }
+  });
+  
+  nodes.forEach(n => {
+    const isSelected = selectedNode === n.id;
+    const isRelated = selectedNode >= 0 && edges.some(e => (e.from === selectedNode && e.to === n.id) || (e.to === selectedNode && e.from === n.id));
+    
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 26, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? n.color : (isRelated ? n.color + '99' : n.color + '55');
+    ctx.fill();
+    ctx.strokeStyle = isSelected ? '#fff' : n.color;
+    ctx.lineWidth = isSelected ? 3 : 1.5;
+    ctx.stroke();
+    
+    ctx.fillStyle = isSelected || isRelated ? '#fff' : '#ccc';
+    ctx.font = (isSelected ? 'bold ' : '') + '11px sans-serif';
+    ctx.textAlign = 'center';
+    const lines = n.name.split('\n');
+    lines.forEach((line, i) => {
+      ctx.fillText(line, n.x, n.y + (i - (lines.length - 1) / 2) * 13 + 4);
+    });
+  });
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  
+  let found = -1;
+  nodes.forEach(n => {
+    const dx = mx - n.x, dy = my - n.y;
+    if (dx * dx + dy * dy < 26 * 26) found = n.id;
+  });
+  
+  selectedNode = (found === selectedNode) ? -1 : found;
+  draw();
+  
+  if (selectedNode >= 0) {
+    const n = nodes[selectedNode];
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 15) + 'px';
+    tooltip.style.top = (e.clientY + 15) + 'px';
+    tooltip.innerHTML = '<strong>' + n.name.replace('\n', ' ') + '</strong><br>' + n.desc;
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  let hovering = false;
+  nodes.forEach(n => {
+    const dx = mx - n.x, dy = my - n.y;
+    if (dx * dx + dy * dy < 26 * 26) hovering = true;
+  });
+  canvas.style.cursor = hovering ? 'pointer' : 'default';
+});
+
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zeroth Law – Three Systems Reaching Thermal Equilibrium</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:16px}
+h1{font-size:1.1rem;margin-bottom:4px;color:#a8d8ea}
+.subtitle{font-size:.8rem;color:#888;margin-bottom:12px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+button{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600;transition:all .15s}
+button:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.btn-contact{background:#2d6a4f;color:#fff}
+.btn-contact.active{background:#40916c;box-shadow:0 0 0 2px #52b788}
+.btn-reset{background:#5a189a;color:#fff}
+.btn-random{background:#9d4edd;color:#fff}
+.sim-area{position:relative;width:100%;max-width:620px;height:340px;background:#16213e;border-radius:12px;padding:16px;overflow:hidden}
+.system{position:absolute;width:120px;height:120px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .3s;border:2px solid transparent}
+.system .label{font-size:.75rem;font-weight:700;opacity:.8;margin-bottom:2px}
+.system .temp{font-size:1.5rem;font-weight:700}
+.system .unit{font-size:.7rem;opacity:.7}
+.sys-a{left:20px;top:20px;background:rgba(230,57,70,.15);border-color:rgba(230,57,70,.4)}
+.sys-b{right:20px;top:20px;background:rgba(255,159,67,.15);border-color:rgba(255,159,67,.4)}
+.sys-c{left:50%;transform:translateX(-50%);bottom:20px;background:rgba(8,145,178,.15);border-color:rgba(8,145,178,.4)}
+.heat-arrow{position:absolute;font-size:1.2rem;opacity:0;transition:opacity .3s;pointer-events:none}
+.heat-arrow.visible{opacity:1}
+.arrow-ab{top:70px;left:50%;transform:translateX(-50%)}
+.arrow-ac{left:50px;bottom:80px}
+.arrow-bc{right:50px;bottom:80px}
+.thermometer{position:absolute;right:12px;bottom:12px;width:36px;height:100px;background:#0f3460;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:4px;border:1px solid #333}
+.thermometer .mercury{width:14px;background:linear-gradient(to top,#e63946,#ff6b6b);border-radius:7px;transition:height .3s}
+.thermometer .t-label{font-size:.55rem;color:#aaa;margin-top:2px}
+.status{margin-top:10px;font-size:.85rem;color:#a8d8ea;text-align:center;min-height:1.4em}
+.legend{display:flex;gap:16px;margin-top:8px;font-size:.7rem;color:#888}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend .dot{width:10px;height:10px;border-radius:50%}
+.contact-line{position:absolute;height:2px;background:rgba(255,255,255,.25);transition:opacity .3s;opacity:0}
+.contact-line.visible{opacity:1}
+.cl-ab{top:80px;left:140px;width:180px}
+.cl-ac{top:140px;left:80px;height:120px;width:2px}
+.cl-bc{top:140px;right:80px;height:120px;width:2px}
+</style>
+</head>
+<body>
+<h1>Zeroth Law: Three Systems Reaching Thermal Equilibrium</h1>
+<p class="subtitle">Place systems in thermal contact and watch temperatures converge. The transitive property guarantees a single equilibrium temperature.</p>
+<div class="controls">
+<button class="btn-contact" id="btnAB" onclick="toggleContact('AB')">A ↔ B</button>
+<button class="btn-contact" id="btnAC" onclick="toggleContact('AC')">A ↔ C</button>
+<button class="btn-contact" id="btnBC" onclick="toggleContact('BC')">B ↔ C</button>
+<button class="btn-contact" id="btnAll" onclick="toggleAll()">All in contact</button>
+<button class="btn-random" onclick="randomize()">Randomize</button>
+<button class="btn-reset" onclick="reset()">Reset</button>
+</div>
+<div class="sim-area" id="simArea">
+<div class="system sys-a" id="sysA">
+<span class="label">System A</span>
+<span class="temp" id="tempA">400</span>
+<span class="unit">K</span>
+</div>
+<div class="system sys-b" id="sysB">
+<span class="label">System B</span>
+<span class="temp" id="tempB">300</span>
+<span class="unit">K</span>
+</div>
+<div class="system sys-c" id="sysC">
+<span class="label">System C</span>
+<span class="temp" id="tempC">350</span>
+<span class="unit">K</span>
+</div>
+<div class="heat-arrow arrow-ab" id="arrowAB">→</div>
+<div class="heat-arrow arrow-ac" id="arrowAC">↓</div>
+<div class="heat-arrow arrow-bc" id="arrowBC">↓</div>
+<div class="contact-line cl-ab" id="clAB"></div>
+<div class="contact-line cl-ac" id="clAC"></div>
+<div class="contact-line cl-bc" id="clBC"></div>
+<div class="thermometer">
+<div class="mercury" id="mercury" style="height:50px"></div>
+<span class="t-label" id="thermoLabel">350 K</span>
+</div>
+</div>
+<p class="status" id="status">Click buttons to place systems in thermal contact.</p>
+<div class="legend">
+<span><span class="dot" style="background:#e63946"></span>A (hot)</span>
+<span><span class="dot" style="background:#ff9f43"></span>B (cold)</span>
+<span><span class="dot" style="background:#0891b2"></span>C (mid)</span>
+</div>
+<script>
+var T={A:400,B:300,C:350};
+var contacts={AB:false,AC:false,BC:false};
+var running=false;
+var animId=null;
+var cA=1.0,cB=0.8,cC=0.9;
+
+function toggleContact(pair){
+  contacts[pair]=!contacts[pair];
+  updateButtons();
+  if(contacts[pair]&&!running)startSim();
+  if(!anyContact())stopSim();
+  updateStatus();
+}
+
+function toggleAll(){
+  var all=contacts.AB&&contacts.AC&&contacts.BC;
+  contacts.AB=contacts.AC=contacts.BC=!all;
+  updateButtons();
+  if(anyContact()&&!running)startSim();
+  if(!anyContact())stopSim();
+  updateStatus();
+}
+
+function anyContact(){return contacts.AB||contacts.AC||contacts.BC}
+
+function updateButtons(){
+  ['AB','AC','BC'].forEach(function(p){
+    document.getElementById('btn'+p).classList.toggle('active',contacts[p]);
+  });
+  document.getElementById('btnAll').classList.toggle('active',contacts.AB&&contacts.AC&&contacts.BC);
+}
+
+function startSim(){running=true;animId=requestAnimationFrame(tick)}
+function stopSim(){running=false;if(animId)cancelAnimationFrame(animId);animId=null}
+
+function tick(){
+  if(!running)return;
+  var g=0.03, dt=1.0;
+  var dA=0,dB=0,dC=0;
+  if(contacts.AB){var qAB=g*dt*(T.A-T.B);dA-=qAB/cA;dB+=qAB/cB}
+  if(contacts.AC){var qAC=g*dt*(T.A-T.C);dA-=qAC/cA;dC+=qAC/cC}
+  if(contacts.BC){var qBC=g*dt*(T.B-T.C);dB-=qBC/cB;dC+=qBC/cC}
+  T.A+=dA;T.B+=dB;T.C+=dC;
+  render();
+  var maxDiff=Math.max(Math.abs(T.A-T.B),Math.abs(T.A-T.C),Math.abs(T.B-T.C));
+  if(maxDiff<0.05&&anyContact()){
+    var T_eq=(cA*T.A+cB*T.B+cC*T.C)/(cA+cB+cC);
+    T.A=T.B=T.C=T_eq;
+    render();
+    stopSim();
+    document.getElementById('status').textContent='\u2713 Thermal equilibrium reached: all systems at '+T.A.toFixed(1)+' K (transitivity of \u223c).';
+    return;
+  }
+  animId=requestAnimationFrame(tick);
+}
+
+function render(){
+  document.getElementById('tempA').textContent=T.A.toFixed(1);
+  document.getElementById('tempB').textContent=T.B.toFixed(1);
+  document.getElementById('tempC').textContent=T.C.toFixed(1);
+  var avg=(T.A+T.B+T.C)/3;
+  var minT=200,maxT=500;
+  var frac=Math.max(0,Math.min(1,(avg-minT)/(maxT-minT)));
+  document.getElementById('mercury').style.height=(10+frac*70)+'px';
+  document.getElementById('thermoLabel').textContent=avg.toFixed(0)+' K';
+  var ab=document.getElementById('arrowAB');
+  var ac=document.getElementById('arrowAC');
+  var bc=document.getElementById('arrowBC');
+  if(contacts.AB&&Math.abs(T.A-T.B)>0.5){
+    ab.classList.add('visible');
+    ab.textContent=T.A>T.B?'\u2192':'\u2190';
+  }else{ab.classList.remove('visible')}
+  if(contacts.AC&&Math.abs(T.A-T.C)>0.5){
+    ac.classList.add('visible');
+    ac.textContent=T.A>T.C?'\u2193':'\u2191';
+  }else{ac.classList.remove('visible')}
+  if(contacts.BC&&Math.abs(T.B-T.C)>0.5){
+    bc.classList.add('visible');
+    bc.textContent=T.B>T.C?'\u2193':'\u2191';
+  }else{bc.classList.remove('visible')}
+  document.getElementById('clAB').classList.toggle('visible',contacts.AB);
+  document.getElementById('clAC').classList.toggle('visible',contacts.AC);
+  document.getElementById('clBC').classList.toggle('visible',contacts.BC);
+}
+
+function updateStatus(){
+  if(!anyContact()){document.getElementById('status').textContent='Click buttons to place systems in thermal contact.';return}
+  var pairs=[];
+  if(contacts.AB)pairs.push('A\u2194B');
+  if(contacts.AC)pairs.push('A\u2194C');
+  if(contacts.BC)pairs.push('B\u2194C');
+  document.getElementById('status').textContent='In contact: '+pairs.join(', ')+' \u2014 heat flowing\u2026';
+}
+
+function randomize(){
+  stopSim();
+  T.A=200+Math.random()*300;
+  T.B=200+Math.random()*300;
+  T.C=200+Math.random()*300;
+  render();
+  updateStatus();
+}
+
+function reset(){
+  stopSim();
+  T.A=400;T.B=300;T.C=350;
+  contacts.AB=contacts.AC=contacts.BC=false;
+  updateButtons();
+  render();
+  updateStatus();
+}
+
+render();
+</script>
+</body>
+</html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zeroth Law – Three Systems Reaching Thermal Equilibrium</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:16px}
+h1{font-size:1.1rem;margin-bottom:4px;color:#a8d8ea}
+.subtitle{font-size:.8rem;color:#888;margin-bottom:12px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+button{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:600;transition:all .15s}
+button:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.btn-contact{background:#2d6a4f;color:#fff}
+.btn-contact.active{background:#40916c;box-shadow:0 0 0 2px #52b788}
+.btn-reset{background:#5a189a;color:#fff}
+.btn-random{background:#9d4edd;color:#fff}
+.sim-area{position:relative;width:100%;max-width:620px;height:340px;background:#16213e;border-radius:12px;padding:16px;overflow:hidden}
+.system{position:absolute;width:120px;height:120px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .3s;border:2px solid transparent}
+.system .label{font-size:.75rem;font-weight:700;opacity:.8;margin-bottom:2px}
+.system .temp{font-size:1.5rem;font-weight:700}
+.system .unit{font-size:.7rem;opacity:.7}
+.sys-a{left:20px;top:20px;background:rgba(230,57,70,.15);border-color:rgba(230,57,70,.4)}
+.sys-b{right:20px;top:20px;background:rgba(255,159,67,.15);border-color:rgba(255,159,67,.4)}
+.sys-c{left:50%;transform:translateX(-50%);bottom:20px;background:rgba(8,145,178,.15);border-color:rgba(8,145,178,.4)}
+.heat-arrow{position:absolute;font-size:1.2rem;opacity:0;transition:opacity .3s;pointer-events:none}
+.heat-arrow.visible{opacity:1}
+.arrow-ab{top:70px;left:50%;transform:translateX(-50%)}
+.arrow-ac{left:50px;bottom:80px}
+.arrow-bc{right:50px;bottom:80px}
+.thermometer{position:absolute;right:12px;bottom:12px;width:36px;height:100px;background:#0f3460;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:4px;border:1px solid #333}
+.thermometer .mercury{width:14px;background:linear-gradient(to top,#e63946,#ff6b6b);border-radius:7px;transition:height .3s}
+.thermometer .t-label{font-size:.55rem;color:#aaa;margin-top:2px}
+.status{margin-top:10px;font-size:.85rem;color:#a8d8ea;text-align:center;min-height:1.4em}
+.legend{display:flex;gap:16px;margin-top:8px;font-size:.7rem;color:#888}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend .dot{width:10px;height:10px;border-radius:50%}
+.contact-line{position:absolute;height:2px;background:rgba(255,255,255,.25);transition:opacity .3s;opacity:0}
+.contact-line.visible{opacity:1}
+.cl-ab{top:80px;left:140px;width:180px}
+.cl-ac{top:140px;left:80px;height:120px;width:2px}
+.cl-bc{top:140px;right:80px;height:120px;width:2px}
+</style>
+</head>
+<body>
+<h1>Zeroth Law: Three Systems Reaching Thermal Equilibrium</h1>
+<p class="subtitle">Place systems in thermal contact and watch temperatures converge. The transitive property guarantees a single equilibrium temperature.</p>
+<div class="controls">
+<button class="btn-contact" id="btnAB" onclick="toggleContact('AB')">A ↔ B</button>
+<button class="btn-contact" id="btnAC" onclick="toggleContact('AC')">A ↔ C</button>
+<button class="btn-contact" id="btnBC" onclick="toggleContact('BC')">B ↔ C</button>
+<button class="btn-contact" id="btnAll" onclick="toggleAll()">All in contact</button>
+<button class="btn-random" onclick="randomize()">Randomize</button>
+<button class="btn-reset" onclick="reset()">Reset</button>
+</div>
+<div class="sim-area" id="simArea">
+<div class="system sys-a" id="sysA">
+<span class="label">System A</span>
+<span class="temp" id="tempA">400</span>
+<span class="unit">K</span>
+</div>
+<div class="system sys-b" id="sysB">
+<span class="label">System B</span>
+<span class="temp" id="tempB">300</span>
+<span class="unit">K</span>
+</div>
+<div class="system sys-c" id="sysC">
+<span class="label">System C</span>
+<span class="temp" id="tempC">350</span>
+<span class="unit">K</span>
+</div>
+<div class="heat-arrow arrow-ab" id="arrowAB">→</div>
+<div class="heat-arrow arrow-ac" id="arrowAC">↓</div>
+<div class="heat-arrow arrow-bc" id="arrowBC">↓</div>
+<div class="contact-line cl-ab" id="clAB"></div>
+<div class="contact-line cl-ac" id="clAC"></div>
+<div class="contact-line cl-bc" id="clBC"></div>
+<div class="thermometer">
+<div class="mercury" id="mercury" style="height:50px"></div>
+<span class="t-label" id="thermoLabel">350 K</span>
+</div>
+</div>
+<p class="status" id="status">Click buttons to place systems in thermal contact.</p>
+<div class="legend">
+<span><span class="dot" style="background:#e63946"></span>A (hot)</span>
+<span><span class="dot" style="background:#ff9f43"></span>B (cold)</span>
+<span><span class="dot" style="background:#0891b2"></span>C (mid)</span>
+</div>
+<script>
+var T={A:400,B:300,C:350};
+var contacts={AB:false,AC:false,BC:false};
+var running=false;
+var animId=null;
+var cA=1.0,cB=0.8,cC=0.9;
+function toggleContact(pair){
+contacts[pair]=!contacts[pair];
+updateButtons();
+if(contacts[pair]&&!running)startSim();
+if(!anyContact())stopSim();
+updateStatus();
+}
+function toggleAll(){
+var all=contacts.AB&&contacts.AC&&contacts.BC;
+contacts.AB=contacts.AC=contacts.BC=!all;
+updateButtons();
+if(anyContact()&&!running)startSim();
+if(!anyContact())stopSim();
+updateStatus();
+}
+function anyContact(){return contacts.AB||contacts.AC||contacts.BC}
+function updateButtons(){
+['AB','AC','BC'].forEach(function(p){
+document.getElementById('btn'+p).classList.toggle('active',contacts[p]);
+});
+document.getElementById('btnAll').classList.toggle('active',contacts.AB&&contacts.AC&&contacts.BC);
+}
+function startSim(){running=true;animId=requestAnimationFrame(tick)}
+function stopSim(){running=false;if(animId)cancelAnimationFrame(animId);animId=null}
+if(!running)return;
+var g=0.03, dt=1.0;
+var dA=0,dB=0,dC=0;
+if(contacts.AB){var qAB=g*dt*(T.A-T.B);dA-=qAB/cA;dB+=qAB/cB}
+if(contacts.AC){var qAC=g*dt*(T.A-T.C);dA-=qAC/cA;dC+=qAC/cC}
+if(contacts.BC){var qBC=g*dt*(T.B-T.C);dB-=qBC/cB;dC+=qBC/cC}
+T.A+=dA;T.B+=dB;T.C+=dC;
+render();
+var maxDiff=Math.max(Math.abs(T.A-T.B),Math.abs(T.A-T.C),Math.abs(T.B-T.C));
+if(maxDiff<0.05&&anyContact()){
+var T_eq=(cA*T.A+cB*T.B+cC*T.C)/(cA+cB+cC);
+T.A=T.B=T.C=T_eq;
+render();
+stopSim();
+document.getElementById('status').textContent='✓ Thermal equilibrium reached: all systems at '+T.A.toFixed(1)+' K (transitivity of ~).';
+return;
+}
+animId=requestAnimationFrame(tick);
+animId=requestAnimationFrame(tick);
+}
+function render(){
+document.getElementById('tempA').textContent=T.A.toFixed(1);
+document.getElementById('tempB').textContent=T.B.toFixed(1);
+document.getElementById('tempC').textContent=T.C.toFixed(1);
+var avg=(T.A+T.B+T.C)/3;
+var minT=200,maxT=500;
+var frac=Math.max(0,Math.min(1,(avg-minT)/(maxT-minT)));
+document.getElementById('mercury').style.height=(10+frac*70)+'px';
+document.getElementById('thermoLabel').textContent=avg.toFixed(0)+' K';
+// arrows
+var ab=document.getElementById('arrowAB');
+var ac=document.getElementById('arrowAC');
+var bc=document.getElementById('arrowBC');
+if(contacts.AB&&Math.abs(T.A-T.B)>0.5){
+ab.classList.add('visible');
+ab.textContent=T.A>T.B?'→':'←';
+}else{ab.classList.remove('visible')}
+if(contacts.AC&&Math.abs(T.A-T.C)>0.5){
+ac.classList.add('visible');
+ac.textContent=T.A>T.C?'↓':'↑';
+}else{ac.classList.remove('visible')}
+if(contacts.BC&&Math.abs(T.B-T.C)>0.5){
+bc.classList.add('visible');
+bc.textContent=T.B>T.C?'↓':'↑';
+}else{bc.classList.remove('visible')}
+// contact lines
+document.getElementById('clAB').classList.toggle('visible',contacts.AB);
+document.getElementById('clAC').classList.toggle('visible',contacts.AC);
+document.getElementById('clBC').classList.toggle('visible',contacts.BC);
+}
+function updateStatus(){
+if(!anyContact()){document.getElementById('status').textContent='Click buttons to place systems in thermal contact.';return}
+var pairs=[];
+if(contacts.AB)pairs.push('A↔B');
+if(contacts.AC)pairs.push('A↔C');
+if(contacts.BC)pairs.push('B↔C');
+document.getElementById('status').textContent='In contact: '+pairs.join(', ')+' — heat flowing…';
+}
+function randomize(){
+stopSim();
+T.A=200+Math.random()*300;
+T.B=200+Math.random()*300;
+T.C=200+Math.random()*300;
+render();
+updateStatus();
+}
+function reset(){
+stopSim();
+T.A=400;T.B=300;T.C=350;
+contacts.AB=contacts.AC=contacts.BC=false;
+updateButtons();
+render();
+updateStatus();
+}
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Security Simulations</title>
+<style>
+body { font-family: monospace; background: #1a1a2e; color: #eee; margin: 0; padding: 20px; }
+h1 { font-size: 1.2em; text-align: center; color: #0f0; }
+.tabs { text-align: center; margin: 15px 0; }
+.tab-btn { background: #16213e; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; margin: 0 5px; cursor: pointer; font-family: monospace; }
+.tab-btn:hover { background: #0f0; color: #1a1a2e; }
+.tab-btn.active { background: #0f0; color: #1a1a2e; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.controls { text-align: center; margin: 15px 0; }
+button { background: #16213e; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; margin: 0 5px; cursor: pointer; font-family: monospace; }
+button:hover { background: #0f0; color: #1a1a2e; }
+button.active { background: #0f0; color: #1a1a2e; }
+#stack { width: 100%; max-width: 700px; margin: 20px auto; border-collapse: collapse; }
+#stack td { border: 1px solid #444; padding: 8px 12px; text-align: center; font-size: 0.9em; transition: all 0.3s; }
+#stack .label { text-align: left; color: #888; width: 120px; }
+#stack .addr { color: #6cf; font-size: 0.8em; }
+#stack .data { color: #0f0; }
+#stack .overflow { background: #f00; color: #fff; }
+#stack .canary-ok { background: #0a0; color: #fff; }
+#stack .canary-bad { background: #f00; color: #fff; }
+#stack .aslr { background: #440; color: #ff0; }
+#status { text-align: center; font-size: 1.1em; margin: 15px 0; min-height: 2em; color: #ff0; }
+#desc { max-width: 700px; margin: 0 auto; text-align: center; color: #aaa; font-size: 0.9em; min-height: 3em; }
+.legend { max-width: 700px; margin: 10px auto; font-size: 0.8em; color: #888; text-align: center; }
+.legend span { margin: 0 10px; }
+/* SQL Injection styles */
+.sql-container { max-width: 700px; margin: 0 auto; }
+.sql-input { width: 100%; max-width: 500px; padding: 8px; margin: 10px auto; background: #0f0f23; color: #0f0; border: 1px solid #0f0; font-family: monospace; font-size: 0.9em; display: block; }
+.sql-query { background: #0f0f23; border: 1px solid #444; padding: 12px; margin: 10px 0; font-size: 0.85em; white-space: pre-wrap; color: #6cf; border-radius: 4px; }
+.sql-query .danger { color: #f44; font-weight: bold; }
+.sql-query .safe { color: #0f0; }
+.sql-result { background: #16213e; border: 1px solid #444; padding: 12px; margin: 10px 0; font-size: 0.85em; border-radius: 4px; }
+.sql-result .row { padding: 4px 0; border-bottom: 1px solid #333; }
+.sql-result .row:last-child { border-bottom: none; }
+.sql-result .header { color: #6cf; font-weight: bold; }
+.sql-result .danger-row { color: #f44; }
+.sql-result .safe-row { color: #0f0; }
+.sql-label { text-align: center; color: #888; font-size: 0.85em; margin: 10px 0 5px; }
+</style>
+</head>
+<body>
+<h1>Security Simulations</h1>
+<div class="tabs">
+<button class="tab-btn active" onclick="switchTab('overflow')">Buffer Overflow</button>
+<button class="tab-btn" onclick="switchTab('sql')">SQL Injection</button>
+</div>
+
+<!-- Buffer Overflow Tab -->
+<div id="tab-overflow" class="tab-content active">
+<div class="controls">
+<button id="btn-normal" class="active" onclick="showNormal()">Normal</button>
+<button id="btn-overflow" onclick="showOverflow()">Overflow</button>
+<button id="btn-canary" onclick="showCanary()">+ Canary</button>
+<button id="btn-aslr" onclick="showASLR()">+ ASLR</button>
+<button id="btn-dep" onclick="showDEP()">+ DEP/NX</button>
+</div>
+<div id="status"></div>
+<div id="desc"></div>
+<table id="stack">
+<tr><td class="label">Stack top</td><td class="addr" id="a-top"></td><td class="data" id="d-top"></td></tr>
+<tr><td class="label">Return addr</td><td class="addr" id="a-ret"></td><td class="data" id="d-ret"></td></tr>
+<tr><td class="label">Canary</td><td class="addr" id="a-can"></td><td class="data" id="d-can"></td></tr>
+<tr><td class="label">Local buf</td><td class="addr" id="a-buf"></td><td class="data" id="d-buf"></td></tr>
+<tr><td class="label">Stack bottom</td><td class="addr" id="a-bot"></td><td class="data" id="d-bot"></td></tr>
+</table>
+<div class="legend">
+<span>🟢 Normal</span><span>🔴 Overflow</span><span>🟡 ASLR randomized</span><span>🟠 Canary detected</span>
+</div>
+</div>
+
+<!-- SQL Injection Tab -->
+<div id="tab-sql" class="tab-content">
+<div class="sql-container">
+<div class="sql-label">Enter a username (try: <code>' OR '1'='1</code> or <code>admin; DROP TABLE users; --</code>)</div>
+<input class="sql-input" id="sql-input" type="text" value="alice" oninput="updateSQL()" placeholder="Enter username...">
+<div class="sql-label">Vulnerable: string concatenation</div>
+<div class="sql-query" id="sql-vuln"></div>
+<div class="sql-result" id="sql-vuln-result"></div>
+<div class="sql-label">Safe: parameterized query</div>
+<div class="sql-query" id="sql-safe"></div>
+<div class="sql-result" id="sql-safe-result"></div>
+<div id="sql-status" style="text-align:center; font-size:1em; margin:15px 0; min-height:2em; color:#ff0;"></div>
+<div id="sql-desc" style="max-width:700px; margin:0 auto; text-align:center; color:#aaa; font-size:0.9em; min-height:3em;"></div>
+</div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelectorAll('.tab-btn')[name === 'overflow' ? 0 : 1].classList.add('active');
+}
+
+// Buffer Overflow
+const addrs = {
+  normal: { top: '0x7fff5a00', ret: '0x7fff5a10', can: '0x7fff5a18', buf: '0x7fff5a20', bot: '0x7fff5a40' },
+  aslr:   { top: '0x7f3a2c00', ret: '0x7f3a2c10', can: '0x7f3a2c18', buf: '0x7f3a2c20', bot: '0x7f3a2c40' }
+};
+const canaryVal = '0xDEADBEEF';
+const shellcode = '0x90909090';
+const retAddr = '0x401234';
+
+function setCell(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = cls ? cls : 'data';
+}
+function setAddr(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = cls ? cls : 'addr';
+}
+function clearAll() {
+  ['top','ret','can','buf','bot'].forEach(k => {
+    setCell('d-'+k, '', 'data');
+    setAddr('a-'+k, '', 'addr');
+  });
+}
+function showNormal() {
+  setActive('btn-normal');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret); setCell('d-ret', retAddr);
+  setAddr('a-can', a.can); setCell('d-can', '—');
+  setAddr('a-buf', a.buf); setCell('d-buf', 'hello world');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '✓ Normal execution: buffer within bounds, return address intact.';
+  document.getElementById('desc').textContent = 'The local buffer holds "hello world" (11 bytes) within its 16-byte allocation. The return address points to the caller.';
+}
+function showOverflow() {
+  setActive('btn-overflow');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret, 'overflow'); setCell('d-ret', shellcode, 'overflow');
+  setAddr('a-can', a.can); setCell('d-can', '—');
+  setAddr('a-buf', a.buf, 'overflow'); setCell('d-buf', 'AAAA...AAAA (20 bytes > 16)', 'overflow');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '✗ EXPLOIT: Return address overwritten with shellcode address!';
+  document.getElementById('desc').textContent = 'The attacker writes 20 bytes into a 16-byte buffer. The 4 extra bytes overwrite the return address. On function return, the CPU jumps to the attacker-controlled shellcode.';
+}
+function showCanary() {
+  setActive('btn-canary');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret); setCell('d-ret', retAddr);
+  setAddr('a-can', a.can, 'canary-bad'); setCell('d-can', '0x00000000 (corrupted!)', 'canary-bad');
+  setAddr('a-buf', a.buf, 'overflow'); setCell('d-buf', 'AAAA...AAAA (20 bytes)', 'overflow');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '⚠ Canary detected: process aborted before return!';
+  document.getElementById('desc').textContent = 'The stack canary (0xDEADBEEF) was overwritten by the overflow. Before the return address is used, the runtime checks the canary. Mismatch → abort(). The exploit is blocked.';
+}
+function showASLR() {
+  setActive('btn-aslr');
+  clearAll();
+  const a = addrs.aslr;
+  setAddr('a-top', a.top, 'aslr'); setCell('d-top', '—', 'aslr');
+  setAddr('a-ret', a.ret, 'aslr'); setCell('d-ret', retAddr, 'aslr');
+  setAddr('a-can', a.can, 'aslr'); setCell('d-can', canaryVal, 'aslr');
+  setAddr('a-buf', a.buf, 'aslr'); setCell('d-buf', 'AAAA...AAAA (20 bytes)', 'aslr');
+  setAddr('a-bot', a.bot, 'aslr'); setCell('d-bot', '—', 'aslr');
+  document.getElementById('status').textContent = '⚠ ASLR: addresses randomized — attacker cannot predict shellcode location.';
+  document.getElementById('desc').textContent = 'Each process launch randomizes the stack, heap, and library base addresses. Even if the overflow succeeds, the attacker does not know where to jump. Combined with the canary, the exploit is blocked.';
+}
+function showDEP() {
+  setActive('btn-dep');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret, 'overflow'); setCell('d-ret', '0x7fff5a20 (stack)', 'overflow');
+  setAddr('a-can', a.can, 'canary-bad'); setCell('d-can', '0x00000000', 'canary-bad');
+  setAddr('a-buf', a.buf, 'overflow'); setCell('d-buf', 'shellcode (NX: cannot execute)', 'overflow');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '✗ DEP/NX: stack is non-executable — shellcode cannot run!';
+  document.getElementById('desc').textContent = 'Even if the canary is bypassed and the return address is overwritten to point at the stack, the CPU refuses to execute code from a non-executable page. The process crashes with SIGSEGV.';
+}
+function setActive(id) {
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+showNormal();
+
+// SQL Injection
+const users = [
+  { id: 1, name: 'alice', email: 'alice@example.com', role: 'user' },
+  { id: 2, name: 'bob', email: 'bob@example.com', role: 'user' },
+  { id: 3, name: 'admin', email: 'admin@example.com', role: 'admin' }
+];
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');
+}
+
+function updateSQL() {
+  const input = document.getElementById('sql-input').value;
+  const vulnQuery = "SELECT * FROM users WHERE name = '" + input + "'";
+  const safeQuery = "SELECT * FROM users WHERE name = ?\n-- parameter bound: \"" + input + "\"";
+
+  document.getElementById('sql-vuln').innerHTML =
+    'SELECT * FROM users WHERE name = \'<span class="danger">' + escapeHtml(input) + '</span>\'';
+  document.getElementById('sql-safe').innerHTML =
+    'SELECT * FROM users WHERE name = <span class="safe">?</span>\n<span style="color:#888">-- parameter bound: "' + escapeHtml(input) + '"</span>';
+
+  // Simulate vulnerable query execution
+  let vulnResult = '';
+  let isInjection = /['";--|\/\*|\*\//i.test(input);
+  if (isInjection) {
+    if (/OR\s+'1'\s*=\s*'1/i.test(input) || /OR\s+1\s*=\s*1/i.test(input)) {
+      vulnResult = '<div class="row header">⚠ INJECTION SUCCESSFUL — all rows returned:</div>';
+      users.forEach(u => {
+        vulnResult += '<div class="row danger-row">id=' + u.id + ' | name=' + u.name + ' | email=' + u.email + ' | role=' + u.role + '</div>';
+      });
+      document.getElementById('sql-status').textContent = '✗ VULNERABLE: The injected predicate (OR 1=1) bypasses the name filter. All rows are returned.';
+      document.getElementById('sql-desc').textContent = 'The attacker\'s input breaks out of the string literal and appends a tautology. The database executes the modified query, returning every user including the admin.';
+    } else if (/DROP\s+TABLE/i.test(input)) {
+      vulnResult = '<div class="row danger-row">⚠ INJECTION SUCCESSFUL — DROP TABLE executed!</div><div class="row danger-row">The users table has been dropped.</div>';
+      document.getElementById('sql-status').textContent = '✗ VULNERABLE: Stacked query — DROP TABLE executed after the SELECT.';
+      document.getElementById('sql-desc').textContent = 'The semicolon terminates the SELECT and starts a new statement. The database executes both: the SELECT and the destructive DROP TABLE.';
+    } else {
+      vulnResult = '<div class="row danger-row">⚠ INJECTION ATTEMPT DETECTED — query modified by untrusted input.</div>';
+      document.getElementById('sql-status').textContent = '⚠ VULNERABLE: The input contains SQL metacharacters that modify the query structure.';
+      document.getElementById('sql-desc').textContent = 'The input contains quotes, semicolons, or comment markers that alter the query\'s syntax. The database interprets the attacker\'s text as SQL, not as data.';
+    }
+  } else {
+    const match = users.find(u => u.name === input);
+    if (match) {
+      vulnResult = '<div class="row header">1 row returned:</div><div class="row safe-row">id=' + match.id + ' | name=' + match.name + ' | email=' + match.email + ' | role=' + match.role + '</div>';
+    } else {
+      vulnResult = '<div class="row">0 rows returned.</div>';
+    }
+    document.getElementById('sql-status').textContent = '✓ Normal input: both queries return the same result.';
+    document.getElementById('sql-desc').textContent = 'For benign input, string concatenation and parameterized queries produce identical results. The vulnerability only manifests with adversarial input.';
+  }
+  document.getElementById('sql-vuln-result').innerHTML = vulnResult;
+
+  // Simulate safe query execution
+  const safeMatch = users.find(u => u.name === input);
+  let safeResult = '';
+  if (safeMatch) {
+    safeResult = '<div class="row header">1 row returned:</div><div class="row safe-row">id=' + safeMatch.id + ' | name=' + safeMatch.name + ' | email=' + safeMatch.email + ' | role=' + safeMatch.role + '</div>';
+  } else {
+    safeResult = '<div class="row safe-row">0 rows returned. (Input treated as literal string, not SQL.)</div>';
+  }
+  document.getElementById('sql-safe-result').innerHTML = safeResult;
+}
+updateSQL();
+</script>
+</body>
+</html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Buffer Overflow Exploit Chain</title>
+<style>
+body { font-family: monospace; background: #1a1a2e; color: #eee; margin: 0; padding: 20px; }
+h1 { font-size: 1.2em; text-align: center; color: #0f0; }
+.controls { text-align: center; margin: 15px 0; }
+button { background: #16213e; color: #0f0; border: 1px solid #0f0; padding: 8px 16px; margin: 0 5px; cursor: pointer; font-family: monospace; }
+button:hover { background: #0f0; color: #1a1a2e; }
+button.active { background: #0f0; color: #1a1a2e; }
+#stack { width: 100%; max-width: 700px; margin: 20px auto; border-collapse: collapse; }
+#stack td { border: 1px solid #444; padding: 8px 12px; text-align: center; font-size: 0.9em; transition: all 0.3s; }
+#stack .label { text-align: left; color: #888; width: 120px; }
+#stack .addr { color: #6cf; font-size: 0.8em; }
+#stack .data { color: #0f0; }
+#stack .overflow { background: #f00; color: #fff; }
+#stack .canary-ok { background: #0a0; color: #fff; }
+#stack .canary-bad { background: #f00; color: #fff; }
+#stack .aslr { background: #440; color: #ff0; }
+#status { text-align: center; font-size: 1.1em; margin: 15px 0; min-height: 2em; color: #ff0; }
+#desc { max-width: 700px; margin: 0 auto; text-align: center; color: #aaa; font-size: 0.9em; min-height: 3em; }
+.legend { max-width: 700px; margin: 10px auto; font-size: 0.8em; color: #888; text-align: center; }
+.legend span { margin: 0 10px; }
+</style>
+</head>
+<body>
+<h1>Buffer Overflow Exploit Chain</h1>
+<div class="controls">
+<button id="btn-normal" class="active" onclick="showNormal()">Normal</button>
+<button id="btn-overflow" onclick="showOverflow()">Overflow</button>
+<button id="btn-canary" onclick="showCanary()">+ Canary</button>
+<button id="btn-aslr" onclick="showASLR()">+ ASLR</button>
+<button id="btn-dep" onclick="showDEP()">+ DEP/NX</button>
+</div>
+<div id="status"></div>
+<div id="desc"></div>
+<table id="stack">
+<tr><td class="label">Stack top</td><td class="addr" id="a-top"></td><td class="data" id="d-top"></td></tr>
+<tr><td class="label">Return addr</td><td class="addr" id="a-ret"></td><td class="data" id="d-ret"></td></tr>
+<tr><td class="label">Canary</td><td class="addr" id="a-can"></td><td class="data" id="d-can"></td></tr>
+<tr><td class="label">Local buf</td><td class="addr" id="a-buf"></td><td class="data" id="d-buf"></td></tr>
+<tr><td class="label">Stack bottom</td><td class="addr" id="a-bot"></td><td class="data" id="d-bot"></td></tr>
+</table>
+<div class="legend">
+<span>🟢 Normal</span><span>🔴 Overflow</span><span>🟡 ASLR randomized</span><span>🟠 Canary detected</span>
+</div>
+<script>
+const addrs = {
+  normal: { top: '0x7fff5a00', ret: '0x7fff5a10', can: '0x7fff5a18', buf: '0x7fff5a20', bot: '0x7fff5a40' },
+  aslr:   { top: '0x7f3a2c00', ret: '0x7f3a2c10', can: '0x7f3a2c18', buf: '0x7f3a2c20', bot: '0x7f3a2c40' }
+};
+const canaryVal = '0xDEADBEEF';
+const shellcode = '0x90909090';
+const retAddr = '0x401234';
+
+function setCell(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = cls ? cls : 'data';
+}
+function setAddr(id, text, cls) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = cls ? cls : 'addr';
+}
+function clearAll() {
+  ['top','ret','can','buf','bot'].forEach(k => {
+    setCell('d-'+k, '', 'data');
+    setAddr('a-'+k, '', 'addr');
+  });
+}
+function showNormal() {
+  setActive('btn-normal');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret); setCell('d-ret', retAddr);
+  setAddr('a-can', a.can); setCell('d-can', '—');
+  setAddr('a-buf', a.buf); setCell('d-buf', 'hello world');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '✓ Normal execution: buffer within bounds, return address intact.';
+  document.getElementById('desc').textContent = 'The local buffer holds "hello world" (11 bytes) within its 16-byte allocation. The return address points to the caller.';
+}
+function showOverflow() {
+  setActive('btn-overflow');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret, 'overflow'); setCell('d-ret', shellcode, 'overflow');
+  setAddr('a-can', a.can); setCell('d-can', '—');
+  setAddr('a-buf', a.buf, 'overflow'); setCell('d-buf', 'AAAA...AAAA (20 bytes > 16)', 'overflow');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '✗ EXPLOIT: Return address overwritten with shellcode address!';
+  document.getElementById('desc').textContent = 'The attacker writes 20 bytes into a 16-byte buffer. The 4 extra bytes overwrite the return address. On function return, the CPU jumps to the attacker-controlled shellcode.';
+}
+function showCanary() {
+  setActive('btn-canary');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret); setCell('d-ret', retAddr);
+  setAddr('a-can', a.can, 'canary-bad'); setCell('d-can', '0x00000000 (corrupted!)', 'canary-bad');
+  setAddr('a-buf', a.buf, 'overflow'); setCell('d-buf', 'AAAA...AAAA (20 bytes)', 'overflow');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '⚠ Canary detected: process aborted before return!';
+  document.getElementById('desc').textContent = 'The stack canary (0xDEADBEEF) was overwritten by the overflow. Before the return address is used, the runtime checks the canary. Mismatch → abort(). The exploit is blocked.';
+}
+function showASLR() {
+  setActive('btn-aslr');
+  clearAll();
+  const a = addrs.aslr;
+  setAddr('a-top', a.top, 'aslr'); setCell('d-top', '—', 'aslr');
+  setAddr('a-ret', a.ret, 'aslr'); setCell('d-ret', retAddr, 'aslr');
+  setAddr('a-can', a.can, 'aslr'); setCell('d-can', canaryVal, 'aslr');
+  setAddr('a-buf', a.buf, 'aslr'); setCell('d-buf', 'AAAA...AAAA (20 bytes)', 'aslr');
+  setAddr('a-bot', a.bot, 'aslr'); setCell('d-bot', '—', 'aslr');
+  document.getElementById('status').textContent = '⚠ ASLR: addresses randomized — attacker cannot predict shellcode location.';
+  document.getElementById('desc').textContent = 'Each process launch randomizes the stack, heap, and library base addresses. Even if the overflow succeeds, the attacker does not know where to jump. Combined with the canary, the exploit is blocked.';
+}
+function showDEP() {
+  setActive('btn-dep');
+  clearAll();
+  const a = addrs.normal;
+  setAddr('a-top', a.top); setCell('d-top', '—');
+  setAddr('a-ret', a.ret, 'overflow'); setCell('d-ret', '0x7fff5a20 (stack)', 'overflow');
+  setAddr('a-can', a.can, 'canary-bad'); setCell('d-can', '0x00000000', 'canary-bad');
+  setAddr('a-buf', a.buf, 'overflow'); setCell('d-buf', 'shellcode (NX: cannot execute)', 'overflow');
+  setAddr('a-bot', a.bot); setCell('d-bot', '—');
+  document.getElementById('status').textContent = '✗ DEP/NX: stack is non-executable — shellcode cannot run!';
+  document.getElementById('desc').textContent = 'Even if the canary is bypassed and the return address is overwritten to point at the stack, the CPU refuses to execute code from a non-executable page. The process crashes with SIGSEGV.';
+}
+function setActive(id) {
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+showNormal();
+</script>
+</body>
+</html>

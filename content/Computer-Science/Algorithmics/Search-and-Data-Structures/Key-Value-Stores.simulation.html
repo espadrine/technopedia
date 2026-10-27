@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Key-Value Stores Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h1 { font-size: 1.3em; margin-bottom: 10px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.tab { padding: 8px 16px; cursor: pointer; background: #e0e0e0; border: 1px solid #bbb; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 0.9em; }
+.tab.active { background: #fff; font-weight: bold; border-color: #1565c0; }
+.panel { display: none; border: 1px solid #1565c0; border-radius: 0 6px 6px 6px; padding: 16px; background: #fff; min-height: 300px; }
+.panel.active { display: block; }
+.controls { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.controls input { padding: 4px 8px; width: 80px; }
+.controls button { padding: 5px 12px; cursor: pointer; background: #1565c0; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0d47a1; }
+svg { display: block; margin: 10px auto; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Key-Value Store Structures</h1>
+<div class="tabs">
+<div class="tab active" onclick="showTab(0)">Hash Table</div>
+<div class="tab" onclick="showTab(1)">Balanced BST</div>
+<div class="tab" onclick="showTab(2)">Skip List</div>
+<div class="tab" onclick="showTab(3)">B-Tree</div>
+<div class="tab" onclick="showTab(4)">LSM-Tree</div>
+</div>
+
+<div class="panel active" id="panel0">
+<div class="controls">
+<label>Key: <input type="number" id="ht-key" value="5"></label>
+<button onclick="htInsert()">Insert</button>
+<button onclick="htSearch()">Search</button>
+<button onclick="htReset()">Reset</button>
+<span class="info" id="ht-info">Table size: 7, h(k) = k mod 7</span>
+</div>
+<svg id="ht-svg" width="520" height="200"></svg>
+</div>
+
+<div class="panel" id="panel1">
+<div class="controls">
+<label>Key: <input type="number" id="bst-key" value="5"></label>
+<button onclick="bstInsert()">Insert</button>
+<button onclick="bstSearch()">Search</button>
+<button onclick="bstReset()">Reset</button>
+<span class="info" id="bst-info">Balanced BST (AVL)</span>
+</div>
+<svg id="bst-svg" width="500" height="280"></svg>
+</div>
+
+<div class="panel" id="panel2">
+<div class="controls">
+<label>Key: <input type="number" id="sl-key" value="7"></label>
+<button onclick="slInsert()">Insert</button>
+<button onclick="slSearch()">Search</button>
+<button onclick="slReset()">Reset</button>
+<span class="info" id="sl-info">Skip list, p = 0.5</span>
+</div>
+<svg id="sl-svg" width="520" height="220"></svg>
+</div>
+
+<div class="panel" id="panel3">
+<div class="controls">
+<label>Key: <input type="number" id="bt-key" value="25"></label>
+<button onclick="btInsert()">Insert</button>
+<button onclick="btSearch()">Search</button>
+<button onclick="btReset()">Reset</button>
+<span class="info" id="bt-info">B-tree of order 4 (max 3 keys/node)</span>
+</div>
+<svg id="bt-svg" width="520" height="260"></svg>
+</div>
+
+<div class="panel" id="panel4">
+<div class="controls">
+<button onclick="lsmWrite()">Write</button>
+<button onclick="lsmFlush()">Flush</button>
+<button onclick="lsmCompact()">Compact</button>
+<button onclick="lsmReset()">Reset</button>
+<span class="info" id="lsm-info">Memtable: empty | L0: 0 SSTs | L1: 0 SSTs</span>
+</div>
+<svg id="lsm-svg" width="520" height="240"></svg>
+</div>
+
+<script>
+function showTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', j===i));
+}
+
+// Hash Table
+let ht = Array(7).fill(null).map(() => []);
+function htInsert() {
+  let k = parseInt(document.getElementById('ht-key').value);
+  let slot = k % 7;
+  ht[slot].push(k);
+  htDraw();
+  document.getElementById('ht-info').textContent = `Table size: 7, h(k) = k mod 7. Slot ${slot} has ${ht[slot].length} entries.`;
+}
+function htSearch() {
+  let k = parseInt(document.getElementById('ht-key').value);
+  let slot = k % 7;
+  let found = ht[slot].includes(k);
+  document.getElementById('ht-info').textContent = `h(${k}) = ${slot}. ${found ? 'Found!' : 'Not found.'}`;
+  htDraw(slot, found);
+}
+function htReset() { ht = Array(7).fill(null).map(() => []); htDraw(); document.getElementById('ht-info').textContent = 'Table size: 7, h(k) = k mod 7'; }
+function htDraw(highlightSlot, found) {
+  let svg = document.getElementById('ht-svg');
+  let s = '';
+  for (let i = 0; i < 7; i++) {
+    let x = 10 + i * 72;
+    let fill = (i === highlightSlot) ? (found ? '#c8e6c9' : '#ffcdd2') : '#e3f2fd';
+    let stroke = (i === highlightSlot) ? (found ? '#388e3c' : '#d32f2f') : '#1565c0';
+    s += `<rect x="${x}" y="20" width="60" height="28" fill="${fill}" stroke="${stroke}" rx="3"/>`;
+    s += `<text x="${x+30}" y="39" text-anchor="middle" font-size="11">${i}</text>`;
+    for (let j = 0; j < ht[i].length; j++) {
+      let cy = 60 + j * 28;
+      s += `<line x1="${x+30}" y1="48" x2="${x+30}" y2="${cy-10}" stroke="#999" stroke-width="1"/>`;
+      s += `<rect x="${x}" y="${cy}" width="60" height="24" fill="#fff3e0" stroke="#e65100" rx="3"/>`;
+      s += `<text x="${x+30}" y="${cy+16}" text-anchor="middle" font-size="11">${ht[i][j]}</text>`;
+    }
+  }
+  svg.innerHTML = s;
+}
+htDraw();
+
+// BST
+let bstNodes = [];
+function bstInsert() {
+  let k = parseInt(document.getElementById('bst-key').value);
+  if (bstNodes.find(n => n.key === k)) return;
+  bstNodes.push({key: k, left: null, right: null});
+  bstNodes.sort((a,b) => a.key - b.key);
+  bstDraw();
+  document.getElementById('bst-info').textContent = `Keys: [${bstNodes.map(n=>n.key).join(', ')}]`;
+}
+function bstSearch() {
+  let k = parseInt(document.getElementById('bst-key').value);
+  let found = bstNodes.find(n => n.key === k);
+  document.getElementById('bst-info').textContent = found ? `Found ${k}!` : `${k} not in tree.`;
+}
+function bstReset() { bstNodes = []; bstDraw(); document.getElementById('bst-info').textContent = 'Balanced BST (AVL)'; }
+function bstDraw() {
+  let svg = document.getElementById('bst-svg');
+  if (bstNodes.length === 0) { svg.innerHTML = '<text x="250" y="140" text-anchor="middle" font-size="12" fill="#999">Empty tree. Insert keys to begin.</text>'; return; }
+  // Simple balanced layout
+  let n = bstNodes.length;
+  let s = '';
+  let positions = [];
+  function layout(idx, depth, x1, x2) {
+    if (idx >= n) return;
+    let x = (x1 + x2) / 2;
+    let y = 40 + depth * 70;
+    positions[idx] = {x, y};
+    let mid = Math.floor(n / 2);
+    if (idx === mid) {
+      layout(Math.floor(mid/2), depth+1, x1, x);
+      layout(mid+1, depth+1, x, x2);
+    }
+  }
+  // Just draw in a simple tree layout
+  let mid = Math.floor(n/2);
+  function drawNode(idx, depth, x1, x2) {
+    if (idx < 0 || idx >= n) return;
+    let x = (x1+x2)/2;
+    let y = 40 + depth*70;
+    let left = Math.floor((idx)/2);
+    let right = Math.ceil((idx)/2);
+    if (depth > 0) {
+      let px = (x1 + (x1+x2)/2) / 2;
+      let py = 40 + (depth-1)*70;
+      s += `<line x1="${px}" y1="${py}" x2="${x}" y2="${y}" stroke="#333"/>`;
+    }
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="bold">${bstNodes[idx].key}</text>`;
+    if (depth < 4) {
+      drawNode(idx-1, depth+1, x1, x);
+      drawNode(idx+1, depth+1, x, x2);
+    }
+  }
+  // Simplified: just draw sorted nodes in a balanced tree shape
+  function drawBalanced(arr, depth, x1, x2) {
+    if (arr.length === 0) return;
+    let mid = Math.floor(arr.length/2);
+    let x = (x1+x2)/2;
+    let y = 40 + depth*70;
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="bold">${arr[mid].key}</text>`;
+    if (depth > 0) {
+      let px = (x1+x2)/2;
+      let py = 40 + (depth-1)*70;
+      // Draw line from parent (approximate)
+    }
+    drawBalanced(arr.slice(0, mid), depth+1, x1, x);
+    drawBalanced(arr.slice(mid+1), depth+1, x, x2);
+  }
+  // Draw lines first, then nodes
+  function drawWithLines(arr, depth, x1, x2, parentX, parentY) {
+    if (arr.length === 0) return;
+    let mid = Math.floor(arr.length/2);
+    let x = (x1+x2)/2;
+    let y = 40 + depth*70;
+    if (depth > 0) {
+      s += `<line x1="${parentX}" y1="${parentY}" x2="${x}" y2="${y}" stroke="#333"/>`;
+    }
+    drawWithLines(arr.slice(0, mid), depth+1, x1, x, x, y);
+    drawWithLines(arr.slice(mid+1), depth+1, x, x2, x, y);
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="bold">${arr[mid].key}</text>`;
+  }
+  drawWithLines(bstNodes, 0, 20, 480, 0, 0);
+  svg.innerHTML = s;
+}
+bstDraw();
+
+// Skip List
+let slNodes = [];
+function slInsert() {
+  let k = parseInt(document.getElementById('sl-key').value);
+  if (slNodes.find(n => n.key === k)) return;
+  let level = 1;
+  while (Math.random() < 0.5 && level < 4) level++;
+  slNodes.push({key: k, level: level});
+  slNodes.sort((a,b) => a.key - b.key);
+  slDraw();
+  document.getElementById('sl-info').textContent = `Keys: [${slNodes.map(n=>n.key).join(', ')}]`;
+}
+function slSearch() {
+  let k = parseInt(document.getElementById('sl-key').value);
+  let found = slNodes.find(n => n.key === k);
+  document.getElementById('sl-info').textContent = found ? `Found ${k}!` : `${k} not in list.`;
+}
+function slReset() { slNodes = []; slDraw(); document.getElementById('sl-info').textContent = 'Skip list, p = 0.5'; }
+function slDraw() {
+  let svg = document.getElementById('sl-svg');
+  if (slNodes.length === 0) { svg.innerHTML = '<text x="260" y="110" text-anchor="middle" font-size="12" fill="#999">Empty. Insert keys to begin.</text>'; return; }
+  let maxLevel = Math.max(...slNodes.map(n => n.level));
+  let s = '';
+  let colors = ['#e3f2fd','#e8f5e9','#fff3e0','#fce4ec'];
+  let strokes = ['#1565c0','#2e7d32','#e65100','#c62828'];
+  for (let l = maxLevel; l >= 0; l--) {
+    let y = 30 + (maxLevel - l) * 50;
+    s += `<text x="5" y="${y+5}" font-size="10" fill="#555">L${l}</text>`;
+    let nodesAtLevel = slNodes.filter(n => n.level > l);
+    let spacing = 500 / (nodesAtLevel.length + 1);
+    for (let i = 0; i < nodesAtLevel.length; i++) {
+      let x = 40 + i * spacing;
+      s += `<circle cx="${x}" cy="${y}" r="14" fill="${colors[l]}" stroke="${strokes[l]}" stroke-width="2"/>`;
+      s += `<text x="${x}" y="${y+4}" text-anchor="middle" font-size="10" font-weight="bold">${nodesAtLevel[i].key}</text>`;
+      if (i < nodesAtLevel.length - 1) {
+        s += `<line x1="${x+14}" y1="${y}" x2="${x+spacing-14}" y2="${y}" stroke="${strokes[l]}" stroke-width="1.5"/>`;
+      }
+    }
+  }
+  svg.innerHTML = s;
+}
+slDraw();
+
+// B-Tree
+let btNodes = {keys: [], children: []};
+let btTree = null;
+function btReset() {
+  btTree = {keys: [], children: []};
+  btDraw();
+  document.getElementById('bt-info').textContent = 'B-tree of order 4 (max 3 keys/node)';
+}
+function btInsert() {
+  let k = parseInt(document.getElementById('bt-key').value);
+  btInsertNode(btTree, k);
+  if (btTree.keys.length > 3) {
+    let newRoot = {keys: [], children: []};
+    newRoot.children.push(btTree);
+    btSplitChild(newRoot, 0);
+    btTree = newRoot;
+  }
+  btDraw();
+  document.getElementById('bt-info').textContent = `Root keys: [${btTree.keys.join(', ')}]`;
+}
+function btInsertNode(node, k) {
+  let i = 0;
+  while (i < node.keys.length && k > node.keys[i]) i++;
+  if (i < node.children.length && node.children[i] && node.children[i].children) {
+    btInsertNode(node.children[i], k);
+  } else {
+    node.keys.splice(i, 0, k);
+    node.keys.sort((a,b) => a-b);
+  }
+}
+function btSplitChild(parent, idx) {
+  let child = parent.children[idx];
+  let mid = Math.floor(child.keys.length / 2);
+  let newChild = {keys: child.keys.slice(mid+1), children: []};
+  let upKey = child.keys[mid];
+  child.keys = child.keys.slice(0, mid);
+  parent.keys.splice(idx, 0, upKey);
+  parent.children.splice(idx+1, 0, newChild);
+}
+function btSearch() {
+  let k = parseInt(document.getElementById('bt-key').value);
+  let found = btFindKey(btTree, k);
+  document.getElementById('bt-info').textContent = found ? `Found ${k}!` : `${k} not in tree.`;
+}
+function btFindKey(node, k) {
+  if (!node) return false;
+  for (let key of node.keys) if (key === k) return true;
+  return false;
+}
+function btDraw() {
+  let svg = document.getElementById('bt-svg');
+  if (!btTree || btTree.keys.length === 0) { svg.innerHTML = '<text x="260" y="130" text-anchor="middle" font-size="12" fill="#999">Empty. Insert keys to begin.</text>'; return; }
+  let s = '';
+  function drawNode(node, x, y, w) {
+    if (!node) return;
+    let nodeW = Math.max(60, node.keys.length * 30);
+    s += `<rect x="${x - nodeW/2}" y="${y-15}" width="${nodeW}" height="30" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" rx="4"/>`;
+    for (let i = 0; i < node.keys.length; i++) {
+      s += `<text x="${x - nodeW/2 + 15 + i*30}" y="${y+5}" text-anchor="middle" font-size="11" font-weight="bold">${node.keys[i]}</text>`;
+    }
+    if (node.children && node.children.length > 1) {
+      let childSpacing = w / node.children.length;
+      for (let i = 0; i < node.children.length; i++) {
+        let cx = x - w/2 + childSpacing * (i + 0.5);
+        let cy = y + 60;
+        s += `<line x1="${x}" y1="${y+15}" x2="${cx}" y2="${cy-15}" stroke="#333"/>`;
+        drawNode(node.children[i], cx, cy, childSpacing);
+      }
+    }
+  }
+  drawNode(btTree, 260, 30, 480);
+  svg.innerHTML = s;
+}
+btReset();
+
+// LSM-Tree
+let lsm = {memtable: [], l0: [], l1: [], counter: 0};
+function lsmWrite() {
+  lsm.counter++;
+  lsm.memtable.push(lsm.counter);
+  lsmDraw();
+  lsmUpdateInfo();
+}
+function lsmFlush() {
+  if (lsm.memtable.length === 0) return;
+  lsm.l0.push([...lsm.memtable]);
+  lsm.memtable = [];
+  lsmDraw();
+  lsmUpdateInfo();
+}
+function lsmCompact() {
+  if (lsm.l0.length >= 2) {
+    let merged = lsm.l0.flat().sort((a,b) => a-b);
+    lsm.l0 = [merged];
+  } else if (lsm.l0.length === 1 && lsm.l1.length >= 1) {
+    let merged = [...lsm.l0[0], ...lsm.l1.flat()].sort((a,b) => a-b);
+    lsm.l1 = [merged];
+    lsm.l0 = [];
+  }
+  lsmDraw();
+  lsmUpdateInfo();
+}
+function lsmReset() { lsm = {memtable: [], l0: [], l1: [], counter: 0}; lsmDraw(); lsmUpdateInfo(); }
+function lsmUpdateInfo() {
+  document.getElementById('lsm-info').textContent = `Memtable: ${lsm.memtable.length} keys | L0: ${lsm.l0.length} SSTs | L1: ${lsm.l1.length} SSTs`;
+}
+function lsmDraw() {
+  let svg = document.getElementById('lsm-svg');
+  let s = '';
+  // Memtable
+  s += `<rect x="10" y="20" width="140" height="50" fill="#fff3e0" stroke="#e65100" stroke-width="2" rx="4"/>`;
+  s += `<text x="80" y="42" text-anchor="middle" font-size="11" font-weight="bold">Memtable</text>`;
+  s += `<text x="80" y="58" text-anchor="middle" font-size="9">${lsm.memtable.length} keys</text>`;
+  // Arrow
+  s += `<line x1="150" y1="45" x2="190" y2="45" stroke="#333" stroke-width="1.5"/>`;
+  s += `<text x="170" y="38" text-anchor="middle" font-size="9">flush</text>`;
+  // L0
+  s += `<rect x="195" y="20" width="100" height="50" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" rx="4"/>`;
+  s += `<text x="245" y="42" text-anchor="middle" font-size="11" font-weight="bold">L0</text>`;
+  s += `<text x="245" y="58" text-anchor="middle" font-size="9">${lsm.l0.length} SSTs</text>`;
+  // L1
+  s += `<rect x="195" y="90" width="100" height="50" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" rx="4"/>`;
+  s += `<text x="245" y="112" text-anchor="middle" font-size="11" font-weight="bold">L1</text>`;
+  s += `<text x="245" y="128" text-anchor="middle" font-size="9">${lsm.l1.length} SSTs</text>`;
+  // Compact arrow
+  s += `<line x1="295" y1="45" x2="330" y2="45" stroke="#d32f2f" stroke-width="1.5"/>`;
+  s += `<text x="312" y="38" text-anchor="middle" font-size="9" fill="#d32f2f">compact</text>`;
+  // Read path box
+  s += `<rect x="340" y="20" width="170" height="120" fill="#f5f5f5" stroke="#999" stroke-width="1" rx="4"/>`;
+  s += `<text x="425" y="40" text-anchor="middle" font-size="11" font-weight="bold">Read path</text>`;
+  s += `<text x="350" y="60" font-size="10">1. Check memtable</text>`;
+  s += `<text x="350" y="78" font-size="10">2. Bloom filter per SST</text>`;
+  s += `<text x="350" y="96" font-size="10">3. Binary search SST</text>`;
+  s += `<text x="350" y="114" font-size="10" fill="#555">Expected: O(log n)</text>`;
+  // Memtable keys display
+  if (lsm.memtable.length > 0) {
+    let keys = lsm.memtable.slice(0, 8).join(', ') + (lsm.memtable.length > 8 ? '...' : '');
+    s += `<text x="10" y="90" font-size="9" fill="#555">Keys: ${keys}</text>`;
+  }
+  svg.innerHTML = s;
+}
+lsmDraw();
+</script>
+</body>
+</html>

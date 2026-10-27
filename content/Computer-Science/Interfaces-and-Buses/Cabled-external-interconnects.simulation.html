@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bandwidth vs cable length</title>
+<style>
+  body { font-family: sans-serif; margin: 0; padding: 8px; background: #fff; }
+  #wrap { max-width: 900px; }
+  canvas { border: 1px solid #ccc; background: #fafafa; max-width: 100%; display: block; }
+  #ui { margin: 8px 0; }
+  #readout { font-family: monospace; font-size: 13px; margin-top: 6px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="chart" width="860" height="500"></canvas>
+<div id="ui">
+  <label>Cable length: <b id="llen">1.0 m</b></label><br>
+  <input id="len" type="range" min="0" max="1000" value="300" style="width:60%">
+</div>
+<div id="readout"></div>
+</div>
+<script>
+var IFACES = [
+  { name: 'USB4 v2 / TB5 — 80 Gb/s', rate: 80, color: '#1a6fc4',
+    tiers: [ { t: 'passive', len: 0.8 }, { t: 'active', len: 3 }, { t: 'optical', len: 40 } ] },
+  { name: 'HDMI 2.1 FRL (48 Gb/s)', rate: 48, color: '#b03030',
+    tiers: [ { t: 'passive', len: 3 }, { t: 'active', len: 100 } ] },
+  { name: 'USB4 Gen3 / TB4 (40 Gb/s)', rate: 40, color: '#7a3fb4',
+    tiers: [ { t: 'passive', len: 0.8 }, { t: 'active', len: 2 }, { t: 'optical', len: 30 } ] },
+  { name: '10GBASE-T (Cat 6a)', rate: 10, color: '#2a7a2a',
+    tiers: [ { t: 'passive', len: 100 } ] },
+  { name: 'SATA 3.0 (6 Gb/s)', rate: 6, color: '#0a8a8a',
+    tiers: [ { t: 'passive', len: 1 } ] },
+  { name: '5GBASE-T (Cat 5e/6)', rate: 5, color: '#e08010',
+    tiers: [ { t: 'passive', len: 100 } ] }
+];
+
+var cv = document.getElementById('chart'), ctx = cv.getContext('2d');
+var M = { l: 70, r: 20, t: 30, b: 50 };
+var XMIN = 0.1, XMAX = 100, YMIN = 1, YMAX = 100;
+
+function xpix(len) {
+  var f = (Math.log10(len) - Math.log10(XMIN)) / (Math.log10(XMAX) - Math.log10(XMIN));
+  return M.l + f * (cv.width - M.l - M.r);
+}
+function ypix(rate) {
+  var f = (Math.log10(rate) - Math.log10(YMIN)) / (Math.log10(YMAX) - Math.log10(YMIN));
+  return cv.height - M.b - f * (cv.height - M.t - M.b);
+}
+
+function drawGrid() {
+  ctx.strokeStyle = '#ddd'; ctx.fillStyle = '#666'; ctx.font = '11px sans-serif';
+  [1, 2, 5, 10, 20, 50, 100].forEach(function (r) {
+    var y = ypix(r);
+    ctx.beginPath(); ctx.moveTo(M.l, y); ctx.lineTo(cv.width - M.r, y); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(r, M.l - 6, y + 4);
+  });
+  [0.1, 0.3, 1, 3, 10, 30, 100].forEach(function (l) {
+    var x = xpix(l);
+    ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, cv.height - M.b); ctx.stroke();
+    ctx.textAlign = 'center'; ctx.fillText(l + ' m', x, cv.height - M.b + 16);
+  });
+  ctx.fillText('Gb/s', 12, M.t + 4);
+  ctx.fillText('cable length (m, log scale)', cv.width / 2, cv.height - 8);
+}
+
+function drawIface(f) {
+  var y = ypix(f.rate), start = XMIN;
+  f.tiers.forEach(function (t) {
+    ctx.save();
+    ctx.strokeStyle = f.color; ctx.lineWidth = 3;
+    if (t.t === 'active') ctx.setLineDash([9, 5]);
+    if (t.t === 'optical') ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xpix(start), y); ctx.lineTo(xpix(t.len), y);
+    ctx.stroke();
+    ctx.restore();
+    start = t.len;
+  });
+}
+
+function drawLabels() {
+  // place labels top-down, nudging apart any that would collide
+  var placed = [];
+  ctx.font = '12px sans-serif'; ctx.textAlign = 'left';
+  IFACES.forEach(function (f) {
+    var y = ypix(f.rate);
+    placed.forEach(function (py) { if (Math.abs(py - y) < 15) y = py - 15; });
+    placed.push(y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.name, M.l + 8, y - 5);
+  });
+}
+
+function drawCursor(len) {
+  var x = xpix(len);
+  ctx.save();
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x, M.t); ctx.lineTo(x, cv.height - M.b); ctx.stroke();
+  ctx.fillStyle = '#222'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(len.toFixed(2) + ' m', x, M.t - 8);
+  ctx.restore();
+}
+
+function reach(f, len) {
+  var max = 0;
+  f.tiers.forEach(function (t) { if (t.len >= len) max = Math.max(max, f.rate); });
+  return max;
+}
+
+function update() {
+  var slider = +document.getElementById('len').value;
+  var len = Math.pow(10, -1 + (slider / 1000) * 3); // 0.1 .. 100 m
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawGrid();
+  IFACES.forEach(drawIface);
+  drawLabels();
+  drawCursor(len);
+  var ok = [], bad = [];
+  IFACES.forEach(function (f) {
+    if (reach(f, len) > 0) ok.push('<span class="ok">' + f.name + '</span>');
+    else bad.push('<span class="bad">' + f.name + ' (max ' + f.tiers[f.tiers.length - 1].len + ' m)</span>');
+  });
+  document.getElementById('readout').innerHTML =
+    'At <b>' + len.toFixed(2) + ' m</b>: works \u2014 ' + ok.join(', ') +
+    (bad.length ? '<br>fails \u2014 ' + bad.join(', ') : '');
+}
+
+document.getElementById('len').addEventListener('input', update);
+update();
+</script>
+</body>
+</html>

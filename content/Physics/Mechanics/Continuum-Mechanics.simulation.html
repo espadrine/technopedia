@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>1-D Bar Deformation</title>
+<style>
+body { margin: 0; padding: 10px; font-family: sans-serif; background: #1a1a2e; color: #eee; }
+canvas { display: block; margin: 0 auto; }
+.controls { text-align: center; margin: 10px 0; }
+.controls label { margin: 0 8px; }
+.controls input[type=range] { vertical-align: middle; }
+h3 { text-align: center; margin: 5px 0; }
+.legend { text-align: center; font-size: 13px; margin-top: 5px; }
+.legend span { margin: 0 12px; }
+select { vertical-align: middle; background: #2a2a4a; color: #eee; border: 1px solid #555; padding: 2px 5px; }
+</style>
+</head>
+<body>
+<h3>1-D Bar Under Axial Load</h3>
+<div class="controls">
+<label>Force F: <input type="range" id="force" min="0" max="100" value="50"> <span id="fval">50 kN</span></label>
+<label>Length L: <input type="range" id="length" min="50" max="200" value="100"> <span id="lval">1.0 m</span></label>
+<label>Profile: <select id="profile"><option value="0">Uniform</option><option value="0.5">Tapered (A&#8320;(1+0.5x/L))</option><option value="1.0">Strong taper (A&#8320;(1+x/L))</option></select></label>
+</div>
+<canvas id="cv" width="720" height="380"></canvas>
+<div class="legend">
+<span style="color:#4fc3f7">&#9632; Displacement u(x)</span>
+<span style="color:#ff7043">&#9632; Strain &epsilon;(x)</span>
+<span style="color:#ab47bc">&#9632; Stress &sigma;(x)</span>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const forceSlider = document.getElementById('force');
+const lengthSlider = document.getElementById('length');
+const profileSelect = document.getElementById('profile');
+const fval = document.getElementById('fval');
+const lval = document.getElementById('lval');
+
+const E = 200e9;
+const A0 = 1e-4;
+
+function A(x, L, alpha) {
+  return A0 * (1 + alpha * x / L);
+}
+
+function sigma(x, F, L, alpha) {
+  return F / A(x, L, alpha);
+}
+
+function strain(x, F, L, alpha) {
+  return sigma(x, F, L, alpha) / E;
+}
+
+function displacement(x, F, L, alpha) {
+  if (Math.abs(alpha) < 1e-10) {
+    return F * x / (E * A0);
+  }
+  return F / (E * A0 * alpha) * Math.log(1 + alpha * x / L);
+}
+
+function draw() {
+  const F = parseFloat(forceSlider.value) * 1e3;
+  const L = parseFloat(lengthSlider.value) / 100;
+  const alpha = parseFloat(profileSelect.value);
+  fval.textContent = forceSlider.value + ' kN';
+  lval.textContent = L.toFixed(1) + ' m';
+
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const barX = 80, barW = W - 160, barY = 50, barH = 35;
+  const scale = barW / L;
+  const dispScale = 3000;
+  const nSeg = 60;
+
+  // Compute max values for scaling
+  let maxSigma = 0, maxEps = 0, maxDisp = 0;
+  for (let i = 0; i <= nSeg; i++) {
+    const x = i / nSeg * L;
+    maxSigma = Math.max(maxSigma, sigma(x, F, L, alpha));
+    maxEps = Math.max(maxEps, strain(x, F, L, alpha));
+    maxDisp = Math.max(maxDisp, displacement(x, F, L, alpha));
+  }
+  if (maxSigma === 0) maxSigma = 1;
+  if (maxEps === 0) maxEps = 1;
+  if (maxDisp === 0) maxDisp = 1;
+
+  // Draw undeformed bar outline (dashed)
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barW, barH);
+  ctx.setLineDash([]);
+
+  // Draw deformed bar (with varying thickness for non-uniform)
+  ctx.beginPath();
+  for (let i = 0; i <= nSeg; i++) {
+    const x = i / nSeg * L;
+    const xPix = barX + x * scale + displacement(x, F, L, alpha) * scale * dispScale;
+    const halfH = (barH / 2) * (A(x, L, alpha) / A0);
+    if (i === 0) ctx.moveTo(xPix, barY + barH/2 - halfH);
+    else ctx.lineTo(xPix, barY + barH/2 - halfH);
+  }
+  for (let i = nSeg; i >= 0; i--) {
+    const x = i / nSeg * L;
+    const xPix = barX + x * scale + displacement(x, F, L, alpha) * scale * dispScale;
+    const halfH = (barH / 2) * (A(x, L, alpha) / A0);
+    ctx.lineTo(xPix, barY + barH/2 + halfH);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(79,195,247,0.25)';
+  ctx.fill();
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Displacement arrows
+  for (let i = 0; i <= nSeg; i += 5) {
+    const x = i / nSeg * L;
+    const xPix = barX + x * scale;
+    const uPix = displacement(x, F, L, alpha) * scale * dispScale;
+    if (uPix > 2) {
+      ctx.beginPath();
+      ctx.moveTo(xPix, barY + barH + 8);
+      ctx.lineTo(xPix + uPix, barY + barH + 8);
+      ctx.strokeStyle = '#4fc3f7';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(xPix + uPix, barY + barH + 8);
+      ctx.lineTo(xPix + uPix - 4, barY + barH + 5);
+      ctx.lineTo(xPix + uPix - 4, barY + barH + 11);
+      ctx.closePath();
+      ctx.fillStyle = '#4fc3f7';
+      ctx.fill();
+    }
+  }
+
+  // Strain plot
+  const plotY = 130, plotH = 70;
+  ctx.fillStyle = '#222';
+  ctx.fillRect(barX, plotY, barW, plotH);
+  ctx.strokeStyle = '#444';
+  ctx.strokeRect(barX, plotY, barW, plotH);
+  ctx.beginPath();
+  for (let i = 0; i <= nSeg; i++) {
+    const x = i / nSeg * L;
+    const xPix = barX + x * scale;
+    const epsH = (strain(x, F, L, alpha) / maxEps) * plotH * 0.85;
+    if (i === 0) ctx.moveTo(xPix, plotY + plotH - epsH);
+    else ctx.lineTo(xPix, plotY + plotH - epsH);
+  }
+  ctx.strokeStyle = '#ff7043';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Fill under curve
+  ctx.lineTo(barX + barW, plotY + plotH);
+  ctx.lineTo(barX, plotY + plotH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,112,67,0.3)';
+  ctx.fill();
+  ctx.fillStyle = '#ff7043';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Strain \u03B5(x)  [max: ' + (maxEps * 1e6).toFixed(1) + ' \u03BC\u03B5]', barX + 5, plotY - 5);
+
+  // Stress plot
+  const sPlotY = 220, sPlotH = 70;
+  ctx.fillStyle = '#222';
+  ctx.fillRect(barX, sPlotY, barW, sPlotH);
+  ctx.strokeStyle = '#444';
+  ctx.strokeRect(barX, sPlotY, barW, sPlotH);
+  ctx.beginPath();
+  for (let i = 0; i <= nSeg; i++) {
+    const x = i / nSeg * L;
+    const xPix = barX + x * scale;
+    const sigH = (sigma(x, F, L, alpha) / maxSigma) * sPlotH * 0.85;
+    if (i === 0) ctx.moveTo(xPix, sPlotY + sPlotH - sigH);
+    else ctx.lineTo(xPix, sPlotY + sPlotH - sigH);
+  }
+  ctx.strokeStyle = '#ab47bc';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.lineTo(barX + barW, sPlotY + sPlotH);
+  ctx.lineTo(barX, sPlotY + sPlotH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(171,71,188,0.3)';
+  ctx.fill();
+  ctx.fillStyle = '#ab47bc';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Stress \u03C3(x)  [max: ' + (maxSigma / 1e6).toFixed(1) + ' MPa]', barX + 5, sPlotY - 5);
+
+  // Labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('x = 0', barX - 5, barY + barH + 25);
+  ctx.fillText('x = L', barX + barW + 5, barY + barH + 25);
+  const totalDisp = displacement(L, F, L, alpha);
+  ctx.fillText('\u0394L = ' + (totalDisp * 1e3).toFixed(2) + ' mm', barX + barW / 2 - 40, barY - 8);
+
+  // Force arrows
+  ctx.strokeStyle = '#ff5252';
+  ctx.lineWidth = 2;
+  const rightEnd = barX + L * scale + totalDisp * scale * dispScale;
+  ctx.beginPath();
+  ctx.moveTo(rightEnd + 5, barY + barH / 2);
+  ctx.lineTo(rightEnd + 30, barY + barH / 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rightEnd + 30, barY + barH / 2);
+  ctx.lineTo(rightEnd + 22, barY + barH / 2 - 5);
+  ctx.lineTo(rightEnd + 22, barY + barH / 2 + 5);
+  ctx.closePath();
+  ctx.fillStyle = '#ff5252';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(barX - 5, barY + barH / 2);
+  ctx.lineTo(barX - 30, barY + barH / 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(barX - 30, barY + barH / 2);
+  ctx.lineTo(barX - 22, barY + barH / 2 - 5);
+  ctx.lineTo(barX - 22, barY + barH / 2 + 5);
+  ctx.closePath();
+  ctx.fill();
+
+  // Info
+  ctx.fillStyle = '#ccc';
+  ctx.font = '11px sans-serif';
+  const profileText = alpha === 0 ? 'A = A\u2080 (uniform)' : 'A(x) = A\u2080(1 + ' + alpha + 'x/L)';
+  ctx.fillText('E = 200 GPa,  ' + profileText, barX, H - 10);
+}
+
+forceSlider.addEventListener('input', draw);
+lengthSlider.addEventListener('input', draw);
+profileSelect.addEventListener('change', draw);
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electromagnetic radiation — propagating plane wave</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #10141c; color: #e8ecf3;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 14px 16px 22px; }
+  h1 { font-size: 17px; font-weight: 600; margin: 4px 0 2px; }
+  p.sub { font-size: 12.5px; color: #9aa6b8; margin: 0 0 12px; line-height: 1.4; }
+  canvas { width: 100%; height: auto; display: block; background: #0b0e14;
+    border: 1px solid #232b3a; border-radius: 8px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+    margin-top: 12px; font-size: 13px; }
+  .ctl { display: flex; align-items: center; gap: 8px; }
+  input[type=range] { width: 150px; accent-color: #4f8cff; }
+  button { background: #1c2536; color: #e8ecf3; border: 1px solid #33405a;
+    border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+  button:hover { background: #26324a; }
+  .val { min-width: 62px; color: #cdd7e6; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Propagating plane wave in free space</h1>
+  <p class="sub">The electric field <b style="color:#ff5a5a">E</b> and magnetic field
+  <b style="color:#5aa0ff">B</b> are transverse, mutually perpendicular, and in phase.
+  Energy flows along the Poynting vector <b style="color:#4fd07a">S = E &times; B</b>
+  (green arrows), always in the direction of propagation. Drag the frequency to change
+  the wavelength and the speed of the wave.</p>
+  <canvas id="c" width="720" height="360"></canvas>
+  <div class="controls">
+    <div class="ctl">
+      <label for="freq">Frequency</label>
+      <input id="freq" type="range" min="1" max="10" step="0.1" value="3">
+      <span class="val" id="freqVal"></span>
+    </div>
+    <div class="ctl">
+      <label for="amp">Amplitude</label>
+      <input id="amp" type="range" min="0.2" max="1" step="0.05" value="0.8">
+      <span class="val" id="ampVal"></span>
+    </div>
+    <button id="play">Pause</button>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:#ff5a5a"></i> E field (V/m)</span>
+    <span><i class="sw" style="background:#5aa0ff"></i> B field (&micro;T)</span>
+    <span><i class="sw" style="background:#4fd07a"></i> Poynting vector S (energy flow)</span>
+    <span><i class="sw" style="background:#8892a6"></i> one wavelength &lambda;</span>
+  </div>
+</div>
+<script>
+(function () {
+  var cv = document.getElementById('c');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  var x0 = 40, x1 = W - 40;
+  var yE = 105, yB = 255, yS = 180;
+  var ampMax = 78;
+
+  var freq = 3, amp = 0.8, playing = true, t = 0, last = null;
+
+  var freqEl = document.getElementById('freq');
+  var ampEl = document.getElementById('amp');
+  var freqVal = document.getElementById('freqVal');
+  var ampVal = document.getElementById('ampVal');
+  var playBtn = document.getElementById('play');
+
+  function updateLabels() {
+    // Map slider to a plausible frequency in GHz for display.
+    var ghz = freq * 10;
+    var lambda = 30 / ghz; // c = 30 GHz*cm  -> lambda in cm
+    freqVal.textContent = ghz.toFixed(0) + ' GHz';
+    ampVal.textContent = (amp * 100).toFixed(0) + '%';
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    var cycles = freq;                 // number of wavelengths across the view
+    var k = 2 * Math.PI * cycles / (x1 - x0);
+    var A = ampMax * amp;
+
+    // center lines
+    ctx.strokeStyle = '#2a3346';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(x0, yE); ctx.lineTo(x1, yE); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, yB); ctx.lineTo(x1, yB); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // wavelength marker (one period)
+    var period = (x1 - x0) / cycles;
+    ctx.strokeStyle = '#8892a6';
+    ctx.lineWidth = 1.5;
+    var my = 30;
+    ctx.beginPath(); ctx.moveTo(x0, my); ctx.lineTo(x0 + period, my); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, my - 4); ctx.lineTo(x0, my + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0 + period, my - 4); ctx.lineTo(x0 + period, my + 4); ctx.stroke();
+    ctx.fillStyle = '#8892a6';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText('λ', x0 + period / 2 - 4, my - 6);
+
+    // E field (red)
+    ctx.strokeStyle = '#ff5a5a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (var px = x0; px <= x1; px++) {
+      var ph = k * (px - x0) - t;
+      var y = yE - A * Math.sin(ph);
+      if (px === x0) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+    }
+    ctx.stroke();
+
+    // B field (blue), in phase with E
+    ctx.strokeStyle = '#5aa0ff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (px = x0; px <= x1; px++) {
+      ph = k * (px - x0) - t;
+      y = yB - A * Math.sin(ph);
+      if (px === x0) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+    }
+    ctx.stroke();
+
+    // Poynting vector arrows: S ∝ E·B = sin²(ph) ≥ 0, pointing +x
+    ctx.strokeStyle = '#4fd07a';
+    ctx.fillStyle = '#4fd07a';
+    ctx.lineWidth = 2;
+    var n = 12;
+    for (var i = 0; i < n; i++) {
+      var ax = x0 + (i + 0.5) * (x1 - x0) / n;
+      var s = Math.pow(Math.sin(k * (ax - x0) - t), 2);
+      var len = 8 + 26 * s;
+      ctx.beginPath(); ctx.moveTo(ax, yS); ctx.lineTo(ax + len, yS); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ax + len, yS);
+      ctx.lineTo(ax + len - 6, yS - 4);
+      ctx.lineTo(ax + len - 6, yS + 4);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // labels
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillStyle = '#ff5a5a'; ctx.fillText('E', 14, yE + 5);
+    ctx.fillStyle = '#5aa0ff'; ctx.fillText('B', 14, yB + 5);
+    ctx.fillStyle = '#4fd07a'; ctx.fillText('S', 14, yS + 5);
+    ctx.fillStyle = '#9aa6b8';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText('propagation →', x1 - 92, yS - 12);
+  }
+
+  function frame(ts) {
+    if (last === null) last = ts;
+    var dt = (ts - last) / 1000;
+    last = ts;
+    if (playing) t += dt * (1.5 + freq * 0.6);
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  freqEl.addEventListener('input', function () { freq = parseFloat(freqEl.value); updateLabels(); });
+  ampEl.addEventListener('input', function () { amp = parseFloat(ampEl.value); updateLabels(); });
+  playBtn.addEventListener('click', function () {
+    playing = !playing;
+    playBtn.textContent = playing ? 'Pause' : 'Play';
+  });
+
+  updateLabels();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

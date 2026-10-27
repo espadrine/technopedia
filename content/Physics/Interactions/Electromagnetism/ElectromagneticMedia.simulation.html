@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Electromagnetic Media Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 10px; background: #f8f9fa; color: #2c3e50; }
+h2 { margin: 8px 0 4px; font-size: 1.1em; }
+.controls { display: flex; gap: 18px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.controls label { font-size: 0.88em; }
+.controls input[type=range] { width: 120px; vertical-align: middle; }
+.controls span { font-weight: bold; min-width: 60px; display: inline-block; font-variant-numeric: tabular-nums; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.panel { background: white; border-radius: 6px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.panel.wide { grid-column: 1 / -1; }
+.panel h3 { margin: 0 0 4px; font-size: 0.9em; color: #555; }
+canvas { display: block; width: 100%; }
+.readout { font-size: 0.88em; margin-top: 6px; line-height: 1.6; }
+.readout b { font-variant-numeric: tabular-nums; }
+.hint { font-size: 0.78em; color: #777; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h2>Electromagnetic media: wave speed, reflection, and skin depth</h2>
+<div class="controls">
+  <label>&epsilon;<sub>r</sub> <span id="erVal">4.0</span> <input type="range" id="erSlider" min="1" max="80" value="4" step="0.5"/></label>
+  <label>&mu;<sub>r</sub> <span id="mrVal">1.0</span> <input type="range" id="mrSlider" min="1" max="100" value="1" step="0.5"/></label>
+  <label>&sigma; <span id="sigVal">0</span> <input type="range" id="sigSlider" min="0" max="20" value="0" step="0.1"/></label>
+  <label>f <span id="fVal">1.0 GHz</span> <input type="range" id="fSlider" min="0" max="10" value="7" step="0.1"/></label>
+</div>
+<div class="grid">
+  <div class="panel wide">
+    <h3>Wave in air vs. wave in the medium (same frequency)</h3>
+    <canvas id="wave" width="920" height="180"></canvas>
+    <div class="hint">The medium wave has a shorter wavelength and travels slower: v = c/&radic;(&mu;<sub>r</sub>&epsilon;<sub>r</sub>). Both oscillate at the same frequency.</div>
+  </div>
+  <div class="panel">
+    <h3>Reflection &amp; transmission at the air/medium interface</h3>
+    <canvas id="refl" width="460" height="150"></canvas>
+    <div class="readout" id="reflOut"></div>
+    <div class="hint">Normal incidence. &Gamma; uses the (possibly complex) intrinsic impedance &eta; = &radic;(&mu;/&epsilon;_c).</div>
+  </div>
+  <div class="panel">
+    <h3>Skin depth: field decay into the conductor</h3>
+    <canvas id="skin" width="460" height="150"></canvas>
+    <div class="readout" id="skinOut"></div>
+    <div class="hint">&delta; = 1/&radic;(&pi; f &mu; &sigma;): the depth where the field falls to 1/e of its surface value.</div>
+  </div>
+</div>
+<script>
+var c = 3.0e8, mu0 = 4*Math.PI*1e-7, eps0 = 8.854e-12, eta0 = Math.sqrt(mu0/eps0);
+
+var er = 4, mr = 1, sigExp = 0, fExp = 7;
+var erS = document.getElementById('erSlider');
+var mrS = document.getElementById('mrSlider');
+var sigS = document.getElementById('sigSlider');
+var fS = document.getElementById('fSlider');
+var erV = document.getElementById('erVal');
+var mrV = document.getElementById('mrVal');
+var sigV = document.getElementById('sigVal');
+var fV = document.getElementById('fVal');
+
+function fmtSig(e) {
+  if (v < 1e-9) return '≈0';
+  if (v < 1e-9) return '&asymp;0';
+  if (v >= 1e6) return (v/1e6).toFixed(1)+'e6';
+  if (v >= 1e3) return (v/1e3).toFixed(1)+'e3';
+  if (v >= 1) return v.toFixed(1);
+  return v.toExponential(1);
+}
+  var v = Math.pow(10, e);
+  if (v >= 1e12) return (v/1e12).toFixed(1)+' THz';
+  if (v >= 1e9) return (v/1e9).toFixed(1)+' GHz';
+  if (v >= 1e6) return (v/1e6).toFixed(1)+' MHz';
+  if (v >= 1e3) return (v/1e3).toFixed(1)+' kHz';
+  return v.toFixed(0)+' Hz';
+}
+function fmtLen(m) {
+  if (m >= 0.01) return (m*100).toFixed(2)+' cm';
+  if (m >= 1e-3) return (m*1000).toFixed(2)+' mm';
+  if (m >= 1e-6) return (m*1e6).toFixed(2)+' µm';
+  return (m*1e9).toFixed(1)+' nm';
+}
+
+erS.oninput = function(){ er = +this.value; erV.textContent = er.toFixed(1); };
+mrS.oninput = function(){ mr = +this.value; mrV.textContent = mr.toFixed(1); };
+sigS.oninput = function(){ sigExp = +this.value; sigV.textContent = fmtSig(sigExp); };
+fS.oninput = function(){ fExp = +this.value; fV.textContent = fmtF(fExp); };
+
+function cSqrt(re, im) {
+  var r = Math.sqrt(re*re + im*im);
+  var re2 = Math.sqrt((r + re)/2);
+  var im2 = (im < 0 ? -1 : 1) * Math.sqrt(Math.max(0, (r - re)/2));
+  return {re: re2, im: im2};
+}
+function etaMedium(sigma, epsr, mur, f) {
+  var mu2 = mu0*mur, eps2 = eps0*epsr, w = 2*Math.PI*f;
+  var den = sigma*sigma + w*w*eps2*eps2;
+  var re = w*w*mu2*eps2/den;
+  var im = w*mu2*sigma/den;
+  return cSqrt(re, im);
+}
+function gammaOf(e2) {
+  var nr = e2.re - eta0, ni = e2.im;
+  var dr = e2.re + eta0, di = e2.im;
+  var dd = dr*dr + di*di;
+  return {re: (nr*dr + ni*di)/dd, im: (ni*dr - nr*di)/dd};
+}
+
+var waveCtx = document.getElementById('wave').getContext('2d');
+var reflCtx = document.getElementById('refl').getContext('2d');
+var skinCtx = document.getElementById('skin').getContext('2d');
+var reflOut = document.getElementById('reflOut');
+var skinOut = document.getElementById('skinOut');
+
+var t = 0;
+function drawWave() {
+  var c2 = waveCtx, W = 920, H = 180;
+  c2.clearRect(0,0,W,H);
+  var n = Math.sqrt(mr*er);
+  var lam0 = W/3;          // air: 3 wavelengths across
+  var lam = lam0/n;        // medium: shorter
+  var T0 = 1.2;            // display period (s)
+  var midTop = 45, midBot = 135, A = 26;
+  // air baseline
+  c2.strokeStyle = '#ddd'; c2.lineWidth = 1;
+  c2.beginPath(); c2.moveTo(0, midTop); c2.lineTo(W, midTop); c2.stroke();
+  c2.beginPath(); c2.moveTo(0, midBot); c2.lineTo(W, midBot); c2.stroke();
+  // air wave
+  c2.strokeStyle = '#2980b9'; c2.lineWidth = 2.5; c2.beginPath();
+  for (var x = 0; x <= W; x += 2) {
+    var y = midTop - A*Math.sin(2*Math.PI*(x/lam0 - t/T0));
+    if (x === 0) c2.moveTo(x, y); else c2.lineTo(x, y);
+  }
+  c2.stroke();
+  // medium wave
+  c2.strokeStyle = '#c0392b'; c2.lineWidth = 2.5; c2.beginPath();
+  for (var x2 = 0; x2 <= W; x2 += 2) {
+    var y2 = midBot - A*Math.sin(2*Math.PI*(x2/lam - t/T0));
+    if (x2 === 0) c2.moveTo(x2, y2); else c2.lineTo(x2, y2);
+  }
+  c2.stroke();
+  c2.fillStyle = '#2980b9'; c2.font = '13px system-ui'; c2.textAlign = 'left';
+  c2.fillText('air:  v = c,  λ = c/f', 8, 20);
+  c2.fillStyle = '#c0392b';
+  c2.fillText('medium:  v = c/√(μr εr) = ' + (c/n).toExponential(2) + ' m/s,  λ = λ₀/√(μr εr)', 8, 100);
+}
+
+function drawRefl() {
+  var c2 = reflCtx, W = 460, H = 150;
+  c2.clearRect(0,0,W,H);
+  var f = Math.pow(10, fExp), sigma = Math.pow(10, sigExp - 12);
+  var e2 = etaMedium(sigma, er, mr, f);
+  var G = gammaOf(e2);
+  var mag = Math.sqrt(G.re*G.re + G.im*G.im);
+  var powR = mag*mag;
+  var powT = Math.max(0, 1 - powR);
+  var barY = 40, barH = 34, x0 = 20, barW = W - 40;
+  // reflected portion
+  c2.fillStyle = '#e67e22';
+  c2.fillRect(x0, barY, barW*powR, barH);
+  // transmitted portion
+  c2.fillStyle = '#27ae60';
+  c2.fillRect(x0 + barW*powR, barY, barW*powT, barH);
+  c2.strokeStyle = '#2c3e50'; c2.lineWidth = 1.5;
+  c2.strokeRect(x0, barY, barW, barH);
+  c2.fillStyle = '#2c3e50'; c2.font = '12px system-ui'; c2.textAlign = 'center';
+  if (powR > 0.12) c2.fillText('reflected ' + (powR*100).toFixed(0) + '%', x0 + barW*powR/2, barY + 22);
+  if (powT > 0.12) c2.fillText('transmitted ' + (powT*100).toFixed(0) + '%', x0 + barW*powR + barW*powT/2, barY + 22);
+  c2.textAlign = 'left';
+  c2.fillStyle = '#555'; c2.font = '11px system-ui';
+  c2.fillText('incident →', x0, barY - 6);
+  var etaMag = Math.sqrt(e2.re*e2.re + e2.im*e2.im);
+  var phase = Math.atan2(G.im, G.re)*180/Math.PI;
+  reflOut.innerHTML =
+    'v = <b>' + (c/Math.sqrt(mr*er)).toExponential(2) + '</b> m/s &nbsp; (' + (1/Math.sqrt(mr*er)).toFixed(2) + ' c)<br>' +
+    '&eta; = <b>' + etaMag.toFixed(0) + '</b> &Omega; &nbsp; (free space ' + eta0.toFixed(0) + ' &Omega;)<br>' +
+    '&Gamma; = <b>' + mag.toFixed(2) + '</b> &angle; ' + phase.toFixed(0) + '&deg; &nbsp; &nbsp; |&Gamma;|&sup2; = <b>' + (powR*100).toFixed(1) + '%</b>';
+}
+
+function drawSkin() {
+  var c2 = skinCtx, W = 460, H = 150;
+  c2.clearRect(0,0,W,H);
+  var f = Math.pow(10, fExp), sigma = Math.pow(10, sigExp - 12);
+  var padL = 40, padR = 14, padT = 16, padB = 24;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var topY = padT, botY = H - padB;
+  c2.strokeStyle = '#ccc'; c2.lineWidth = 1;
+  c2.beginPath(); c2.moveTo(padL, botY); c2.lineTo(W - padR, botY); c2.stroke();
+  c2.beginPath(); c2.moveTo(padL, topY); c2.lineTo(padL, botY); c2.stroke();
+  if (sigma < 1e-6) {
+    c2.fillStyle = '#999'; c2.font = '13px system-ui'; c2.textAlign = 'center';
+    c2.fillText('σ ≈ 0 → lossless, no skin depth', W/2, H/2);
+    skinOut.innerHTML = '&delta; = <b>&mdash;</b> (negligible loss)';
+    return;
+  }
+  var delta = 1/Math.sqrt(Math.PI*f*mu0*mr*sigma);
+  var zMax = 4*delta;
+  c2.strokeStyle = '#c0392b'; c2.lineWidth = 2.5; c2.beginPath();
+  for (var i = 0; i <= 100; i++) {
+    var z = i/100*zMax;
+    var x = padL + i/100*plotW;
+    var y = botY - Math.exp(-z/delta)*plotH;
+    if (i === 0) c2.moveTo(x, y); else c2.lineTo(x, y);
+  }
+  c2.stroke();
+  // 1/e marker
+  var xe = padL + plotW/4;
+  var ye = botY - Math.exp(-1)*plotH;
+  c2.strokeStyle = '#2c3e50'; c2.lineWidth = 1.2; c2.setLineDash([4,3]);
+  c2.beginPath(); c2.moveTo(xe, topY); c2.lineTo(xe, botY); c2.stroke();
+  c2.beginPath(); c2.moveTo(padL, ye); c2.lineTo(xe, ye); c2.stroke();
+  c2.setLineDash([]);
+  c2.fillStyle = '#2c3e50'; c2.font = '11px system-ui'; c2.textAlign = 'center';
+  c2.fillText('δ', xe, botY + 16);
+  c2.textAlign = 'left';
+  c2.fillText('|E|', 6, topY + 8);
+  c2.fillText('z', W - padR - 8, botY + 16);
+  skinOut.innerHTML = '&delta; = <b>' + fmtLen(delta) + '</b> &nbsp; (attenuation ' + (1/delta).toExponential(1) + ' 1/m)';
+}
+
+function frame() {
+  t += 1/60;
+  drawWave();
+  drawRefl();
+  drawSkin();
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

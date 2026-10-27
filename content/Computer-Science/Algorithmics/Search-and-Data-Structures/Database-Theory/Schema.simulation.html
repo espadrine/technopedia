@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive Normalization Checker</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; padding: 20px; color: #333; }
+h1 { font-size: 1.3em; margin-bottom: 8px; }
+.subtitle { font-size: 0.9em; color: #666; margin-bottom: 16px; }
+.container { display: flex; gap: 16px; flex-wrap: wrap; }
+.table-box { background: #fff; border: 2px solid #ccc; border-radius: 8px; padding: 12px; min-width: 220px; flex: 1; min-height: 180px; transition: border-color 0.2s; }
+.table-box.drag-over { border-color: #1976d2; background: #e3f2fd; }
+.table-box h2 { font-size: 1em; margin-bottom: 8px; color: #1565c0; }
+.table-box .pk-label { font-size: 0.75em; color: #888; margin-bottom: 6px; }
+.attr { display: inline-block; background: #e8eaf6; border: 1px solid #9fa8da; border-radius: 4px; padding: 4px 10px; margin: 3px; font-size: 0.85em; cursor: grab; user-select: none; transition: transform 0.1s; }
+.attr:active { cursor: grabbing; transform: scale(1.05); }
+.attr.pk { background: #c8e6c9; border-color: #66bb6a; font-weight: bold; }
+.attr.fk { background: #fff3e0; border-color: #ffb74d; }
+.violations { margin-top: 16px; background: #fff; border: 2px solid #e57373; border-radius: 8px; padding: 12px; }
+.violations h2 { font-size: 1em; color: #c62828; margin-bottom: 8px; }
+.violation-item { padding: 6px 10px; margin: 4px 0; background: #ffebee; border-radius: 4px; font-size: 0.85em; }
+.violation-item.ok { background: #e8f5e9; }
+.violation-item .nf-tag { font-weight: bold; color: #c62828; }
+.violation-item.ok .nf-tag { color: #2e7d32; }
+.hint { margin-top: 12px; font-size: 0.8em; color: #888; font-style: italic; }
+.reset-btn { margin-top: 12px; padding: 6px 14px; background: #1976d2; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+.reset-btn:hover { background: #1565c0; }
+</style>
+</head>
+<body>
+<h1>Interactive Normalization Checker</h1>
+<p class="subtitle">Drag attributes between tables to see which normal form is violated. The goal is to reach 3NF (or BCNF).</p>
+
+<div class="container">
+  <div class="table-box" id="table-enrollments" data-table="enrollments">
+    <h2>enrollments</h2>
+    <div class="pk-label">PK: (student_id, course_id)</div>
+    <div id="attrs-enrollments"></div>
+  </div>
+  <div class="table-box" id="table-students" data-table="students">
+    <h2>students</h2>
+    <div class="pk-label">PK: student_id</div>
+    <div id="attrs-students"></div>
+  </div>
+  <div class="table-box" id="table-courses" data-table="courses">
+    <h2>courses</h2>
+    <div class="pk-label">PK: course_id</div>
+    <div id="attrs-courses"></div>
+  </div>
+</div>
+
+<div class="violations" id="violations">
+  <h2>Normal Form Check</h2>
+  <div id="violation-list"></div>
+</div>
+
+<button class="reset-btn" onclick="resetAll()">Reset to denormalized</button>
+<p class="hint">Tip: Drag <code>student_name</code> into the <code>students</code> table and <code>course_title</code> + <code>instructor</code> into the <code>courses</code> table to reach 3NF.</p>
+
+<script>
+const initialState = {
+  enrollments: ['student_id', 'course_id', 'student_name', 'course_title', 'instructor', 'grade'],
+  students: [],
+  courses: []
+};
+
+let state = JSON.parse(JSON.stringify(initialState));
+
+const pkAttrs = { enrollments: ['student_id', 'course_id'], students: ['student_id'], courses: ['course_id'] };
+const fkAttrs = { enrollments: ['student_id', 'course_id'], students: [], courses: [] };
+
+function render() {
+  ['enrollments', 'students', 'courses'].forEach(table => {
+    const container = document.getElementById('attrs-' + table);
+    container.innerHTML = '';
+    state[table].forEach(attr => {
+      const el = document.createElement('span');
+      el.className = 'attr' + (pkAttrs[table].includes(attr) ? ' pk' : '') + (fkAttrs[table].includes(attr) && !pkAttrs[table].includes(attr) ? ' fk' : '');
+      el.textContent = attr;
+      el.draggable = true;
+      el.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({ attr, from: table }));
+      });
+      container.appendChild(el);
+    });
+  });
+  checkViolations();
+}
+
+function checkViolations() {
+  const list = document.getElementById('violation-list');
+  list.innerHTML = '';
+  const items = [];
+
+  // 1NF: always satisfied in this simulation (all attributes are atomic)
+  items.push({ nf: '1NF', ok: true, msg: 'All attributes are atomic (no multi-valued columns).' });
+
+  // 2NF: check for partial dependencies in enrollments (composite PK)
+  const partialDeps = [];
+  if (state.enrollments.includes('student_name')) {
+    partialDeps.push('student_name depends only on student_id (part of PK)');
+  }
+  if (state.enrollments.includes('course_title')) {
+    partialDeps.push('course_title depends only on course_id (part of PK)');
+  }
+  if (state.enrollments.includes('instructor')) {
+    partialDeps.push('instructor depends only on course_id (part of PK)');
+  }
+  if (partialDeps.length > 0) {
+    items.push({ nf: '2NF', ok: false, msg: 'Partial dependency: ' + partialDeps.join('; ') });
+  } else {
+    items.push({ nf: '2NF', ok: true, msg: 'No partial dependencies on parts of the composite PK.' });
+  }
+
+  // 3NF: check for transitive dependencies
+  const transitiveDeps = [];
+  // If course_title is in enrollments and instructor is also in enrollments:
+  // course_id -> course_title -> instructor (transitive)
+  if (state.enrollments.includes('course_title') && state.enrollments.includes('instructor')) {
+    transitiveDeps.push('course_title \u2192 instructor (transitive via course_id)');
+  }
+  // If student_name is in enrollments and we consider it depends on student_id only
+  // that's already caught by 2NF
+  // If instructor is in courses and course_title is in courses:
+  // course_id -> course_title -> instructor (transitive within courses)
+  if (state.courses.includes('course_title') && state.courses.includes('instructor')) {
+    transitiveDeps.push('In courses: course_title \u2192 instructor (transitive via course_id)');
+  }
+  if (transitiveDeps.length > 0) {
+    items.push({ nf: '3NF', ok: false, msg: 'Transitive dependency: ' + transitiveDeps.join('; ') });
+  } else if (partialDeps.length === 0) {
+    items.push({ nf: '3NF', ok: true, msg: 'No transitive dependencies. Schema is in 3NF.' });
+  } else {
+    items.push({ nf: '3NF', ok: false, msg: 'Cannot assess 3NF while 2NF is violated. Fix 2NF first.' });
+  }
+
+  // BCNF check
+  if (partialDeps.length === 0 && transitiveDeps.length === 0) {
+    items.push({ nf: 'BCNF', ok: true, msg: 'Every determinant is a superkey. Schema is in BCNF.' });
+  } else {
+    items.push({ nf: 'BCNF', ok: false, msg: 'Not in BCNF (lower normal forms violated).' });
+  }
+
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'violation-item' + (item.ok ? ' ok' : '');
+    div.innerHTML = '<span class="nf-tag">' + item.nf + '</span>: ' + item.msg;
+    list.appendChild(div);
+  });
+}
+
+// Drag and drop handlers
+document.querySelectorAll('.table-box').forEach(box => {
+  box.addEventListener('dragover', e => {
+    e.preventDefault();
+    box.classList.add('drag-over');
+  });
+  box.addEventListener('dragleave', () => {
+    box.classList.remove('drag-over');
+  });
+  box.addEventListener('drop', e => {
+    e.preventDefault();
+    box.classList.remove('drag-over');
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    const { attr, from } = data;
+    const to = box.dataset.table;
+    if (from === to) return;
+    // Don't allow moving PK attributes
+    if (pkAttrs[from].includes(attr)) return;
+    state[from] = state[from].filter(a => a !== attr);
+    if (!state[to].includes(attr)) {
+      state[to].push(attr);
+    }
+    render();
+  });
+});
+
+function resetAll() {
+  state = JSON.parse(JSON.stringify(initialState));
+  render();
+}
+
+render();
+</script>
+</body>
+</html>

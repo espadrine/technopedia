@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SATA link utilisation</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; margin: 0; padding: 14px 18px; background: #fdfdfb; color: #222; }
+  h2 { font-size: 16px; margin: 0 0 4px 0; }
+  p.sub { font-size: 12px; color: #555; margin: 0 0 12px 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 14px; font-size: 13px; }
+  .ctl { display: flex; flex-direction: column; gap: 3px; min-width: 200px; }
+  .ctl label { font-weight: bold; }
+  .ctl .val { color: #1a5c9e; font-family: monospace; }
+  select { font-size: 13px; padding: 2px 4px; }
+  input[type=range] { width: 200px; }
+  .bar-wrap { margin: 10px 0 2px 0; }
+  .bar-label { font-size: 12px; margin-bottom: 2px; }
+  .bar { position: relative; height: 26px; background: #eee; border: 1px solid #bbb; max-width: 760px; }
+  .bar .seg { position: absolute; top: 0; height: 100%; }
+  .bar .tick { position: absolute; top: -4px; height: 34px; width: 2px; background: #b02020; }
+  .readout { font-size: 13px; margin: 12px 0 0 0; max-width: 760px; }
+  .readout b { color: #1a5c9e; }
+  .verdict { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: #fff; }
+  .linkbound { background: #b02020; }
+  .devicebound { background: #2b8a4a; }
+  .math { font-family: monospace; font-size: 12px; background: #f2f2ec; padding: 8px 10px; border: 1px solid #ddd; max-width: 760px; margin-top: 10px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h2>SATA link utilisation: from line rate to delivered megabytes</h2>
+<p class="sub">Pick a SATA generation, set the protocol overhead and the drive's own sequential speed, and see where the bottleneck sits. The default numbers are the classic SATA 3.0 SSD: 550 MB/s on a 600 MB/s link.</p>
+
+<div class="controls">
+  <div class="ctl">
+    <label for="gen">SATA generation (line rate)</label>
+    <select id="gen">
+      <option value="1.5">SATA 1.0 — 1.5 Gb/s (2003)</option>
+      <option value="3">SATA 2.0 — 3 Gb/s (2004)</option>
+      <option value="6" selected>SATA 3.0 — 6 Gb/s (2009)</option>
+    </select>
+  </div>
+  <div class="ctl">
+    <label for="drive">Drive sequential speed: <span class="val" id="driveVal">550</span> MB/s</label>
+    <input type="range" id="drive" min="0" max="700" step="5" value="550">
+  </div>
+  <div class="ctl">
+    <label for="overhead">Protocol overhead (FIS, CRC, primitives): <span class="val" id="ovVal">8</span>%</label>
+    <input type="range" id="overhead" min="0" max="25" step="1" value="8">
+  </div>
+</div>
+
+<div class="bar-wrap">
+  <div class="bar-label">Line rate (what the copper carries, 8b/10b coded)</div>
+  <div class="bar"><div class="seg" id="segLine" style="left:0;background:#8a8f99"></div></div>
+</div>
+<div class="bar-wrap">
+  <div class="bar-label">Payload after 8/10 decoding (blue) — protocol overhead eats the orange slice</div>
+  <div class="bar">
+    <div class="seg" id="segPayload" style="left:0;background:#1a6fc4"></div>
+    <div class="seg" id="segProto" style="background:#e08020"></div>
+  </div>
+</div>
+<div class="bar-wrap">
+  <div class="bar-label">Delivered throughput (green) vs the payload ceiling (red tick)</div>
+  <div class="bar">
+    <div class="seg" id="segDeliv" style="left:0;background:#2b8a4a"></div>
+    <div class="tick" id="tickCeil"></div>
+  </div>
+</div>
+
+<p class="readout" id="readout"></p>
+<div class="math" id="math"></div>
+
+<script>
+(function(){
+  var gen = document.getElementById('gen');
+  var drive = document.getElementById('drive');
+  var ov = document.getElementById('overhead');
+  var els = {
+    driveVal: document.getElementById('driveVal'),
+    ovVal: document.getElementById('ovVal'),
+    segLine: document.getElementById('segLine'),
+    segPayload: document.getElementById('segPayload'),
+    segProto: document.getElementById('segProto'),
+    segDeliv: document.getElementById('segDeliv'),
+    tickCeil: document.getElementById('tickCeil'),
+    readout: document.getElementById('readout'),
+    math: document.getElementById('math')
+  };
+  var MAXMB = 750; // scale of the bars, MB/s
+
+  function fmt(n){ return (Math.round(n*10)/10).toString(); }
+
+  function update(){
+    var lineGbps = parseFloat(gen.value);
+    var driveMBs = parseFloat(drive.value);
+    var h = parseFloat(ov.value) / 100;
+
+    // 8b/10b: 10 line bits carry 8 payload bits
+    var lineMBs   = lineGbps * 1e9 / 8e6;               // 750 for 6 Gb/s
+    var payloadMBs = lineGbps * 1e9 * (8/10) / 8e6;     // 600 for 6 Gb/s
+    var usableMBs  = payloadMBs * (1 - h);              // protocol overhead
+    var delivered  = Math.min(driveMBs, usableMBs);
+    var util       = delivered / payloadMBs;            // fraction of payload used
+
+    els.driveVal.textContent = fmt(driveMBs);
+    els.ovVal.textContent = Math.round(h*100);
+
+    els.segLine.style.width = (lineMBs / MAXMB * 100) + '%';
+    els.segPayload.style.width = (payloadMBs / MAXMB * 100) + '%';
+    els.segProto.style.left = (payloadMBs / MAXMB * 100) + '%';
+    els.segProto.style.width = Math.max(0, (lineMBs - payloadMBs) / MAXMB * 100) + '%';
+    els.segDeliv.style.width = (delivered / MAXMB * 100) + '%';
+    els.tickCeil.style.left = (payloadMBs / MAXMB * 100) + '%';
+
+    var bound = driveMBs > usableMBs;
+    els.readout.innerHTML =
+      'Payload ceiling: <b>' + fmt(payloadMBs) + ' MB/s</b> · usable after protocol overhead: <b>' +
+      fmt(usableMBs) + ' MB/s</b> · delivered: <b>' + fmt(delivered) + ' MB/s</b> (' +
+      Math.round(util*100) + '% of payload) · ' +
+      '<span class="verdict ' + (bound ? 'linkbound">link-bound' : 'devicebound">device-bound') + '</span>';
+
+    els.math.textContent =
+      'line rate   = ' + lineGbps + ' Gb/s\n' +
+      'payload     = ' + lineGbps + ' × 10^9 bit/s × 8/10 = ' + fmt(lineGbps*0.8) +
+        ' Gb/s = ' + fmt(payloadMBs) + ' MB/s\n' +
+      'usable      = ' + fmt(payloadMBs) + ' × (1 − ' + Math.round(h*100) + '/100) = ' + fmt(usableMBs) + ' MB/s\n' +
+      'delivered   = min(drive ' + fmt(driveMBs) + ', usable ' + fmt(usableMBs) + ') = ' + fmt(delivered) + ' MB/s\n' +
+      'utilisation = ' + fmt(delivered) + ' / ' + fmt(payloadMBs) + ' = ' + Math.round(util*100) + '%';
+  }
+
+  gen.addEventListener('change', update);
+  drive.addEventListener('input', update);
+  ov.addEventListener('input', update);
+  update();
+})();
+</script>
+</body>
+</html>

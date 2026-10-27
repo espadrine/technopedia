@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Relational Algebra Visualizer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Courier New',monospace;background:#1a1a2e;color:#e0e0e0;padding:20px;min-height:100vh}
+h1{font-size:1.2em;margin-bottom:10px;color:#64b5f6}
+.scenarios{margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
+.scenario-btn{background:#16213e;color:#90caf9;border:1px solid #333;padding:6px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.85em}
+.scenario-btn.active{background:#2196f3;color:#fff;border-color:#2196f3}
+.controls{margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+button{background:#2196f3;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.9em}
+button:hover{background:#1976d2}
+button:disabled{background:#555;cursor:default}
+.step-label{font-size:0.95em;color:#ffab40;min-width:200px}
+.tables-container{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.table-box{background:#16213e;border:1px solid #333;border-radius:6px;padding:10px;min-width:260px}
+.table-box h3{font-size:0.85em;color:#90caf9;margin-bottom:6px;text-align:center}
+table{width:100%;border-collapse:collapse;font-size:0.8em}
+th{background:#0f3460;padding:4px 8px;text-align:left;border-bottom:1px solid #444}
+td{padding:4px 8px;border-bottom:1px solid #222}
+tr.survived{background:#1b5e20;color:#a5d6a7}
+tr.eliminated{background:#4a1010;color:#ef9a9a;text-decoration:line-through}
+tr.highlight{background:#e65100;color:#fff}
+.arrow{font-size:1.5em;color:#64b5f6;align-self:center}
+.result-box{border-color:#ff9800}
+.result-box h3{color:#ffab40}
+.note{font-size:0.75em;color:#888;margin-top:8px;font-style:italic}
+.progress{display:flex;gap:4px;margin-bottom:12px}
+.progress .dot{width:12px;height:12px;border-radius:50%;background:#333}
+.progress .dot.active{background:#2196f3}
+.progress .dot.done{background:#4caf50}
+</style>
+</head>
+<body>
+<h1>Relational Algebra: Step-by-Step Visualizer</h1>
+<div class="scenarios" id="scenarios"></div>
+<div class="progress" id="progress"></div>
+<div class="controls">
+<button id="prevBtn" disabled>◀ Prev</button>
+<button id="nextBtn">Next ▶</button>
+<button id="resetBtn">Reset</button>
+<span class="step-label" id="stepLabel">Initial tables</span>
+</div>
+<div class="tables-container" id="tablesContainer"></div>
+
+<script>
+// ---------- Scenario 1: join query ----------
+const customers = [
+  {id:1, name:'Alice', city:'Paris'},
+  {id:2, name:'Bob', city:'Lyon'},
+  {id:3, name:'Carol', city:'Paris'}
+];
+const orders = [
+  {oid:10, cust_id:1, amount:200},
+  {oid:11, cust_id:1, amount:50},
+  {oid:12, cust_id:3, amount:150}
+];
+
+function joinSteps() {
+  return [
+    {
+      label: 'Initial tables',
+      render: () => [
+        {title:'customers(id, name, city)', cols:['id','name','city'], rows:customers, cls:[]},
+        {title:'orders(oid, cust_id, amount)', cols:['oid','cust_id','amount'], rows:orders, cls:[]}
+      ]
+    },
+    {
+      label: 'σ_city="Paris"(customers)',
+      render: () => {
+        const cls = customers.map(r => r.city==='Paris' ? 'survived' : 'eliminated');
+        return [
+          {title:'σ_city="Paris"(customers)', cols:['id','name','city'], rows:customers, cls:cls, note:'Rows where city ≠ Paris are eliminated.'}
+        ];
+      }
+    },
+    {
+      label: 'σ_amount>100(orders)',
+      render: () => {
+        const cls = orders.map(r => r.amount>100 ? 'survived' : 'eliminated');
+        return [
+          {title:'σ_amount>100(orders)', cols:['oid','cust_id','amount'], rows:orders, cls:cls, note:'Rows where amount ≤ 100 are eliminated.'}
+        ];
+      }
+    },
+    {
+      label: 'σ_city="Paris"(customers) ⋈ σ_amount>100(orders)',
+      render: () => {
+        const filteredC = customers.filter(r=>r.city==='Paris');
+        const filteredO = orders.filter(r=>r.amount>100);
+        const result = [];
+        filteredC.forEach(c => filteredO.forEach(o => {
+          if(c.id===o.cust_id) result.push({id:c.id,name:c.name,city:c.city,oid:o.oid,cust_id:o.cust_id,amount:o.amount});
+        }));
+        return [
+          {title:'customers (filtered)', cols:['id','name','city'], rows:filteredC, cls:filteredC.map(()=>'survived')},
+          {title:'orders (filtered)', cols:['oid','cust_id','amount'], rows:filteredO, cls:filteredO.map(()=>'survived')},
+          {title:'Join result (id=cust_id)', cols:['id','name','city','oid','cust_id','amount'], rows:result, cls:result.map(()=>'highlight'), result:true, note:'Only rows where customers.id = orders.cust_id survive.'}
+        ];
+      }
+    },
+    {
+      label: 'π_name( ⋈ result )',
+      render: () => {
+        const filteredC = customers.filter(r=>r.city==='Paris');
+        const filteredO = orders.filter(r=>r.amount>100);
+        const joined = [];
+        filteredC.forEach(c => filteredO.forEach(o => {
+          if(c.id===o.cust_id) joined.push({id:c.id,name:c.name,city:c.city,oid:o.oid,cust_id:o.cust_id,amount:o.amount});
+        }));
+        const names = [...new Set(joined.map(r=>r.name))];
+        const projRows = names.map(n=>({name:n}));
+        return [
+          {title:'Join result', cols:['id','name','city','oid','cust_id','amount'], rows:joined, cls:joined.map(()=>'')},
+          {title:'π_name (duplicates removed)', cols:['name'], rows:projRows, cls:projRows.map(()=>'highlight'), result:true, note:'Project keeps only the name column and removes duplicates.'}
+        ];
+      }
+    },
+    {
+      label: 'Final answer',
+      render: () => {
+        const names = ['Alice','Carol'];
+        const projRows = names.map(n=>({name:n}));
+        return [
+          {title:'Answer: names of Paris customers with orders > 100', cols:['name'], rows:projRows, cls:projRows.map(()=>'highlight'), result:true, note:'π_name( σ_city="Paris"(customers) ⋈ σ_amount>100(orders) )'}
+        ];
+      }
+    }
+  ];
+}
+
+// ---------- Scenario 2: division ("enrolled in ALL courses") ----------
+const enrolled = [
+  {student:'Alice', course:'Math'},
+  {student:'Alice', course:'CS'},
+  {student:'Alice', course:'Bio'},
+  {student:'Bob',   course:'Math'},
+  {student:'Carol', course:'Math'},
+  {student:'Carol', course:'CS'},
+  {student:'Carol', course:'Bio'}
+];
+const courses = [{course:'Math'},{course:'CS'},{course:'Bio'}];
+
+function divisionSteps() {
+  const students = ['Alice','Bob','Carol'];
+  const allPairs = [];
+  students.forEach(s => courses.forEach(c => allPairs.push({student:s, course:c.course})));
+  const missing = allPairs.filter(p => !enrolled.some(e => e.student===p.student && e.course===p.course));
+  const badStudents = [...new Set(missing.map(p=>p.student))];
+  const answer = students.filter(s => !badStudents.includes(s));
+  return [
+    {
+      label: 'Initial tables',
+      render: () => [
+        {title:'Enrolled(student, course)', cols:['student','course'], rows:enrolled, cls:[]},
+        {title:'Courses(course)', cols:['course'], rows:courses, cls:[]}
+      ]
+    },
+    {
+      label: 'π_student(Enrolled) — candidates',
+      render: () => [
+        {title:'Enrolled(student, course)', cols:['student','course'], rows:enrolled, cls:[]},
+        {title:'π_student(Enrolled)', cols:['student'], rows:students.map(s=>({student:s})), cls:students.map(()=>'highlight'), result:true, note:'Every enrolled student is a candidate; we must now test each against ALL courses.'}
+      ]
+    },
+    {
+      label: 'π_student(Enrolled) × Courses — all combinations',
+      render: () => [
+        {title:'π_student(Enrolled) × Courses', cols:['student','course'], rows:allPairs, cls:[], note:'The Cartesian product lists every (student, course) combination that WOULD satisfy "all courses".'}
+      ]
+    },
+    {
+      label: '(π_student(Enrolled) × Courses) − Enrolled — missing pairs',
+      render: () => {
+        const cls = allPairs.map(p => enrolled.some(e => e.student===p.student && e.course===p.course) ? 'survived' : 'eliminated');
+        return [
+          {title:'All combinations − Enrolled', cols:['student','course'], rows:allPairs, cls:cls, note:'Struck-through pairs are NOT in Enrolled: these are the enrollments each student is missing.'}
+        ];
+      }
+    },
+    {
+      label: 'π_student(missing pairs) — students failing the test',
+      render: () => [
+        {title:'Missing (student, course) pairs', cols:['student','course'], rows:missing, cls:missing.map(()=>'eliminated'), note:'Bob is missing CS and Bio.'},
+        {title:'π_student(missing)', cols:['student'], rows:badStudents.map(s=>({student:s})), cls:badStudents.map(()=>'highlight'), result:true, note:'These students are paired with SOME course but not all: they fail the "all" test.'}
+      ]
+    },
+    {
+      label: 'π_student(Enrolled) − π_student(missing) — final answer',
+      render: () => [
+        {title:'Candidates', cols:['student'], rows:students.map(s=>({student:s})), cls:students.map(s=>badStudents.includes(s)?'eliminated':'survived')},
+        {title:'Enrolled ÷ Courses', cols:['student'], rows:answer.map(s=>({student:s})), cls:answer.map(()=>'highlight'), result:true, note:'Students enrolled in ALL courses: Alice and Carol.'}
+      ]
+    }
+  ];
+}
+
+// ---------- Scenario machinery ----------
+const scenarios = [
+  {name:'Join query: Paris customers with big orders', steps: joinSteps()},
+  {name:'Division: students in ALL courses', steps: divisionSteps()}
+];
+let scenario = 0;
+let step = 0;
+
+function renderScenarioButtons() {
+  const c = document.getElementById('scenarios');
+  c.innerHTML = '';
+  scenarios.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'scenario-btn' + (i===scenario ? ' active' : '');
+    b.textContent = s.name;
+    b.onclick = () => { if(scenario!==i){ scenario=i; step=0; renderScenarioButtons(); render(); } };
+    c.appendChild(b);
+  });
+}
+
+function render() {
+  const steps = scenarios[scenario].steps;
+  const s = steps[step];
+  document.getElementById('stepLabel').textContent = s.label;
+  const container = document.getElementById('tablesContainer');
+  container.innerHTML = '';
+  const tables = s.render();
+  tables.forEach((t, i) => {
+    if(i > 0) {
+      const arrow = document.createElement('div');
+      arrow.className = 'arrow';
+      arrow.textContent = '→';
+      container.appendChild(arrow);
+    }
+    const box = document.createElement('div');
+    box.className = 'table-box' + (t.result ? ' result-box' : '');
+    let html = '<h3>' + t.title + '</h3><table><tr>';
+    t.cols.forEach(c => html += '<th>' + c + '</th>');
+    html += '</tr>';
+    t.rows.forEach((r, ri) => {
+      const cls = t.cls[ri] || '';
+      html += '<tr class="' + cls + '">';
+      t.cols.forEach(c => html += '<td>' + (r[c] !== undefined ? r[c] : '') + '</td>');
+      html += '</tr>';
+    });
+    html += '</table>';
+    if(t.note) html += '<div class="note">' + t.note + '</div>';
+    box.innerHTML = html;
+    container.appendChild(box);
+  });
+  // progress dots
+  const prog = document.getElementById('progress');
+  prog.innerHTML = '';
+  for(let i=0;i<steps.length;i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i<step?' done':(i===step?' active':''));
+    prog.appendChild(d);
+  }
+  document.getElementById('prevBtn').disabled = (step===0);
+  document.getElementById('nextBtn').disabled = (step===steps.length-1);
+}
+
+document.getElementById('nextBtn').onclick = () => {
+  const steps = scenarios[scenario].steps;
+  if(step<steps.length-1){step++;render();}
+};
+document.getElementById('prevBtn').onclick = () => { if(step>0){step--;render();} };
+document.getElementById('resetBtn').onclick = () => { step=0;render(); };
+
+renderScenarioButtons();
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CoWoS cross-section</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin: 5px 0; }
+canvas { display: block; margin: 0 auto; border: 1px solid #333; border-radius: 4px; background: #12122a; cursor: crosshair; }
+.legend { text-align: center; font-size: 0.8em; margin-top: 6px; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>CoWoS cross-section — hover a layer to identify it</h2>
+<canvas id="cv" width="700" height="360"></canvas>
+<div class="legend" id="msg">Hover over a layer of the 2.5D package.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const msg = document.getElementById('msg');
+
+const layers = [
+  { name: 'Logic die (flip-chip, micro-bumps)', y: 40, h: 60, x: 120, w: 200, color: '#4a90d9',
+    desc: 'Logic die: flip-chip bonded to the silicon interposer with 25–55 µm micro-bumps.' },
+  { name: 'HBM stack (8 DRAM dies + base die, TSVs)', y: 40, h: 60, x: 340, w: 200, color: '#6ab04c',
+    desc: 'HBM stack: 8 DRAM dies stacked vertically, connected through TSVs and micro-bumps.' },
+  { name: 'Silicon interposer (fine-pitch RDL, TSVs)', y: 100, h: 50, x: 100, w: 500, color: '#9b59b6',
+    desc: 'Silicon interposer: carries the fine-pitch die-to-die routing that the organic substrate cannot.' },
+  { name: 'C4 bumps (interposer → substrate)', y: 150, h: 30, x: 100, w: 500, color: '#e74c3c',
+    desc: 'C4 bumps: 75–200 µm solder joints joining interposer to organic substrate.' },
+  { name: 'Organic FCBGA substrate', y: 180, h: 60, x: 100, w: 500, color: '#8b6914',
+    desc: 'Organic FCBGA substrate: 10–12 layers, coarse routing, BGA balls on the bottom.' },
+  { name: 'BGA balls (package → PCB)', y: 240, h: 40, x: 100, w: 500, color: '#1abc9c',
+    desc: 'BGA balls: 0.3–1.0 mm solder spheres attaching the package to the PCB.' }
+];
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  layers.forEach(l => {
+    ctx.fillStyle = l.color;
+    ctx.fillRect(l.x, l.y, l.w, l.h);
+    ctx.fillStyle = '#eee';
+    ctx.font = '11px system-ui';
+    ctx.fillText(l.name, l.x + 8, l.y + l.h / 2 + 4);
+  });
+}
+
+cv.addEventListener('mousemove', e => {
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const hit = layers.find(l => mx >= l.x && mx <= l.x + l.w && my >= l.y && my <= l.y + l.h);
+  msg.textContent = hit ? hit.desc : 'Hover over a layer of the 2.5D package.';
+});
+
+draw();
+</script>
+</body>
+</html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Package Cross-Section</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin: 5px 0; }
+.controls { text-align: center; margin: 8px 0; }
+.controls button { margin: 0 4px; padding: 6px 14px; border: 1px solid #555; border-radius: 4px; background: #2a2a4a; color: #eee; cursor: pointer; font-size: 0.9em; }
+.controls button.active { background: #4a4a8a; border-color: #88f; }
+canvas { display: block; margin: 0 auto; border: 1px solid #333; border-radius: 4px; }
+.legend { text-align: center; font-size: 0.8em; margin-top: 6px; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Interconnect &amp; Packaging — Cross-Section</h2>
+<div class="controls">
+<button id="btn-wire" class="active">Wire Bond</button>
+<button id="btn-flip">Flip-Chip</button>
+<button id="btn-tsv">TSV / 3D Stack</button>
+<button id="btn-25d">2.5D (CoWoS)</button>
+</div>
+<canvas id="cv" width="700" height="420"></canvas>
+<div class="legend">Cross-section view. Toggle modes to see different interconnect architectures.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let mode = 'wire';
+
+const colors = {
+  die: '#4a90d9',
+  die2: '#6ab04c',
+  substrate: '#8b6914',
+  interposer: '#9b59b6',
+  bump: '#e74c3c',
+  wire: '#f1c40f',
+  tsv: '#e67e22',
+  ball: '#1abc9c',
+  underfill: 'rgba(231,76,60,0.3)',
+  label: '#fff',
+  bg: '#1a1a2e'
+};
+
+function drawLabel(x, y, text, align) {
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = colors.label;
+  ctx.textAlign = align || 'center';
+  ctx.fillText(text, x, y);
+}
+
+function drawWireBond() {
+  // Substrate
+  ctx.fillStyle = colors.substrate;
+  ctx.fillRect(100, 300, 500, 60);
+  drawLabel(350, 335, 'Organic substrate / lead frame');
+
+  // Die
+  ctx.fillStyle = colors.die;
+  ctx.fillRect(250, 180, 200, 80);
+  drawLabel(350, 225, 'Die (Si)');
+
+  // Bond pads on die
+  ctx.fillStyle = '#ccc';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(260 + i * 40, 175, 15, 5);
+  }
+
+  // Lead frame pads
+  ctx.fillStyle = '#ccc';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(130 + i * 100, 295, 20, 5);
+  }
+
+  // Wires
+  ctx.strokeStyle = colors.wire;
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 5; i++) {
+    const x1 = 267 + i * 40;
+    const x2 = 140 + i * 100;
+    const midX = (x1 + x2) / 2;
+    const midY = 130;
+    ctx.beginPath();
+    ctx.moveTo(x1, 175);
+    ctx.quadraticCurveTo(midX, midY, x2, 295);
+    ctx.stroke();
+  }
+
+  drawLabel(350, 110, 'Au / Cu wire (18–50 µm)', 'center');
+  drawLabel(350, 390, 'Wire bonding: ultrasonic ball/stitch bonds', 'center');
+}
+
+function drawFlipChip() {
+  // Substrate
+  ctx.fillStyle = colors.substrate;
+  ctx.fillRect(100, 300, 500, 60);
+  drawLabel(350, 335, 'Substrate');
+
+  // Die (flipped - pads on bottom)
+  ctx.fillStyle = colors.die;
+  ctx.fillRect(200, 180, 300, 80);
+  drawLabel(350, 225, 'Die (Si) — flipped');
+
+  // C4 bumps
+  ctx.fillStyle = colors.bump;
+  for (let i = 0; i < 8; i++) {
+    const bx = 220 + i * 35;
+    ctx.beginPath();
+    ctx.arc(bx, 265, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawLabel(350, 280, 'C4 bumps (75–200 µm)', 'center');
+
+  // Underfill
+  ctx.fillStyle = colors.underfill;
+  ctx.fillRect(200, 260, 300, 40);
+
+  // BGA balls
+  ctx.fillStyle = colors.ball;
+  for (let i = 0; i < 10; i++) {
+    ctx.beginPath();
+    ctx.arc(130 + i * 50, 365, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawLabel(350, 390, 'BGA balls → PCB', 'center');
+
+  drawLabel(350, 155, 'Flip-chip: die face-down, bumps reflowed to substrate', 'center');
+}
+
+function drawTSV() {
+  // Bottom die
+  ctx.fillStyle = colors.die;
+  ctx.fillRect(200, 280, 300, 70);
+  drawLabel(350, 320, 'Bottom die (DRAM)');
+
+  // Top die
+  ctx.fillStyle = colors.die2;
+  ctx.fillRect(200, 140, 300, 70);
+  drawLabel(350, 180, 'Top die (DRAM)');
+
+  // TSVs
+  ctx.fillStyle = colors.tsv;
+  for (let i = 0; i < 6; i++) {
+    const tx = 230 + i * 45;
+    ctx.fillRect(tx, 140, 6, 210);
+  }
+  drawLabel(350, 125, 'TSVs (2–10 µm dia, 30–100 µm deep)', 'center');
+
+  // Micro-bumps between dies
+  ctx.fillStyle = colors.bump;
+  for (let i = 0; i < 8; i++) {
+    const bx = 220 + i * 35;
+    ctx.beginPath();
+    ctx.arc(bx, 215, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawLabel(350, 235, 'Micro-bumps (25–55 µm pitch)', 'center');
+
+  // C4 to substrate
+  ctx.fillStyle = colors.substrate;
+  ctx.fillRect(150, 360, 400, 40);
+  drawLabel(350, 383, 'Substrate');
+
+  ctx.fillStyle = colors.bump;
+  for (let i = 0; i < 6; i++) {
+    const bx = 230 + i * 45;
+    ctx.beginPath();
+    ctx.arc(bx, 355, 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawLabel(350, 410, '3D stack: dies connected vertically via TSVs', 'center');
+}
+
+function draw25D() {
+  // Substrate (bottom)
+  ctx.fillStyle = colors.substrate;
+  ctx.fillRect(80, 340, 540, 50);
+  drawLabel(350, 370, 'Organic FCBGA substrate');
+
+  // Interposer
+  ctx.fillStyle = colors.interposer;
+  ctx.fillRect(120, 260, 460, 70);
+  drawLabel(350, 300, 'Silicon interposer (CoWoS)');
+
+  // Interposer TSVs
+  ctx.fillStyle = colors.tsv;
+  for (let i = 0; i < 10; i++) {
+    ctx.fillRect(140 + i * 45, 260, 4, 70);
+  }
+
+  // Logic die
+  ctx.fillStyle = colors.die;
+  ctx.fillRect(150, 160, 180, 90);
+  drawLabel(240, 210, 'Logic die');
+
+  // HBM stacks
+  ctx.fillStyle = colors.die2;
+  for (let s = 0; s < 2; s++) {
+    for (let d = 0; d < 4; d++) {
+      ctx.fillRect(380 + s * 100, 160 + d * 22, 80, 18);
+    }
+  }
+  drawLabel(420, 150, 'HBM stack');
+  drawLabel(520, 150, 'HBM stack');
+
+  // Micro-bumps (logic to interposer)
+  ctx.fillStyle = colors.bump;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.arc(170 + i * 35, 255, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // C4 (interposer to substrate)
+  ctx.fillStyle = colors.bump;
+  for (let i = 0; i < 8; i++) {
+    ctx.beginPath();
+    ctx.arc(150 + i * 55, 335, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // BGA balls
+  ctx.fillStyle = colors.ball;
+  for (let i = 0; i < 12; i++) {
+    ctx.beginPath();
+    ctx.arc(100 + i * 45, 395, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawLabel(350, 130, '2.5D: dies side-by-side on Si interposer', 'center');
+  drawLabel(350, 415, 'BGA balls → PCB', 'center');
+}
+
+function render() {
+  ctx.fillStyle = colors.bg;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  if (mode === 'wire') drawWireBond();
+  else if (mode === 'flip') drawFlipChip();
+  else if (mode === 'tsv') drawTSV();
+  else draw25D();
+}
+
+const btns = {
+  'btn-wire': 'wire',
+  'btn-flip': 'flip',
+  'btn-tsv': 'tsv',
+  'btn-25d': '25d'
+};
+
+Object.keys(btns).forEach(id => {
+  document.getElementById(id).addEventListener('click', function() {
+    mode = btns[id];
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wire bonding</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin: 5px 0; }
+.controls { text-align: center; margin: 8px 0; }
+.controls button { margin: 0 4px; padding: 6px 14px; border: 1px solid #555; border-radius: 4px; background: #2a2a4a; color: #eee; cursor: pointer; font-size: 0.9em; }
+.controls button.active { background: #4a4a8a; border-color: #88f; }
+canvas { display: block; margin: 0 auto; border: 1px solid #333; border-radius: 4px; background: #12122a; }
+.legend { text-align: center; font-size: 0.8em; margin-top: 6px; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Wire bonding: ball bond → loop → stitch bond</h2>
+<div class="controls">
+<button id="btn-ball" class="active">Ball bond</button>
+<button id="btn-loop">Loop</button>
+<button id="btn-stitch">Stitch bond</button>
+<button id="btn-run">Run cycle</button>
+</div>
+<canvas id="cv" width="700" height="380"></canvas>
+<div class="legend" id="msg">The capillary forms a molten ball at the wire tip (flame-off), then presses it onto the die pad.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const msg = document.getElementById('msg');
+
+// Die pads (left, on die) and lead fingers (right)
+const pads = [];
+for (let i = 0; i < 5; i++) pads.push({ x: 150 + i * 90, y: 250 });
+const leads = [];
+for (let i = 0; i < 5; i++) leads.push({ x: 420 + i * 60, y: 120 });
+
+let wires = [];   // completed wires: {p1, p2}
+let phase = 0;    // 0 idle, 1 ball descend, 2 loop pull, 3 stitch press
+let t = 0;
+let cur = 0;      // current pad index
+let cap = { x: 0, y: 0 };
+
+function drawScene() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  // Die
+  ctx.fillStyle = '#2c4a6e';
+  ctx.fillRect(60, 230, 320, 120);
+  ctx.fillStyle = '#88a';
+  ctx.font = '12px system-ui';
+  ctx.fillText('Die (Si)', 70, 340);
+  // Lead frame
+  ctx.fillStyle = '#3a3a5a';
+  ctx.fillRect(400, 60, 280, 200);
+  ctx.fillStyle = '#aaa';
+  ctx.fillText('Lead frame', 410, 250);
+  // Pads
+  pads.forEach(p => { ctx.fillStyle = '#d8d8e8'; ctx.fillRect(p.x - 12, p.y - 4, 24, 8); });
+  leads.forEach(p => { ctx.fillStyle = '#d8d8e8'; ctx.fillRect(p.x - 10, p.y - 4, 20, 8); });
+  // Completed wires
+  wires.forEach(w => drawWire(w.p1, w.p2, '#f1c40f'));
+  // Capillary + in-progress wire
+  if (phase > 0) {
+    drawWire({ x: cap.x, y: cap.y }, { x: 350, y: 40 }, '#f1c40f');
+    ctx.fillStyle = '#c0c8d8';
+    ctx.beginPath();
+    ctx.moveTo(cap.x - 10, cap.y - 60);
+    ctx.lineTo(cap.x + 10, cap.y - 60);
+    ctx.lineTo(cap.x + 4, cap.y);
+    ctx.lineTo(cap.x - 4, cap.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#eee';
+    ctx.fillText('capillary', cap.x + 14, cap.y - 50);
+  }
+}
+
+function drawWire(p1, p2, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.quadraticCurveTo((p1.x + p2.x) / 2, Math.min(p1.y, p2.y) - 60, p2.x, p2.y);
+  ctx.stroke();
+}
+
+const phases = [
+  'Ball bond: the capillary presses the molten ball onto the die pad with ultrasonic energy.',
+  'Loop: the capillary pulls the wire up and over toward the lead finger.',
+  'Stitch bond: the wire end is pressed onto the lead finger, completing one wire.',
+  'Wire complete. The next pad starts a new cycle.'
+];
+
+function step() {
+  t++;
+  if (phase === 0) {
+    cap = { x: pads[cur].x, y: pads[cur].y };
+    phase = 1;
+    document.getElementById('msg').textContent = phases[0];
+  } else if (phase === 1) {
+    phase = 2;
+    document.getElementById('msg').textContent = phases[1];
+  } else if (phase === 2) {
+    const p2 = leads[cur];
+    wires.push({ p1: pads[cur], p2: p2 });
+    phase = 3;
+    document.getElementById('msg').textContent = phases[2];
+  } else {
+    phase = 0;
+    cur = (cur + 1) % pads.length;
+    document.getElementById('msg').textContent = phases[3];
+  }
+  drawScene();
+}
+
+document.getElementById('btn-ball').onclick = () => { phase = 0; cur = 0; wires = []; step(); };
+document.getElementById('btn-loop').onclick = () => { phase = 2; step(); };
+document.getElementById('btn-stitch').onclick = () => { phase = 3; step(); };
+document.getElementById('btn-stitch').onclick = () => { phase = 2; step(); };
+drawScene();
+</script>
+</body>
+</html>

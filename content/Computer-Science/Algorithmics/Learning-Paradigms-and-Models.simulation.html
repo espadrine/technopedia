@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>k-means clustering</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; }
+.controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+.controls input[type=range] { width: 100px; }
+.controls button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+#stepBtn { background: #4a90d9; color: #fff; }
+#resetBtn { background: #555; color: #fff; }
+#autoBtn { background: #2ecc71; color: #fff; }
+#autoBtn.active { background: #e74c3c; }
+canvas { border: 1px solid #333; border-radius: 6px; background: #0f0f23; }
+.info { margin-top: 8px; font-size: 0.85em; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>k-means clustering</h2>
+<div class="controls">
+  <label>k = <span id="kVal">3</span></label>
+  <input type="range" id="kSlider" min="2" max="8" value="3">
+  <button id="stepBtn">Step</button>
+  <button id="autoBtn">Auto</button>
+  <button id="resetBtn">Reset</button>
+</div>
+<canvas id="cv" width="600" height="400"></canvas>
+<div class="info" id="info">Click "Step" to advance one iteration, or "Auto" to animate.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const kSlider = document.getElementById('kSlider');
+const kVal = document.getElementById('kVal');
+const stepBtn = document.getElementById('stepBtn');
+const autoBtn = document.getElementById('autoBtn');
+const resetBtn = document.getElementById('resetBtn');
+const info = document.getElementById('info');
+
+let points = [];
+let centroids = [];
+let assignments = [];
+let k = 3;
+let iteration = 0;
+let autoTimer = null;
+
+const COLORS = ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
+
+function generatePoints() {
+  points = [];
+  const clusters = 4;
+  const centers = [[150,120],[450,100],[200,300],[420,310]];
+  const spreads = [50,45,55,40];
+  for (let c = 0; c < clusters; c++) {
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * 2 * Math.PI;
+      const r = spreads[c] * Math.sqrt(Math.random());
+      points.push({ x: centers[c][0] + r * Math.cos(angle), y: centers[c][1] + r * Math.sin(angle) });
+    }
+  }
+}
+
+function initCentroids() {
+  centroids = [];
+  for (let i = 0; i < k; i++) {
+    centroids.push({ x: 50 + Math.random() * 500, y: 30 + Math.random() * 340 });
+  }
+  assignments = new Array(points.length).fill(0);
+  iteration = 0;
+}
+
+function step() {
+  // Assignment step
+  for (let i = 0; i < points.length; i++) {
+    let best = 0, bestD = Infinity;
+    for (let c = 0; c < k; c++) {
+      const dx = points[i].x - centroids[c].x;
+      const dy = points[i].y - centroids[c].y;
+      const d = dx*dx + dy*dy;
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    assignments[i] = best;
+  }
+  // Update step
+  const sums = Array.from({length: k}, () => ({x:0, y:0, n:0}));
+  for (let i = 0; i < points.length; i++) {
+    sums[assignments[i]].x += points[i].x;
+    sums[assignments[i]].y += points[i].y;
+    sums[assignments[i]].n++;
+  }
+  for (let c = 0; c < k; c++) {
+    if (sums[c].n > 0) {
+      centroids[c].x = sums[c].x / sums[c].n;
+      centroids[c].y = sums[c].y / sums[c].n;
+    }
+  }
+  iteration++;
+  draw();
+  info.textContent = `Iteration ${iteration} — ${k} clusters, ${points.length} points`;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  // Draw points
+  for (let i = 0; i < points.length; i++) {
+    ctx.beginPath();
+    ctx.arc(points[i].x, points[i].y, 4, 0, 2*Math.PI);
+    ctx.fillStyle = COLORS[assignments[i] % COLORS.length];
+    ctx.globalAlpha = 0.7;
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // Draw centroids
+  for (let c = 0; c < k; c++) {
+    ctx.beginPath();
+    ctx.arc(centroids[c].x, centroids[c].y, 10, 0, 2*Math.PI);
+    ctx.strokeStyle = COLORS[c % COLORS.length];
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    // Cross
+    ctx.beginPath();
+    ctx.moveTo(centroids[c].x - 6, centroids[c].y);
+    ctx.lineTo(centroids[c].x + 6, centroids[c].y);
+    ctx.moveTo(centroids[c].x, centroids[c].y - 6);
+    ctx.lineTo(centroids[c].x, centroids[c].y + 6);
+    ctx.strokeStyle = COLORS[c % COLORS.length];
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+
+function reset() {
+  stopAuto();
+  generatePoints();
+  initCentroids();
+  draw();
+  info.textContent = `Click "Step" to advance one iteration, or "Auto" to animate.`;
+}
+
+function stopAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; autoBtn.classList.remove('active'); autoBtn.textContent = 'Auto'; }
+}
+
+kSlider.addEventListener('input', () => { k = parseInt(kSlider.value); kVal.textContent = k; initCentroids(); draw(); info.textContent = `k changed to ${k}. Click "Step" to begin.`; });
+stepBtn.addEventListener('click', () => { step(); });
+autoBtn.addEventListener('click', () => {
+  if (autoTimer) { stopAuto(); } else { autoBtn.classList.add('active'); autoBtn.textContent = 'Stop'; autoTimer = setInterval(step, 400); }
+});
+resetBtn.addEventListener('click', reset);
+
+reset();
+</script>
+</body>
+</html>

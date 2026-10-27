@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Concurrency: four complementary strategies on one workload</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #eee; padding: 16px; }
+h1 { font-size: 1.1em; margin-bottom: 4px; color: #64ffda; }
+.sub { font-size: 0.8em; color: #888; margin-bottom: 12px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+button { padding: 7px 12px; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.8em; background: #2a2a4a; color: #eee; }
+button.active { background: #64ffda; color: #1a1a2e; font-weight: bold; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.caption { min-height: 48px; padding: 10px; background: #16213e; border-radius: 8px; border: 1px solid #0f3460; font-size: 0.82em; line-height: 1.5; color: #ccc; margin-bottom: 12px; }
+.caption b { color: #ffd93d; }
+.timeline { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+.trow { display: flex; align-items: center; gap: 4px; }
+.trow .label { width: 86px; font-size: 0.72em; color: #aaa; text-align: right; padding-right: 6px; flex-shrink: 0; }
+.trow .cells { display: flex; gap: 2px; flex: 1; }
+.cell { width: 17px; height: 22px; border-radius: 3px; background: #2a2a4a; display: flex; align-items: center; justify-content: center; font-size: 0.55em; font-weight: bold; color: transparent; }
+.cell.cpu { background: #4ecdc4; color: #1a1a2e; }
+.cell.io  { background: #ff6b9d; color: #1a1a2e; }
+.cell.wait { background: repeating-linear-gradient(45deg, #3a3a5a, #3a3a5a 3px, #55557a 3px, #55557a 6px); color: #ccc; }
+.cell.msg { background: #ffd93d; color: #1a1a2e; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.72em; color: #aaa; margin-bottom: 12px; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.sw { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.results { display: flex; gap: 10px; flex-wrap: wrap; }
+.res { padding: 8px 12px; background: #16213e; border-radius: 8px; border: 1px solid #0f3460; font-size: 0.75em; text-align: center; min-width: 110px; }
+.res .v { font-size: 1.4em; font-weight: bold; color: #ffd93d; }
+.res .l { color: #888; margin-top: 2px; }
+</style>
+</head>
+<body>
+<h1>One workload, four strategies</h1>
+<div class="sub">Workload: 4 CPU-bound tasks (3 ticks each) + 4 I/O-bound tasks (1 tick compute, 3 ticks waiting, 1 tick compute). The operating system supplies the cores, threads and context switches in every scenario.</div>
+<div class="controls">
+  <button data-s="sequential">Sequential (blocking I/O)</button>
+  <button data-s="parallelism">Parallelism (2 cores, shared state)</button>
+  <button data-s="asynchrony">Asynchrony (1 core, event loop)</button>
+  <button data-s="message">Message passing (4 workers)</button>
+</div>
+<div class="caption" id="caption">Pick a strategy to see how the same workload is scheduled. Run several to compare wall times.</div>
+<div class="timeline" id="timeline"></div>
+<div class="legend">
+  <span><i class="sw" style="background:#4ecdc4"></i> CPU task compute</span>
+  <span><i class="sw" style="background:#ff6b9d"></i> I/O task compute</span>
+  <span><i class="sw" style="background:repeating-linear-gradient(45deg,#3a3a5a,#3a3a5a 3px,#55557a 3px,#55557a 6px)"></i> I/O wait (device busy)</span>
+  <span><i class="sw" style="background:#ffd93d"></i> message send/recv</span>
+</div>
+<div class="results" id="results"></div>
+<script>
+const S = {
+  sequential: {
+    caption: '<b>Sequential + blocking I/O</b> — one thread, one core. When an I/O task waits for the device, the core sits idle inside it: concurrency is not exploited at all. Wall time = 32 ticks.',
+    rows: [
+      { label: 'Core 0', cells: sched([['I1','io',3],['I2','io',3],['I3','io',3],['I4','io',3],['T1','cpu',3],['T2','cpu',3],['T3','cpu',3],['T4','cpu',3]]) }
+    ],
+    wall: 32
+  },
+  parallelism: {
+    caption: '<b>Parallelism</b> — the OS schedules threads on 2 cores over <i>shared memory</i>. CPU tasks fill both cores; I/O waits release the core for other threads. Coordination needs locks (not shown): shared state is the risk. Wall time = 9 ticks.',
+    rows: [
+      { label: 'Core 0', cells: row([['I1',1,'io'],['I3',1,'io'],['T1',3,'cpu'],['I1',1,'io'],['I2',1,'io'],['I3',1,'io'],['I4',1,'io']]) },
+      { label: 'Core 1', cells: row([['I2',1,'io'],['I4',1,'io'],['T2',3,'cpu'],['T3',3,'cpu'],[null]]) },
+      { label: 'I/O waits', cells: waits([[1,3,'I1'],[2,3,'I2'],[2,3,'I3'],[2,3,'I4']], 9) }
+    ],
+    wall: 9
+  },
+  asynchrony: {
+    caption: '<b>Asynchrony</b> — one core, one event loop. Tasks <i>yield</i> during I/O waits, so the core always has ready work; no locks are needed (single-threaded). CPU-bound tasks still serialize. Wall time = 20 ticks.',
+    rows: [
+      { label: 'Core 0', cells: row([['I1',1,'io'],['I2',1,'io'],['I3',1,'io'],['I4',1,'io'],['I1',1,'io'],['I2',1,'io'],['I3',1,'io'],['I4',1,'io'],['T1',3,'cpu'],['T2',3,'cpu'],['T3',3,'cpu'],['T4',3,'cpu']]) },
+      { label: 'I/O waits', cells: waits([[1,3,'I1'],[2,3,'I2'],[3,3,'I3'],[4,3,'I4']], 20) }
+    ],
+    wall: 20
+  },
+  message: {
+    caption: '<b>Message passing</b> — a coordinator dispatches tasks to 4 workers over channels; workers own private state and send results back (CSP style). No shared state, no locks; the batch structure is the cost. Wall time = 8 ticks.',
+    rows: [
+      { label: 'Coordinator', cells: [[['send','msg']],[null],[null],[null],[['recv','msg']],[['send','msg']],[null],[['recv','msg']]] },
+      { label: 'Worker 0', cells: batch('I1','T1') },
+      { label: 'Worker 1', cells: batch('I2','T2') },
+      { label: 'Worker 2', cells: batch('I3','T3') },
+      { label: 'Worker 3', cells: batch('I4','T4') }
+    ],
+    wall: 8
+  }
+};
+
+// One task run: for 'io', compute + wait + compute; for 'cpu', n compute ticks.
+function sched(tasks) {
+  const out = [];
+  for (const [name, kind, n] of tasks) {
+    if (kind === 'io') {
+      out.push([[name,'io']]);
+      for (let i = 0; i < n; i++) out.push([[name,'wait']]);
+      out.push([[name,'io']]);
+    } else {
+      for (let i = 0; i < n; i++) out.push([[name,'cpu']]);
+    }
+  }
+  return out;
+}
+// row(items): items are [name, repeatCount, kind] or [null]
+function row(items) {
+  const out = [];
+  for (const it of items) {
+    if (it[0] === null) { out.push([null]); continue; }
+    for (let i = 0; i < it[1]; i++) out.push([[it[0], it[2]]]);
+  }
+  return out;
+}
+// waits(spans, total): spans are [startTick, duration, name] (0-indexed ticks)
+function waits(spans, total) {
+  const out = [];
+  for (let t = 0; t < total; t++) {
+    const s = spans.find(([st, d]) => t >= st && t < st + d);
+    out.push(s ? [[s[2], 'wait']] : [null]);
+  }
+  return out;
+}
+// One worker: I/O task (5 ticks) then CPU task (3 ticks)
+function batch(io, cpu) {
+  return [[[io,'io']],[[io,'wait']],[[io,'wait']],[[io,'wait']],[[io,'io']],[[cpu,'cpu']],[[cpu,'cpu']],[[cpu,'cpu']]];
+}
+
+const timeline = document.getElementById('timeline');
+const caption = document.getElementById('caption');
+const results = document.getElementById('results');
+const buttons = Array.from(document.querySelectorAll('.controls button'));
+let running = false;
+
+function render(key) {
+  const s = S[key];
+  const maxLen = Math.max(...s.rows.map(r => r.cells.length));
+  timeline.innerHTML = '';
+  s.rows.forEach((r, ri) => {
+    const div = document.createElement('div');
+    div.className = 'trow';
+    const lab = document.createElement('span');
+    lab.className = 'label'; lab.textContent = r.label;
+    div.appendChild(lab);
+    const cells = document.createElement('div');
+    cells.className = 'cells';
+    for (let t = 0; t < maxLen; t++) {
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.dataset.row = ri; c.dataset.tick = t;
+      cells.appendChild(c);
+    }
+    div.appendChild(cells);
+    timeline.appendChild(div);
+  });
+  return maxLen;
+}
+
+function showResult(key) {
+  const s = S[key];
+  const speedup = (32 / s.wall).toFixed(1);
+  let el = results.querySelector('[data-k="' + key + '"]');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'res'; el.dataset.k = key;
+    el.innerHTML = '<div class="v"></div><div class="l"></div>';
+    results.appendChild(el);
+  }
+  el.querySelector('.v').textContent = s.wall + ' ticks';
+  el.querySelector('.l').textContent = key + ' · ' + speedup + '× vs sequential';
+}
+
+async function run(key) {
+  if (running) return;
+  running = true;
+  buttons.forEach(b => b.disabled = true);
+  caption.innerHTML = S[key].caption;
+  const total = render(key);
+  const cellEls = Array.from(timeline.querySelectorAll('.cell'));
+  for (let t = 0; t < total; t++) {
+    cellEls.forEach(c => {
+      if (+c.dataset.tick !== t) return;
+      const entry = S[key].rows[+c.dataset.row].cells[t];
+      if (!entry || !entry[0]) return;
+      c.classList.add(entry[0][1]);
+      c.textContent = entry[0][0];
+    });
+    await new Promise(r => setTimeout(r, 110));
+  }
+  showResult(key);
+  buttons.forEach(b => { b.disabled = false; b.classList.toggle('active', b.dataset.s === key); });
+  running = false;
+}
+
+buttons.forEach(b => b.addEventListener('click', () => run(b.dataset.s)));
+</script>
+</body>
+</html>

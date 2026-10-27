@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nuclear binding energy explorer</title>
+<style>
+  body { font-family: sans-serif; margin: 10px; max-width: 680px; color: #222; }
+  h3 { margin: 4px 0 6px 0; font-size: 16px; }
+  p { font-size: 13px; margin: 4px 0 8px 0; }
+  canvas { border: 1px solid #ccc; background: #fff; display: block; }
+  .controls { margin: 8px 0; font-size: 14px; }
+  input[type=range] { width: 380px; vertical-align: middle; }
+  .readout { display: inline-block; margin: 6px 14px 2px 0; font-size: 13px; }
+  .readout b { font-size: 15px; }
+  #verdict { display: block; margin-top: 6px; font-size: 14px; font-weight: bold; }
+</style>
+</head>
+<body>
+<h3>Binding-energy explorer: why fusion and fission release energy</h3>
+<p>The curve is the binding energy per nucleon B/A computed from the semi-empirical mass formula
+(a<sub>V</sub> = 15.8, a<sub>S</sub> = 18.3, a<sub>C</sub> = 0.714, a<sub>A</sub> = 23.2 MeV), for the most stable
+Z at each mass number A (the valley of stability). Move the slider to pick a nucleus: the readout shows
+the energy released if it splits into two halves (fission) or if two copies of it fuse.</p>
+<div class="controls">
+  <label for="aSlider">Mass number A:</label>
+  <input type="range" id="aSlider" min="2" max="250" value="56">
+  <span id="aLabel">A = 56</span>
+</div>
+<canvas id="cv" width="640" height="380"></canvas>
+<div>
+  <span class="readout">Nucleus: <b id="nuc">–</b></span>
+  <span class="readout">B/A: <b id="ba">–</b> MeV</span>
+  <span class="readout">Total B: <b id="btot">–</b> MeV</span>
+</div>
+<span id="verdict"></span>
+<script>
+(function () {
+  var aV = 15.8, aS = 18.3, aC = 0.714, aA = 23.2;
+  var SYM = ["H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca",
+    "Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr","Rb","Sr","Y","Zr",
+    "Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe","Cs","Ba","La","Ce","Pr","Nd",
+    "Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg",
+    "Tl","Pb","Bi","Po","At","Rn","Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm",
+    "Md","No","Lr","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og"];
+
+  function Zvalley(A) {
+    var z = A / (2 + (aC / (2 * aA)) * Math.pow(A, 2 / 3));
+    return Math.max(1, Math.min(A, Math.round(z)));
+  }
+  function B(A, Z) {
+    var b = aV * A - aS * Math.pow(A, 2 / 3) - aC * Z * (Z - 1) / Math.pow(A, 1 / 3)
+            - aA * (A - 2 * Z) * (A - 2 * Z) / A;
+    var d = 0;
+    if (A % 2 === 0) { d = (Z % 2 === 0) ? 12 / Math.sqrt(A) : -12 / Math.sqrt(A); }
+    return b + d;
+  }
+  function BA(A) { return B(A, Zvalley(A)) / A; }
+
+  var cv = document.getElementById("cv");
+  var ctx = cv.getContext("2d");
+  var L = 55, R = 620, T = 20, Bo = 340; // plot box
+  function xOf(A) { return L + (A - 2) / (250 - 2) * (R - L); }
+  function yOf(b) { return Bo - b * (Bo - T) / 10; }
+
+  function drawCurve() {
+    ctx.strokeStyle = "#2266cc";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var A = 2; A <= 250; A++) {
+      var x = xOf(A), y = yOf(BA(A));
+      if (A === 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  function drawAxes() {
+    ctx.strokeStyle = "#333";
+    ctx.fillStyle = "#333";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(L, T); ctx.lineTo(L, Bo); ctx.lineTo(R, Bo);
+    ctx.stroke();
+    ctx.font = "11px sans-serif";
+    ctx.textAlign = "center";
+    var A;
+    for (A = 0; A <= 250; A += 50) {
+      var x = xOf(Math.max(A, 2));
+      if (A > 0) {
+        ctx.beginPath(); ctx.moveTo(x, Bo); ctx.lineTo(x, Bo + 5); ctx.stroke();
+        ctx.fillText(String(A), x, Bo + 17);
+      }
+    }
+    ctx.textAlign = "right";
+    var b;
+    for (b = 0; b <= 10; b += 2) {
+      var y = yOf(b);
+      ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L - 5, y); ctx.stroke();
+      ctx.fillText(String(b), L - 8, y + 4);
+    }
+    ctx.textAlign = "center";
+    ctx.fillText("mass number A", (L + R) / 2, Bo + 32);
+    ctx.save();
+    ctx.translate(14, (T + Bo) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillText("B/A (MeV per nucleon)", 0, 0);
+    ctx.restore();
+    // peak marker (Fe-56 region)
+    var pk = xOf(56), py = yOf(BA(56));
+    ctx.fillStyle = "#aa2222";
+    ctx.beginPath(); ctx.arc(pk, py, 3.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#aa2222";
+    ctx.fillText("peak: Fe-56 / Ni-62 ≈ 8.8 MeV", pk + 8, py - 8);
+    // region annotations
+    ctx.fillStyle = "#557722";
+    ctx.fillText("fusion climbs toward the peak →", xOf(6), yOf(4.6));
+    ctx.fillStyle = "#775522";
+    ctx.fillText("← fission descends toward the peak", xOf(248) - 130, yOf(6.4));
+  }
+
+  function update() {
+    var A = parseInt(document.getElementById("aSlider").value, 10);
+    document.getElementById("aLabel").textContent = "A = " + A;
+    var Z = Zvalley(A), N = A - Z;
+    var b = B(A, Z), ba = b / A;
+    document.getElementById("nuc").textContent = "A=" + A + ", Z=" + Z + " (" + (SYM[Z - 1] || "?") + "-" + A + "), N=" + N;
+    document.getElementById("ba").textContent = ba.toFixed(3);
+    document.getElementById("btot").textContent = b.toFixed(1);
+    var A1 = Math.floor(A / 2), A2 = A - A1;
+    var gain = B(A1, Zvalley(A1)) + B(A2, Zvalley(A2)) - b;
+    var v = document.getElementById("verdict");
+    if (gain > 0.05) {
+      v.textContent = "Fission: splitting into A=" + A1 + " + A=" + A2 + " releases ≈ " + gain.toFixed(1) + " MeV (products sit higher on the curve).";
+      v.style.color = "#775522";
+    } else if (gain < -0.05) {
+      v.textContent = "Fusion: fusing two of these nuclei (A=" + A + " + A=" + A + " → A=" + 2 * A + ") releases ≈ " + (-gain).toFixed(1) + " MeV.";
+      v.style.color = "#557722";
+    } else {
+      v.textContent = "Near the peak (iron): neither splitting nor fusing releases significant energy — iron is the ash of nuclear burning.";
+      v.style.color = "#333";
+    }
+    // redraw
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    drawAxes();
+    drawCurve();
+    var x = xOf(A), y = yOf(ba);
+    ctx.strokeStyle = "#aa2222";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, Bo); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#aa2222";
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fill();
+  }
+
+  document.getElementById("aSlider").addEventListener("input", update);
+  update();
+})();
+</script>
+</body>
+</html>

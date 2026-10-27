@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Two-Level System: Schottky Anomaly</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 10px; color: #fff; }
+.controls { margin-bottom: 15px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+input[type=range] { width: 200px; accent-color: #4fc3f7; }
+.value { font-weight: bold; color: #4fc3f7; min-width: 80px; display: inline-block; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.panel { background: #16213e; border-radius: 8px; padding: 12px; }
+.panel h2 { font-size: 0.85em; color: #aaa; margin-bottom: 8px; }
+canvas { width: 100%; height: auto; display: block; }
+.levels { display: flex; align-items: flex-end; justify-content: center; gap: 40px; height: 120px; margin-top: 10px; }
+.level { display: flex; flex-direction: column; align-items: center; }
+.level-bar { width: 50px; background: linear-gradient(to top, #4fc3f7, #81d4fa); border-radius: 3px 3px 0 0; transition: height 0.2s; }
+.level-bar.upper { background: linear-gradient(to top, #ff7043, #ffab91); }
+.level-label { font-size: 0.75em; margin-top: 4px; color: #ccc; }
+.level-pop { font-size: 0.8em; margin-top: 2px; color: #fff; font-weight: bold; }
+.info { margin-top: 12px; font-size: 0.85em; color: #999; line-height: 1.5; }
+.peak-marker { color: #ff7043; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Two-Level System — Schottky Anomaly</h1>
+<div class="controls">
+  <label>Temperature <i>T</i>:</label>
+  <input type="range" id="tempSlider" min="0.01" max="5" step="0.01" value="1.05">
+  <span class="value" id="tempVal">k<sub>B</sub>T/ε = 1.05</span>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h2>Populations</h2>
+    <div class="levels">
+      <div class="level">
+        <div class="level-bar" id="bar0" style="height:80px"></div>
+        <div class="level-label">E₀ = 0</div>
+        <div class="level-pop" id="pop0">p₀ = 0.50</div>
+      </div>
+      <div class="level">
+        <div class="level-bar upper" id="bar1" style="height:80px"></div>
+        <div class="level-label">E₁ = ε</div>
+        <div class="level-pop" id="pop1">p₁ = 0.50</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Mean Energy ⟨E⟩/ε</h2>
+    <canvas id="energyCanvas" width="400" height="200"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Heat Capacity C/k<sub>B</sub> vs k<sub>B</sub>T/ε</h2>
+    <canvas id="heatCanvas" width="400" height="200"></canvas>
+  </div>
+  <div class="panel">
+    <h2>Partition Function Z</h2>
+    <canvas id="zCanvas" width="400" height="200"></canvas>
+  </div>
+</div>
+<div class="info">
+  The heat capacity peaks at <span class="peak-marker">k<sub>B</sub>T ≈ 0.417 ε</span> (βε ≈ 2.399) — the Schottky anomaly.
+  At low T the system is frozen in the ground state; at high T both levels are equally populated and C → 0.
+</div>
+<script>
+const slider = document.getElementById('tempSlider');
+const tempVal = document.getElementById('tempVal');
+const bar0 = document.getElementById('bar0');
+const bar1 = document.getElementById('bar1');
+const pop0 = document.getElementById('pop0');
+const pop1 = document.getElementById('pop1');
+const energyCanvas = document.getElementById('energyCanvas');
+const heatCanvas = document.getElementById('heatCanvas');
+const zCanvas = document.getElementById('zCanvas');
+
+function compute(x) {
+  // x = beta*epsilon = 1/(k_B T / epsilon)
+  const expX = Math.exp(x);
+  const Z = 1 + 1/expX;
+  const p1 = 1/(expX + 1);
+  const p0 = 1 - p1;
+  const E = p1; // in units of epsilon
+  const C = (x*x * expX) / Math.pow(1 + expX, 2); // C/k_B
+  return {Z, p0, p1, E, C};
+}
+
+function drawPlot(canvas, data, xLabel, yLabel, color, markerX, markerY, markerLabel) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = {l:50, r:15, t:15, b:35};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  
+  ctx.clearRect(0,0,W,H);
+  
+  // Determine ranges
+  const xMax = 5;
+  let yMax = 0;
+  for (const d of data) yMax = Math.max(yMax, d.y);
+  yMax *= 1.1;
+  if (yMax < 0.1) yMax = 1;
+  
+  // Grid
+  ctx.strokeStyle = '#2a3a5e';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.t + ph - (i/5)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+pw, y); ctx.stroke();
+    ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText((yMax*i/5).toFixed(2), pad.l-4, y+3);
+  }
+  for (let i = 0; i <= 5; i++) {
+    const x = pad.l + (i/5)*pw;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t+ph); ctx.stroke();
+    ctx.fillStyle = '#888'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText((xMax*i/5).toFixed(1), x, H-pad.b+14);
+  }
+  
+  // Axes labels
+  ctx.fillStyle = '#aaa'; ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(xLabel, pad.l + pw/2, H-4);
+  ctx.save(); ctx.translate(12, pad.t + ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(yLabel, 0, 0); ctx.restore();
+  
+  // Curve
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const px = pad.l + (data[i].x / xMax) * pw;
+    const py = pad.t + ph - (data[i].y / yMax) * ph;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  
+  // Current point
+  const curX = parseFloat(slider.value);
+  const cur = compute(1/curX);
+  let curY;
+  if (canvas === energyCanvas) curY = cur.E;
+  else if (canvas === heatCanvas) curY = cur.C;
+  else curY = cur.Z;
+  
+  const cx = pad.l + (curX / xMax) * pw;
+  const cy = pad.t + ph - (curY / yMax) * ph;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 2*Math.PI); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 2*Math.PI); ctx.stroke();
+  
+  // Peak marker for heat capacity
+  if (canvas === heatCanvas) {
+    const peakX = 1/2.399; // k_B T / epsilon at peak
+    const peakY = compute(2.399).C;
+    const mx = pad.l + (peakX / xMax) * pw;
+    const my = pad.t + ph - (peakY / yMax) * ph;
+    ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(mx, pad.t+ph); ctx.lineTo(mx, my); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ff7043'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('peak', mx, my - 8);
+  }
+}
+
+function update() {
+  const T = parseFloat(slider.value); // k_B T / epsilon
+  const x = 1/T; // beta*epsilon
+  const {Z, p0, p1, E, C} = compute(x);
+  
+  tempVal.innerHTML = 'k<sub>B</sub>T/ε = ' + T.toFixed(2);
+  
+  // Bars
+  const maxH = 100;
+  bar0.style.height = (p0 * maxH) + 'px';
+  bar1.style.height = (p1 * maxH) + 'px';
+  pop0.textContent = 'p₀ = ' + p0.toFixed(3);
+  pop1.textContent = 'p₁ = ' + p1.toFixed(3);
+  
+  // Generate data
+  const N = 200;
+  const energyData = [], heatData = [], zData = [];
+  for (let i = 1; i <= N; i++) {
+    const t = i * 5 / N;
+    const d = compute(1/t);
+    energyData.push({x: t, y: d.E});
+    heatData.push({x: t, y: d.C});
+    zData.push({x: t, y: d.Z});
+  }
+  
+  drawPlot(energyCanvas, energyData, 'k_B T / ε', '⟨E⟩/ε', '#4fc3f7');
+  drawPlot(heatCanvas, heatData, 'k_B T / ε', 'C / k_B', '#ff7043');
+  drawPlot(zCanvas, zData, 'k_B T / ε', 'Z', '#66bb6a');
+}
+
+slider.addEventListener('input', update);
+update();
+</script>
+</body>
+</html>

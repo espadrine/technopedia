@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tolerance Stack-Up Calculator</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #f8f9fa; color: #212529; }
+h2 { margin-top: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.controls label { font-weight: 600; }
+.controls input[type=number] { width: 60px; padding: 4px; }
+.controls button { padding: 6px 14px; cursor: pointer; background: #0d6efd; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0b5ed7; }
+#features { margin-bottom: 16px; }
+.feature-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.feature-row input { width: 70px; padding: 3px; }
+.feature-row .label { min-width: 120px; }
+.feature-row button { padding: 2px 8px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+.results { background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 16px; margin-top: 12px; }
+.results h3 { margin-top: 0; }
+.result-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+.result-row:last-child { border-bottom: none; }
+.result-row .val { font-weight: 700; font-family: monospace; }
+.bar-container { margin-top: 16px; }
+.bar-label { font-size: 12px; margin-bottom: 2px; }
+.bar { height: 22px; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; color: #fff; font-size: 11px; font-weight: 600; min-width: 2px; transition: width 0.3s; }
+.bar.wc { background: #dc3545; }
+.bar.rss { background: #0d6efd; }
+.bar.system { background: #198754; }
+.note { font-size: 12px; color: #6c757d; margin-top: 12px; }
+</style>
+</head>
+<body>
+<h2>Tolerance Stack-Up Calculator</h2>
+<p>Enter individual feature tolerances (bilateral, in mm). Compare worst-case and RSS (root-sum-square) stack-ups against a system tolerance.</p>
+
+<div class="controls">
+  <label>System tolerance (mm):</label>
+  <input type="number" id="sysTol" value="1.0" step="0.05" min="0.01">
+  <button onclick="calculate()">Calculate</button>
+  <button onclick="addFeature()" style="background:#198754">+ Add feature</button>
+</div>
+
+<div id="features"></div>
+
+<div class="results" id="results">
+  <h3>Results</h3>
+  <div class="result-row"><span>Worst-case stack-up: $T_{sys} = \sum T_i$</span><span class="val" id="wcVal">—</span></div>
+  <div class="result-row"><span>RSS stack-up: $T_{sys} = \sqrt{\sum T_i^2}$</span><span class="val" id="rssVal">—</span></div>
+  <div class="result-row"><span>System tolerance (target)</span><span class="val" id="sysVal">—</span></div>
+  <div class="result-row"><span>Worst-case vs. system</span><span class="val" id="wcStatus">—</span></div>
+  <div class="result-row"><span>RSS vs. system</span><span class="val" id="rssStatus">—</span></div>
+  <div class="result-row"><span>RSS savings vs. worst-case</span><span class="val" id="savings">—</span></div>
+</div>
+
+<div class="bar-container" id="bars"></div>
+
+<p class="note">Worst-case assumes all errors align in the same direction (conservative). RSS assumes independent, normally distributed errors (3σ). RSS is valid when n ≥ 4 and errors are truly independent.</p>
+
+<script>
+let features = [1, 1, 1, 1];
+
+function renderFeatures() {
+  const container = document.getElementById('features');
+  container.innerHTML = '';
+  features.forEach((val, i) => {
+    const row = document.createElement('div');
+    row.className = 'feature-row';
+    row.innerHTML = `<span class="label">Feature ${i+1} tolerance (mm):</span>
+      <input type="number" value="${val}" step="0.05" min="0.01" data-idx="${i}" oninput="features[${i}]=parseFloat(this.value)||0">
+      <button onclick="removeFeature(${i})" ${features.length<=1?'disabled':''}>×</button>`;
+    container.appendChild(row);
+  });
+}
+
+function addFeature() {
+  if (features.length < 20) { features.push(0.5); renderFeatures(); calculate(); }
+}
+
+function removeFeature(i) {
+  if (features.length > 1) { features.splice(i, 1); renderFeatures(); calculate(); }
+}
+
+function calculate() {
+  const sysTol = parseFloat(document.getElementById('sysTol').value) || 1;
+  const n = features.length;
+  const wc = features.reduce((s, t) => s + t, 0);
+  const rss = Math.sqrt(features.reduce((s, t) => s + t * t, 0));
+
+  document.getElementById('wcVal').textContent = wc.toFixed(3) + ' mm';
+  document.getElementById('rssVal').textContent = rss.toFixed(3) + ' mm';
+  document.getElementById('sysVal').textContent = sysTol.toFixed(3) + ' mm';
+
+  const wcOk = wc <= sysTol;
+  const rssOk = rss <= sysTol;
+  document.getElementById('wcStatus').textContent = wcOk ? '✓ PASS' : '✗ FAIL';
+  document.getElementById('wcStatus').style.color = wcOk ? '#198754' : '#dc3545';
+  document.getElementById('rssStatus').textContent = rssOk ? '✓ PASS' : '✗ FAIL';
+  document.getElementById('rssStatus').style.color = rssOk ? '#198754' : '#dc3545';
+
+  const savings = n > 1 ? ((1 - rss / wc) * 100).toFixed(1) + ' %' : '—';
+  document.getElementById('savings').textContent = savings;
+
+  // Bars
+  const maxVal = Math.max(wc, sysTol, rss) * 1.1;
+  const barsDiv = document.getElementById('bars');
+  barsDiv.innerHTML = '';
+  const barData = [
+    { label: 'Worst-case', val: wc, cls: 'wc' },
+    { label: 'RSS', val: rss, cls: 'rss' },
+    { label: 'System target', val: sysTol, cls: 'system' }
+  ];
+  barData.forEach(d => {
+    const pct = Math.max(2, (d.val / maxVal) * 100);
+    barsDiv.innerHTML += `<div class="bar-label">${d.label}: ${d.val.toFixed(3)} mm</div>
+      <div class="bar ${d.cls}" style="width:${pct}%">${d.val.toFixed(3)}</div>`;
+  });
+}
+
+renderFeatures();
+calculate();
+</script>
+</body>
+</html>

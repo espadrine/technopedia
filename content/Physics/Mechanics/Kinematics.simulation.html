@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kinematics: Projectile Motion with Frenet-Serret Decomposition</title>
+<style>
+body { margin: 0; background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; }
+canvas { border: 1px solid #333; border-radius: 4px; margin-top: 8px; }
+.controls { margin: 8px 0; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.controls label { font-size: 13px; }
+.controls input[type=range] { width: 100px; }
+button { background: #444; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+button:hover { background: #555; }
+.legend { font-size: 12px; margin: 4px 0; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<h3 style="margin:8px">Projectile Motion — Frenet–Serret Decomposition</h3>
+<div class="controls">
+<label>Angle: <span id="angleVal">45</span>° <input type="range" id="angle" min="10" max="80" value="45"></label>
+<label>Speed: <span id="speedVal">20</span> m/s <input type="range" id="speed" min="5" max="40" value="20"></label>
+<button id="reset">Reset</button>
+<button id="pause">Pause</button>
+</div>
+<div class="legend">
+<span><span class="dot" style="background:#4fc3f7"></span> Velocity (tangent)</span>
+<span><span class="dot" style="background:#ef5350"></span> Acceleration (gravity)</span>
+<span><span class="dot" style="background:#66bb6a"></span> Tangential component</span>
+<span><span class="dot" style="background:#ffa726"></span> Normal (centripetal) component</span>
+</div>
+<canvas id="cv" width="700" height="420"></canvas>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const g = 9.81;
+let angle = 45, speed = 20;
+let t = 0, running = true;
+const dt = 0.02;
+
+const angleSlider = document.getElementById('angle');
+const speedSlider = document.getElementById('speed');
+const angleVal = document.getElementById('angleVal');
+const speedVal = document.getElementById('speedVal');
+const resetBtn = document.getElementById('reset');
+const pauseBtn = document.getElementById('pause');
+
+angleSlider.oninput = () => { angle = +angleSlider.value; angleVal.textContent = angle; reset(); };
+speedSlider.oninput = () => { speed = +speedSlider.value; speedVal.textContent = speed; reset(); };
+resetBtn.onclick = reset;
+pauseBtn.onclick = () => { running = !running; pauseBtn.textContent = running ? 'Pause' : 'Play'; };
+
+function reset() { t = 0; running = true; pauseBtn.textContent = 'Pause'; }
+
+function state(time) {
+  const th = angle * Math.PI / 180;
+  const vx = speed * Math.cos(th);
+  const vy = speed * Math.sin(th) - g * time;
+  const x = vx * time;
+  const y = speed * Math.sin(th) * time - 0.5 * g * time * time;
+  return { x, y, vx, vy };
+}
+
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  
+  // Determine scale
+  const th = angle * Math.PI / 180;
+  const T = 2 * speed * Math.sin(th) / g;
+  const R = speed * Math.cos(th) * T;
+  const H = speed * speed * Math.sin(th) * Math.sin(th) / (2 * g);
+  const scaleX = (cv.width - 80) / Math.max(R, 1);
+  const scaleY = (cv.height - 80) / Math.max(H * 1.5, 1);
+  const scale = Math.min(scaleX, scaleY);
+  const ox = 50, oy = cv.height - 50;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a4a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i < 10; i++) {
+    ctx.beginPath(); ctx.moveTo(0, i * cv.height / 10); ctx.lineTo(cv.width, i * cv.height / 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i * cv.width / 10, 0); ctx.lineTo(i * cv.width / 10, cv.height); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(cv.width - 20, oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, 20); ctx.stroke();
+
+  // Trajectory (full path)
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  for (let tt = 0; tt <= T; tt += 0.05) {
+    const s = state(tt);
+    const px = ox + s.x * scale;
+    const py = oy - s.y * scale;
+    if (tt === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Traveled path
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let tt = 0; tt <= t; tt += 0.02) {
+    const s = state(tt);
+    const px = ox + s.x * scale;
+    const py = oy - s.y * scale;
+    if (tt === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  if (t <= T) {
+    const s = state(t);
+    const px = ox + s.x * scale;
+    const py = oy - s.y * scale;
+
+    // Velocity vector
+    const vScale = 2.5;
+    const vLen = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+    if (vLen > 0.01) {
+      const vhatx = s.vx / vLen, vhaty = s.vy / vLen;
+      drawArrow(px, py, px + s.vx * vScale, py - s.vy * vScale, '#4fc3f7', 2);
+      // Label
+      ctx.fillStyle = '#4fc3f7';
+      ctx.font = '11px system-ui';
+      ctx.fillText('v', px + s.vx * vScale + 5, py - s.vy * vScale - 5);
+    }
+
+    // Acceleration vector (gravity, always down)
+    const aScale = 3;
+    drawArrow(px, py, px, py + g * aScale, '#ef5350', 2);
+    ctx.fillStyle = '#ef5350';
+    ctx.font = '11px system-ui';
+    ctx.fillText('a', px + 5, py + g * aScale + 12);
+
+    // Frenet-Serret decomposition
+    if (vLen > 0.01) {
+      // Tangential: projection of a onto v direction
+      const aDotV = (0 * s.vx + (-g) * s.vy) / vLen;
+      const atx = aDotV * vhatx;
+      const aty = aDotV * vhaty;
+      // Normal: a - tangential
+      const anx = 0 - atx;
+      const any = -g - aty;
+
+      // Draw tangential component
+      if (Math.abs(aDotV) > 0.01) {
+        drawArrow(px, py, px + atx * aScale, py - aty * aScale, '#66bb6a', 2);
+        ctx.fillStyle = '#66bb6a';
+        ctx.font = '10px system-ui';
+        ctx.fillText('a_t', px + atx * aScale + 4, py - aty * aScale);
+      }
+
+      // Draw normal component
+      const aN = Math.sqrt(anx * anx + any * any);
+      if (aN > 0.01) {
+        drawArrow(px, py, px + anx * aScale, py - any * aScale, '#ffa726', 2);
+        ctx.fillStyle = '#ffa726';
+        ctx.font = '10px system-ui';
+        ctx.fillText('a_n', px + anx * aScale + 4, py - any * aScale);
+      }
+
+      // Draw dashed line showing decomposition
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(px + atx * aScale, py - aty * aScale);
+      ctx.lineTo(px, py + g * aScale);
+      ctx.lineTo(px + anx * aScale, py - any * aScale);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Particle
+    ctx.beginPath();
+    ctx.arc(px, py, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+
+    // Info text
+    ctx.fillStyle = '#aaa';
+    ctx.font = '12px system-ui';
+    ctx.fillText(`t = ${t.toFixed(2)} s`, 10, 20);
+    ctx.fillText(`|v| = ${vLen.toFixed(1)} m/s`, 10, 36);
+    ctx.fillText(`a_t = ${Math.abs(aDotV).toFixed(2)} m/s²`, 10, 52);
+    ctx.fillText(`a_n = ${(Math.sqrt(anx*anx + any*any)).toFixed(2)} m/s²`, 10, 68);
+  } else {
+    ctx.fillStyle = '#888';
+    ctx.font = '14px system-ui';
+    ctx.fillText('Projectile landed. Press Reset to replay.', cv.width / 2 - 120, 30);
+  }
+
+  // Time axis label
+  ctx.fillStyle = '#666';
+  ctx.font = '11px system-ui';
+  ctx.fillText(`T = ${T.toFixed(2)} s`, cv.width - 80, cv.height - 10);
+  ctx.fillText(`R = ${R.toFixed(1)} m`, cv.width - 80, cv.height - 25);
+}
+
+function drawArrow(x1, y1, x2, y2, color, width) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 2) return;
+  const headLen = Math.min(8, len * 0.3);
+  const angle = Math.atan2(dy, dx);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLen * Math.cos(angle - 0.4), y2 - headLen * Math.sin(angle - 0.4));
+  ctx.lineTo(x2 - headLen * Math.cos(angle + 0.4), y2 - headLen * Math.sin(angle + 0.4));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function loop() {
+  if (running) {
+    t += dt;
+    const th = angle * Math.PI / 180;
+    const T = 2 * speed * Math.sin(th) / g;
+    if (t > T + 0.5) t = T + 0.5;
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BSC Channel Simulator</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h2 { color: #64ffda; margin-bottom: 4px; }
+.subtitle { color: #aaa; font-size: 0.9em; margin-bottom: 16px; }
+.controls { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+.control-group { display: flex; flex-direction: column; }
+.control-group label { font-size: 0.85em; color: #ccc; margin-bottom: 4px; }
+.control-group input[type=range] { width: 180px; }
+.control-group .value { font-size: 1.1em; color: #64ffda; font-weight: bold; }
+.results { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
+.result-box { background: #16213e; border-radius: 8px; padding: 12px 16px; min-width: 160px; }
+.result-box .label { font-size: 0.8em; color: #aaa; }
+.result-box .val { font-size: 1.4em; font-weight: bold; }
+.result-box .val.good { color: #4caf50; }
+.result-box .val.bad { color: #f44336; }
+.result-box .val.warn { color: #ff9800; }
+canvas { background: #0f3460; border-radius: 8px; margin-top: 12px; }
+.legend { display: flex; gap: 16px; margin-top: 8px; font-size: 0.85em; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 12px; height: 12px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<h2>BSC Channel with Error-Correcting Code</h2>
+<p class="subtitle">Binary Symmetric Channel — set crossover probability and code rate, observe BER before and after decoding.</p>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Crossover probability p</label>
+    <input type="range" id="pSlider" min="0" max="0.5" step="0.005" value="0.05">
+    <span class="value" id="pVal">0.050</span>
+  </div>
+  <div class="control-group">
+    <label>Code rate R (repetition code: R = 1/n)</label>
+    <input type="range" id="rSlider" min="0.1" max="1" step="0.05" value="0.333">
+    <span class="value" id="rVal">0.333</span>
+  </div>
+  <div class="control-group">
+    <label>Block length (bits)</label>
+    <input type="range" id="nSlider" min="100" max="5000" step="100" value="1000">
+    <span class="value" id="nVal">1000</span>
+  </div>
+</div>
+
+<div class="results">
+  <div class="result-box">
+    <div class="label">Channel capacity C</div>
+    <div class="val" id="capVal">—</div>
+  </div>
+  <div class="result-box">
+    <div class="label">BER (raw channel)</div>
+    <div class="val" id="berRaw">—</div>
+  </div>
+  <div class="result-box">
+    <div class="label">BER (after decoding)</div>
+    <div class="val" id="berDec">—</div>
+  </div>
+  <div class="result-box">
+    <div class="label">Code rate vs capacity</div>
+    <div class="val" id="rateVsCap">—</div>
+  </div>
+</div>
+
+<canvas id="chart" width="700" height="280"></canvas>
+<div class="legend">
+  <span><span class="dot" style="background:#f44336"></span> Raw BER</span>
+  <span><span class="dot" style="background:#4caf50"></span> Decoded BER (repetition code)</span>
+  <span><span class="dot" style="background:#64ffda"></span> Channel capacity</span>
+</div>
+
+<script>
+function Hb(p) {
+  if (p === 0 || p === 1) return 0;
+  return -p * Math.log2(p) - (1-p) * Math.log2(1-p);
+}
+function capacity(p) { return 1 - Hb(p); }
+
+// Repetition code: encode each bit as n_rep copies, decode by majority vote.
+// Code rate R = 1/n_rep, so n_rep = 1/R (rounded to odd integer for majority).
+function decodedBER(p, R) {
+  var nRep = Math.max(1, Math.round(1 / R));
+  if (nRep % 2 === 0) nRep += 1; // ensure odd for majority vote
+  // Decoded bit is wrong if more than nRep/2 of the nRep copies are flipped.
+  var half = Math.floor(nRep / 2) + 1;
+  var prob = 0;
+  for (var k = half; k <= nRep; k++) {
+    prob += comb(nRep, k) * Math.pow(p, k) * Math.pow(1-p, nRep-k);
+  }
+  return prob;
+}
+function comb(n, k) {
+  if (k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  var r = 1;
+  for (var i = 0; i < k; i++) {
+    r = r * (n - i) / (i + 1);
+  }
+  return r;
+}
+
+function update() {
+  var p = parseFloat(document.getElementById('pSlider').value);
+  var R = parseFloat(document.getElementById('rSlider').value);
+  var nBits = parseInt(document.getElementById('nSlider').value);
+
+  document.getElementById('pVal').textContent = p.toFixed(3);
+  document.getElementById('rVal').textContent = R.toFixed(3);
+  document.getElementById('nVal').textContent = nBits;
+
+  var C = capacity(p);
+  var berRaw = p;
+  var berDec = decodedBER(p, R);
+
+  var capEl = document.getElementById('capVal');
+  capEl.textContent = C.toFixed(4);
+  capEl.className = 'val good';
+
+  var rawEl = document.getElementById('berRaw');
+  rawEl.textContent = berRaw.toExponential(2);
+  rawEl.className = 'val ' + (berRaw < 0.01 ? 'good' : berRaw < 0.1 ? 'warn' : 'bad');
+
+  var decEl = document.getElementById('berDec');
+  decEl.textContent = berDec < 1e-30 ? '< 1e-30' : berDec.toExponential(2);
+  decEl.className = 'val ' + (berDec < 0.001 ? 'good' : berDec < 0.01 ? 'warn' : 'bad');
+
+  var rvEl = document.getElementById('rateVsCap');
+  if (R <= C) {
+    rvEl.textContent = 'R ≤ C ✓';
+    rvEl.className = 'val good';
+  } else {
+    rvEl.textContent = 'R > C ✗';
+    rvEl.className = 'val bad';
+  }
+
+  drawChart(p, R);
+}
+
+function drawChart(p0, R0) {
+  var canvas = document.getElementById('chart');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var padL = 60, padR = 20, padT = 20, padB = 40;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, H - padB);
+  ctx.lineTo(W - padR, H - padB);
+  ctx.stroke();
+
+  // Y-axis: log scale from 1e-10 to 1
+  var yMin = -10, yMax = 0; // log10
+  function yToPixel(logVal) {
+    return padT + plotH * (yMax - logVal) / (yMax - yMin);
+  }
+  function xToPixel(p) {
+    return padL + plotW * p / 0.5;
+  }
+
+  // Grid lines
+  ctx.strokeStyle = '#333';
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = '#888';
+  for (var e = yMin; e <= yMax; e += 2) {
+    var y = yToPixel(e);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillText('1e' + e, 8, y + 4);
+  }
+  for (var px = 0; px <= 0.5; px += 0.1) {
+    var x = xToPixel(px);
+    ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke();
+    ctx.fillText(px.toFixed(1), x - 10, H - padB + 16);
+  }
+  ctx.fillText('p (crossover probability)', padL + plotW/2 - 60, H - 4);
+
+  // Plot raw BER (just p)
+  ctx.strokeStyle = '#f44336';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (var i = 0; i <= 200; i++) {
+    var pp = 0.001 + i * 0.499 / 200;
+    var y = yToPixel(Math.max(Math.log10(pp), yMin));
+    var x = xToPixel(pp);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Plot decoded BER
+  ctx.strokeStyle = '#4caf50';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  var started = false;
+  for (var i = 0; i <= 200; i++) {
+    var pp = 0.001 + i * 0.499 / 200;
+    var bd = decodedBER(pp, R0);
+    if (bd < 1e-10) bd = 1e-10;
+    var y = yToPixel(Math.max(Math.log10(bd), yMin));
+    var x = xToPixel(pp);
+    if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+  }
+  ctx.stroke();
+
+  // Plot capacity
+  ctx.strokeStyle = '#64ffda';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  for (var i = 0; i <= 200; i++) {
+    var pp = 0.001 + i * 0.499 / 200;
+    var c = capacity(pp);
+    // Map capacity (0 to 1) to log scale: log10(c) from -inf to 0
+    var logC = c > 0 ? Math.log10(c) : yMin;
+    var y = yToPixel(Math.max(logC, yMin));
+    var x = xToPixel(pp);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Mark current p
+  var mx = xToPixel(p0);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(mx, padT); ctx.lineTo(mx, H - padB); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+document.getElementById('pSlider').addEventListener('input', update);
+document.getElementById('rSlider').addEventListener('input', update);
+document.getElementById('nSlider').addEventListener('input', update);
+update();
+</script>
+</body>
+</html>

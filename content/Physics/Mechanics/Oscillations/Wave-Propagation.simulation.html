@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wave Propagation Simulation</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px 0; font-size: 15px; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; align-items: center; }
+.controls label { font-size: 12px; }
+.controls input[type=range] { width: 100px; }
+.controls span { font-size: 11px; color: #aaa; min-width: 30px; display: inline-block; }
+button { padding: 4px 12px; font-size: 12px; cursor: pointer; background: #16213e; color: #eee; border: 1px solid #444; border-radius: 4px; }
+button.active { background: #0f3460; border-color: #4fc3f7; }
+canvas { display: block; border: 1px solid #333; border-radius: 4px; background: #0d1117; }
+.mode-label { font-size: 11px; color: #888; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h2>Wave Propagation on a String</h2>
+<div class="controls">
+  <button id="btnTravel" class="active">Traveling</button>
+  <button id="btnStanding">Standing</button>
+  <label>Frequency <input type="range" id="freq" min="0.5" max="5" step="0.1" value="1.5"><span id="freqVal">1.5 Hz</span></label>
+  <label>Amplitude <input type="range" id="amp" min="5" max="60" step="1" value="35"><span id="ampVal">35</span></label>
+  <label>Speed <input type="range" id="speed" min="0.5" max="4" step="0.1" value="1.5"><span id="speedVal">1.5</span></label>
+</div>
+<canvas id="cv" width="700" height="200"></canvas>
+<div class="mode-label" id="modeLabel">Traveling wave: y(x,t) = A cos(kx − ωt)</div>
+<script>
+(function(){
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var W = cv.width, H = cv.height;
+var midY = H / 2;
+
+var mode = 'travel';
+var freq = 1.5, amp = 35, speed = 1.5;
+var t = 0;
+var lastTime = null;
+
+var btnT = document.getElementById('btnTravel');
+var btnS = document.getElementById('btnStanding');
+var freqEl = document.getElementById('freq');
+var ampEl = document.getElementById('amp');
+var speedEl = document.getElementById('speed');
+var freqVal = document.getElementById('freqVal');
+var ampVal = document.getElementById('ampVal');
+var speedVal = document.getElementById('speedVal');
+var modeLabel = document.getElementById('modeLabel');
+
+btnT.onclick = function(){ mode='travel'; btnT.classList.add('active'); btnS.classList.remove('active'); modeLabel.textContent='Traveling wave: y(x,t) = A cos(kx − ωt)'; };
+btnS.onclick = function(){ mode='standing'; btnS.classList.add('active'); btnT.classList.remove('active'); modeLabel.textContent='Standing wave: y(x,t) = 2A cos(kx) cos(ωt) — nodes at x=(n+½)λ/2, antinodes at x=nλ/2'; };
+
+freqEl.oninput = function(){ freq=parseFloat(this.value); freqVal.textContent=freq.toFixed(1)+' Hz'; };
+ampEl.oninput = function(){ amp=parseInt(this.value); ampVal.textContent=amp; };
+speedEl.oninput = function(){ speed=parseFloat(this.value); speedVal.textContent=speed.toFixed(1); };
+
+function draw(){
+  var now = performance.now()/1000;
+  if(lastTime===null) lastTime=now;
+  var dt = now - lastTime;
+  lastTime = now;
+  t += dt;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Draw center line
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, midY);
+  ctx.lineTo(W, midY);
+  ctx.stroke();
+
+  var omega = 2 * Math.PI * freq;
+  var k = omega / speed; // spatial frequency
+  var scale = W / (2 * Math.PI); // pixels per radian in x
+
+  ctx.lineWidth = 2;
+
+  if(mode === 'travel'){
+    // Traveling wave
+    ctx.strokeStyle = '#4fc3f7';
+    ctx.beginPath();
+    for(var px=0; px<W; px++){
+      var x = px / scale;
+      var y = amp * Math.cos(k * x - omega * t);
+      if(px===0) ctx.moveTo(px, midY - y);
+      else ctx.lineTo(px, midY - y);
+    }
+    ctx.stroke();
+  } else {
+    // Standing wave
+    ctx.strokeStyle = '#ff7043';
+    ctx.beginPath();
+    for(var px=0; px<W; px++){
+      var x = px / scale;
+      var y = 2 * amp * Math.cos(k * x) * Math.cos(omega * t);
+      if(px===0) ctx.moveTo(px, midY - y);
+      else ctx.lineTo(px, midY - y);
+    }
+    ctx.stroke();
+
+    // Draw nodes (where cos(kx)=0)
+    ctx.fillStyle = '#ffeb3b';
+    for(var n=0; n<20; n++){
+      var xNode = (n + 0.5) * Math.PI / k;
+      var pxNode = xNode * scale;
+      if(pxNode >= 0 && pxNode < W){
+        ctx.beginPath();
+        ctx.arc(pxNode, midY, 4, 0, 2*Math.PI);
+        ctx.fill();
+      }
+    }
+
+    // Draw antinodes (where |cos(kx)|=1)
+    ctx.fillStyle = '#e91e63';
+    for(var n=0; n<20; n++){
+      var xAnti = n * Math.PI / k;
+      var pxAnti = xAnti * scale;
+      if(pxAnti >= 0 && pxAnti < W){
+        ctx.beginPath();
+        ctx.arc(pxAnti, midY, 4, 0, 2*Math.PI);
+        ctx.fill();
+      }
+    }
+
+    // Legend
+    ctx.font = '10px system-ui';
+    ctx.fillStyle = '#ffeb3b';
+    ctx.fillText('● node', 10, 15);
+    ctx.fillStyle = '#e91e63';
+    ctx.fillText('● antinode', 60, 15);
+  }
+
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>

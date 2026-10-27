@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Duffing Oscillator Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 12px; }
+h1 { font-size: 1.1em; margin-bottom: 8px; color: #7ec8e3; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; }
+.control-group { display: flex; align-items: center; gap: 4px; }
+.control-group label { font-size: 0.85em; min-width: 20px; }
+.control-group input[type=range] { width: 90px; }
+.control-group span { font-size: 0.8em; min-width: 32px; text-align: right; }
+button { background: #2d6a4f; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+button:hover { background: #40916c; }
+.presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.presets button { background: #3d3d5c; font-size: 0.78em; padding: 4px 8px; }
+.presets button:hover { background: #5c5c8a; }
+.presets button.active { background: #7ec8e3; color: #1a1a2e; }
+.canvases { display: flex; gap: 10px; flex-wrap: wrap; }
+canvas { background: #0f0f1a; border-radius: 6px; border: 1px solid #333; }
+.info { margin-top: 8px; font-size: 0.8em; color: #aaa; line-height: 1.4; }
+</style>
+</head>
+<body>
+<h1>Duffing Oscillator: &nbsp;ẍ + δẋ + αx + βx³ = γcos(ωt)</h1>
+<div class="presets">
+<button data-preset="hardening">Hardening (β&gt;0)</button>
+<button data-preset="softening">Softening (β&lt;0)</button>
+<button data-preset="limitcycle">Limit Cycle</button>
+<button data-preset="chaos">Chaos (period-doubling)</button>
+<button data-preset="subharmonic">Subharmonic (ω/2)</button>
+</div>
+<div class="controls">
+<div class="control-group"><label>β</label><input type="range" id="beta" min="-2" max="2" step="0.05" value="0.5"><span id="betaVal">0.50</span></div>
+<div class="control-group"><label>δ</label><input type="range" id="delta" min="0" max="1" step="0.01" value="0.1"><span id="deltaVal">0.10</span></div>
+<div class="control-group"><label>γ</label><input type="range" id="gamma" min="0" max="2" step="0.05" value="0.5"><span id="gammaVal">0.50</span></div>
+<div class="control-group"><label>ω</label><input type="range" id="omega" min="0.1" max="3" step="0.05" value="1.0"><span id="omegaVal">1.00</span></div>
+<button id="reset">Reset</button>
+<button id="pause">Pause</button>
+</div>
+<div class="canvases">
+<canvas id="phase" width="380" height="380"></canvas>
+<canvas id="time" width="380" height="380"></canvas>
+</div>
+<div class="info">Left: phase portrait (x vs ẋ). Right: time series x(t). Adjust parameters to explore hardening/softening springs, limit cycles, subharmonic response, and the period-doubling route to chaos.</div>
+<script>
+const phaseCtx = document.getElementById('phase').getContext('2d');
+const timeCtx = document.getElementById('time').getContext('2d');
+const W = 380, H = 380;
+
+let beta = 0.5, delta = 0.1, gamma = 0.5, omega = 1.0;
+let x = 0, v = 0, t = 0;
+const dt = 0.005;
+const maxSteps = 20000;
+let paused = false;
+let trail = [];
+let timeData = [];
+const maxTrail = 3000;
+const maxTime = 2000;
+
+function rk4() {
+  const f = (xx, vv, tt) => [vv, -delta*vv - xx - beta*xx*xx*xx + gamma*Math.cos(omega*tt)];
+  const [k1x, k1v] = f(x, v, t);
+  const [k2x, k2v] = f(x + 0.5*dt*k1x, v + 0.5*dt*k1v, t + 0.5*dt);
+  const [k3x, k3v] = f(x + 0.5*dt*k2x, v + 0.5*dt*k2v, t + 0.5*dt);
+  const [k4x, k4v] = f(x + dt*k3x, v + dt*k3v, t + dt);
+  x += dt/6*(k1x + 2*k2x + 2*k3x + k4x);
+  v += dt/6*(k1v + 2*k2v + 2*k3v + k4v);
+  t += dt;
+}
+
+function drawPhase() {
+  phaseCtx.fillStyle = '#0f0f1a';
+  phaseCtx.fillRect(0, 0, W, H);
+  // axes
+  phaseCtx.strokeStyle = '#333';
+  phaseCtx.lineWidth = 1;
+  phaseCtx.beginPath();
+  phaseCtx.moveTo(W/2, 0); phaseCtx.lineTo(W/2, H);
+  phaseCtx.moveTo(0, H/2); phaseCtx.lineTo(W, H/2);
+  phaseCtx.stroke();
+  // labels
+  phaseCtx.fillStyle = '#666';
+  phaseCtx.font = '11px sans-serif';
+  phaseCtx.fillText('x', W - 15, H/2 - 8);
+  phaseCtx.fillText('ẋ', W/2 + 8, 14);
+  // trail
+  if (trail.length > 1) {
+    const scale = 80;
+    for (let i = 1; i < trail.length; i++) {
+      const alpha = i / trail.length;
+      phaseCtx.strokeStyle = `rgba(126, 200, 227, ${alpha * 0.9})`;
+      phaseCtx.lineWidth = 1.5;
+      phaseCtx.beginPath();
+      phaseCtx.moveTo(W/2 + trail[i-1][0]*scale, H/2 - trail[i-1][1]*scale);
+      phaseCtx.lineTo(W/2 + trail[i][0]*scale, H/2 - trail[i][1]*scale);
+      phaseCtx.stroke();
+    }
+  }
+  // current point
+  phaseCtx.fillStyle = '#ff6b6b';
+  phaseCtx.beginPath();
+  phaseCtx.arc(W/2 + x*80, H/2 - v*80, 4, 0, Math.PI*2);
+  phaseCtx.fill();
+}
+
+function drawTime() {
+  timeCtx.fillStyle = '#0f0f1a';
+  timeCtx.fillRect(0, 0, W, H);
+  // axes
+  timeCtx.strokeStyle = '#333';
+  timeCtx.lineWidth = 1;
+  timeCtx.beginPath();
+  timeCtx.moveTo(0, H/2); timeCtx.lineTo(W, H/2);
+  timeCtx.stroke();
+  timeCtx.fillStyle = '#666';
+  timeCtx.font = '11px sans-serif';
+  timeCtx.fillText('x(t)', W - 30, H/2 - 8);
+  // plot
+  if (timeData.length > 1) {
+    const scale = 80;
+    timeCtx.strokeStyle = '#7ec8e3';
+    timeCtx.lineWidth = 1.5;
+    timeCtx.beginPath();
+    for (let i = 0; i < timeData.length; i++) {
+      const px = (i / maxTime) * W;
+      const py = H/2 - timeData[i] * scale;
+      if (i === 0) timeCtx.moveTo(px, py);
+      else timeCtx.lineTo(px, py);
+    }
+    timeCtx.stroke();
+  }
+}
+
+function step() {
+  if (paused) return;
+  const stepsPerFrame = 4;
+  for (let i = 0; i < stepsPerFrame; i++) {
+    rk4();
+    trail.push([x, v]);
+    timeData.push(x);
+    if (trail.length > maxTrail) trail.shift();
+    if (timeData.length > maxTime) timeData.shift();
+  }
+  drawPhase();
+  drawTime();
+  requestAnimationFrame(step);
+}
+
+function reset() {
+  x = 0; v = 0; t = 0;
+  trail = [];
+  timeData = [];
+  drawPhase();
+  drawTime();
+}
+
+// Controls
+function updateParams() {
+  beta = parseFloat(document.getElementById('beta').value);
+  delta = parseFloat(document.getElementById('delta').value);
+  gamma = parseFloat(document.getElementById('gamma').value);
+  omega = parseFloat(document.getElementById('omega').value);
+  document.getElementById('betaVal').textContent = beta.toFixed(2);
+  document.getElementById('deltaVal').textContent = delta.toFixed(2);
+  document.getElementById('gammaVal').textContent = gamma.toFixed(2);
+  document.getElementById('omegaVal').textContent = omega.toFixed(2);
+}
+
+['beta','delta','gamma','omega'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => { updateParams(); reset(); });
+});
+
+document.getElementById('reset').addEventListener('click', reset);
+document.getElementById('pause').addEventListener('click', function() {
+  paused = !paused;
+  this.textContent = paused ? 'Play' : 'Pause';
+  if (!paused) step();
+});
+
+// Presets
+const presets = {
+  hardening: { beta: 1.0, delta: 0.0, gamma: 0.0, omega: 1.0 },
+  softening: { beta: -0.5, delta: 0.0, gamma: 0.0, omega: 1.0 },
+  limitcycle: { beta: 0.0, delta: 0.2, gamma: 1.0, omega: 1.0 },
+  chaos: { beta: 0.0, delta: 0.2, gamma: 1.2, omega: 0.667 },
+  subharmonic: { beta: 0.5, delta: 0.1, gamma: 0.8, omega: 2.0 }
+};
+
+document.querySelectorAll('.presets button').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.presets button').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const p = presets[this.dataset.preset];
+    document.getElementById('beta').value = p.beta;
+    document.getElementById('delta').value = p.delta;
+    document.getElementById('gamma').value = p.gamma;
+    document.getElementById('omega').value = p.omega;
+    updateParams();
+    reset();
+  });
+});
+
+updateParams();
+reset();
+step();
+</script>
+</body>
+</html>

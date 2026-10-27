@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Atomic Distributions — PGF Explorer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+h1 { font-size: 1.2em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.controls label { font-size: 0.9em; }
+.controls select, .controls input { padding: 4px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a4a; color: #fff; }
+.controls input[type=range] { width: 120px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.tabs button { padding: 6px 14px; border: none; border-radius: 4px 4px 0 0; background: #2a2a4a; color: #aaa; cursor: pointer; font-size: 0.85em; }
+.tabs button.active { background: #4a4a7a; color: #fff; }
+.chart-container { width: 100%; height: 220px; position: relative; }
+canvas { width: 100%; height: 100%; }
+.info { margin-top: 10px; font-size: 0.85em; color: #aaa; line-height: 1.5; }
+.info b { color: #ccc; }
+</style>
+</head>
+<body>
+<h1>Atomic Distributions — PGF Explorer</h1>
+<div class="controls">
+  <label>Distribution:
+    <select id="dist">
+      <option value="poisson">Poisson(λ)</option>
+      <option value="binomial">Binomial(n, p)</option>
+      <option value="geometric">Geometric(p)</option>
+    </select>
+  </label>
+  <label id="param1Label">λ: <span id="param1Val">5</span>
+    <input type="range" id="param1" min="0.5" max="20" step="0.5" value="5">
+  </label>
+  <label id="param2Label" style="display:none">n: <span id="param2Val">20</span>
+    <input type="range" id="param2" min="2" max="100" step="1" value="20">
+  </label>
+  <label id="param3Label" style="display:none">p: <span id="param3Val">0.3</span>
+    <input type="range" id="param3" min="0.01" max="0.99" step="0.01" value="0.3">
+  </label>
+</div>
+<div class="tabs">
+  <button class="active" data-tab="pmf">PMF (bar chart)</button>
+  <button data-tab="cdf">CDF (step)</button>
+  <button data-tab="pgf">PGF G(z)</button>
+</div>
+<div class="chart-container"><canvas id="chart"></canvas></div>
+<div class="info" id="info"></div>
+<script>
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+const distSel = document.getElementById('dist');
+const p1 = document.getElementById('param1');
+const p2 = document.getElementById('param2');
+const p3 = document.getElementById('param3');
+const p1Label = document.getElementById('param1Label');
+const p2Label = document.getElementById('param2Label');
+const p3Label = document.getElementById('param3Label');
+const p1Val = document.getElementById('param1Val');
+const p2Val = document.getElementById('param2Val');
+const p3Val = document.getElementById('param3Val');
+const info = document.getElementById('info');
+let activeTab = 'pmf';
+
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  draw();
+}
+window.addEventListener('resize', resize);
+
+document.querySelectorAll('.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTab = btn.dataset.tab;
+    draw();
+  });
+});
+
+[distSel, p1, p2, p3].forEach(el => el.addEventListener('input', () => { updateParams(); draw(); }));
+
+function updateParams() {
+  const d = distSel.value;
+  p1Label.style.display = d === 'poisson' ? '' : 'none';
+  p2Label.style.display = d === 'binomial' ? '' : 'none';
+  p3Label.style.display = (d === 'binomial' || d === 'geometric') ? '' : 'none';
+  if (d === 'poisson') { p1Label.firstChild.textContent = 'λ: '; p1Val.textContent = p1.value; }
+  if (d === 'binomial') { p1Label.style.display = 'none'; p2Label.firstChild.textContent = 'n: '; p2Val.textContent = p2.value; p3Label.firstChild.textContent = 'p: '; p3Val.textContent = p3.value; }
+  if (d === 'geometric') { p1Label.style.display = 'none'; p2Label.style.display = 'none'; p3Label.firstChild.textContent = 'p: '; p3Val.textContent = p3.value; }
+}
+
+function factorial(n) { let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; }
+function binom(n, k) { if (k < 0 || k > n) return 0; return factorial(n) / (factorial(k) * factorial(n - k)); }
+
+function getPMF(maxK) {
+  const d = distSel.value;
+  const pmf = [];
+  if (d === 'poisson') {
+    const lam = parseFloat(p1.value);
+    for (let k = 0; k <= maxK; k++) pmf.push(Math.exp(-lam) * Math.pow(lam, k) / factorial(k));
+  } else if (d === 'binomial') {
+    const n = parseInt(p2.value), p = parseFloat(p3.value);
+    for (let k = 0; k <= Math.min(n, maxK); k++) pmf.push(binom(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k));
+  } else if (d === 'geometric') {
+    const p = parseFloat(p3.value);
+    for (let k = 1; k <= maxK; k++) pmf.push(p * Math.pow(1 - p, k - 1));
+  }
+  return pmf;
+}
+
+function getPGF(z, maxK) {
+  const pmf = getPMF(maxK);
+  let sum = 0;
+  for (let k = 0; k < pmf.length; k++) sum += pmf[k] * Math.pow(z, k);
+  return sum;
+}
+
+function draw() {
+  const W = canvas.width / devicePixelRatio;
+  const H = canvas.height / devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 50, r: 20, t: 20, b: 35 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  const d = distSel.value;
+  let maxK = 40;
+  if (d === 'binomial') maxK = parseInt(p2.value);
+  if (d === 'geometric') maxK = Math.min(60, Math.ceil(5 / parseFloat(p3.value)));
+
+  const pmf = getPMF(maxK);
+  const maxP = Math.max(...pmf, 0.01);
+
+  // Axes
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + ch);
+  ctx.lineTo(pad.l + cw, pad.t + ch);
+  ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  const xStep = Math.max(1, Math.floor(maxK / 8));
+  for (let k = 0; k <= maxK; k += xStep) {
+    const x = pad.l + (k / maxK) * cw;
+    ctx.fillText(k, x, pad.t + ch + 16);
+  }
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + ch - (i / 4) * ch;
+    ctx.fillText((maxP * i / 4).toFixed(3), pad.l - 5, y + 4);
+  }
+
+  if (activeTab === 'pmf') {
+    const barW = Math.max(1, cw / maxK - 1);
+    ctx.fillStyle = '#4fc3f7';
+    for (let k = 0; k < pmf.length; k++) {
+      const x = pad.l + (k / maxK) * cw;
+      const h = (pmf[k] / maxP) * ch;
+      ctx.fillRect(x, pad.t + ch - h, barW, h);
+    }
+    updateInfo('pmf');
+  } else if (activeTab === 'cdf') {
+    ctx.strokeStyle = '#81c784';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    let cum = 0;
+    let prevX = pad.l;
+    let prevY = pad.t + ch;
+    ctx.moveTo(prevX, prevY);
+    for (let k = 0; k < pmf.length; k++) {
+      cum += pmf[k];
+      const x = pad.l + (k / maxK) * cw;
+      const y = pad.t + ch - (cum / 1) * ch;
+      ctx.lineTo(x, prevY);
+      ctx.lineTo(x, y);
+      prevX = x; prevY = y;
+    }
+    ctx.stroke();
+    // Dashed line at 1
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = '#666';
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t);
+    ctx.lineTo(pad.l + cw, pad.t);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    updateInfo('cdf');
+  } else if (activeTab === 'pgf') {
+    // Plot G(z) for z in [0, 1] (real part)
+    ctx.strokeStyle = '#ffb74d';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const steps = 200;
+    for (let i = 0; i <= steps; i++) {
+      const z = i / steps;
+      const val = getPGF(z, maxK);
+      const x = pad.l + (i / steps) * cw;
+      const y = pad.t + ch - (val / 1) * ch;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    // Mark G(1)=1
+    ctx.fillStyle = '#ffb74d';
+    ctx.beginPath();
+    ctx.arc(pad.l + cw, pad.t, 4, 0, Math.PI * 2);
+    ctx.fill();
+    // Mark G(0)=p_0
+    const p0 = pmf[0] || 0;
+    const y0 = pad.t + ch - (p0 / 1) * ch;
+    ctx.fillStyle = '#e57373';
+    ctx.beginPath();
+    ctx.arc(pad.l, y0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e57373';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('G(0)=' + p0.toFixed(3), pad.l + 6, y0 - 6);
+    updateInfo('pgf');
+  }
+}
+
+function updateInfo(tab) {
+  const d = distSel.value;
+  let mean = '', varr = '', name = '';
+  if (d === 'poisson') {
+    const lam = parseFloat(p1.value);
+    mean = lam; varr = lam; name = 'Poisson(λ=' + lam + ')';
+  } else if (d === 'binomial') {
+    const n = parseInt(p2.value), p = parseFloat(p3.value);
+    mean = n * p; varr = n * p * (1 - p); name = 'Binomial(n=' + n + ', p=' + p + ')';
+  } else if (d === 'geometric') {
+    const p = parseFloat(p3.value);
+    mean = 1 / p; varr = (1 - p) / (p * p); name = 'Geometric(p=' + p + ')';
+  }
+  let html = '<b>' + name + '</b><br>Mean E[X] = ' + mean.toFixed(3) + ' &nbsp;|&nbsp; Var(X) = ' + varr.toFixed(3);
+  if (tab === 'pgf') html += '<br>PGF: G(z) = E[z<sup>X</sup>], plotted for z ∈ [0,1]. G(1)=1 always. G(0)=P(X=0).';
+  if (tab === 'cdf') html += '<br>CDF: F(k) = P(X ≤ k), a step function reaching 1.';
+  if (tab === 'pmf') html += '<br>PMF: P(X=k) as a bar chart.';
+  info.innerHTML = html;
+}
+
+updateParams();
+resize();
+</script>
+</body>
+</html>

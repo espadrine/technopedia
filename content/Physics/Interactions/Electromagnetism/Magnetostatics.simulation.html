@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Magnetostatics: field of a current loop and solenoid</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 10px; background: #f8f9fa; color: #2c3e50; }
+h2 { margin: 8px 0 4px; font-size: 1.1em; }
+.controls { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+button { padding: 4px 12px; cursor: pointer; background: #4a90d9; color: white; border: none; border-radius: 4px; font-size: 0.9em; }
+button:hover { background: #357abd; }
+button.active { background: #e67e22; }
+.slider { display: flex; align-items: center; gap: 6px; font-size: 0.9em; }
+.slider input { width: 130px; }
+.panel { background: white; border-radius: 6px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: inline-block; }
+canvas { display: block; }
+.readout { font-size: 0.9em; margin-top: 6px; line-height: 1.5; }
+.readout b { font-variant-numeric: tabular-nums; }
+.hint { font-size: 0.8em; color: #777; margin-top: 4px; max-width: 560px; }
+</style>
+</head>
+<body>
+<h2>Magnetostatics: field of a current loop and solenoid (Biot&ndash;Savart)</h2>
+<div class="controls">
+  <button id="loopBtn" class="active">Single loop</button>
+  <button id="solenoidBtn">Solenoid</button>
+  <button id="arrowBtn" class="active">Arrows</button>
+  <button id="lineBtn">Field lines</button>
+  <span class="slider">Current <input id="curSlider" type="range" min="0.2" max="3" step="0.1" value="1"/> <b id="curVal">1.0</b></span>
+  <span class="slider">Turns <input id="turnSlider" type="range" min="1" max="12" step="1" value="6"/> <b id="turnVal">6</b></span>
+</div>
+<div class="panel">
+  <canvas id="cv" width="560" height="400"></canvas>
+  <div class="readout" id="readout"></div>
+  <div class="hint">The field is computed from the Biot&ndash;Savart law for each current loop. In <b>Arrows</b> mode, colour and length show the field strength (red = strong). In <b>Field lines</b> mode, the traced lines follow the field direction. Switch to <b>Solenoid</b> and raise the turns to see the field become uniform inside the coil and fringe out at the ends. The current slider scales the field strength.</div>
+</div>
+<script>
+var W = 560, H = 400;
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+
+var R = 70;          // loop radius (px)
+var spacing = 24;    // spacing between solenoid turns (px)
+var Nth = 48;        // angular integration steps per loop
+var dth = 2 * Math.PI / Nth;
+
+var mode = 'loop';   // 'loop' or 'solenoid'
+var view = 'arrow';  // 'arrow' or 'line'
+var current = 1.0;
+var turns = 6;
+
+// B field at world point (px, py, z=0), for unit current. Returns {x,y,z}.
+function Bfield(px, py) {
+  var bx = 0, by = 0, bz = 0;
+  var nloops = (mode === 'solenoid') ? turns : 1;
+  for (var li = 0; li < nloops; li++) {
+    var xc = (li - (nloops - 1) / 2) * spacing;
+    for (var t = 0; t < Nth; t++) {
+      var th = t * dth;
+      var cth = Math.cos(th), sth = Math.sin(th);
+      var sy = R * cth, sz = R * sth;
+      var rx = px - xc, ry = py - sy, rz = -sz;
+      var r2 = rx * rx + ry * ry + rz * rz;
+      var r = Math.sqrt(r2);
+      if (r < 3) r = 3;
+      var inv = 1 / (r2 * r);
+      var dlx = -R * sth * dth, dly = R * cth * dth, dlz = 0;
+      var cx = dly * rz - dlz * ry;
+      var cy = dlz * rx - dlx * rz;
+      var cz = dlx * ry - dly * rx;
+      bx += cx * inv; by += cy * inv; bz += cz * inv;
+    }
+  }
+  return { x: bx, y: by, z: bz };
+}
+
+// reference magnitude: field at the centre for unit current
+function refMag() {
+  var b = Bfield(W / 2, H / 2);
+  return Math.sqrt(b.x * b.x + b.y * b.y + b.z * b.z);
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f4f6f8';
+  ctx.fillRect(0, 0, W, H);
+  var ref = refMag();
+  if (view === 'line') drawLines(ref);
+  else drawArrows(ref);
+  drawLoops();
+  updateReadout();
+}
+
+function drawArrows(ref) {
+  var step = 20;
+  var cols = Math.ceil(W / step), rows = Math.ceil(H / step);
+  for (var j = 0; j < rows; j++)
+    for (var i = 0; i < cols; i++) {
+      var cx = i * step + step / 2, cy = j * step + step / 2;
+      var b = Bfield(cx, cy);
+      var m = Math.sqrt(b.x * b.x + b.y * b.y);
+      if (m < 1e-12) continue;
+      var t = Math.max(0, Math.min(1, (m * current) / ref));
+      var len = 3 + 12 * t;
+      var ux = b.x / m, uy = b.y / m;
+      var x1 = cx - ux * len / 2, y1 = cy - uy * len / 2;
+      var x2 = cx + ux * len / 2, y2 = cy + uy * len / 2;
+      var col = 'rgb(' + Math.round(255 * t) + ',' + Math.round(120 * (1 - t)) + ',' + Math.round(120 * (1 - t)) + ')';
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      var ah = 4;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - ux * ah - uy * ah * 0.6, y2 - uy * ah + ux * ah * 0.6);
+      ctx.lineTo(x2 - ux * ah + uy * ah * 0.6, y2 - uy * ah - ux * ah * 0.6);
+      ctx.closePath(); ctx.fill();
+    }
+}
+
+function traceLine(x0, y0) {
+  var pts = [];
+  var step = 3;
+  var x = x0, y = y0;
+  for (var i = 0; i < 260; i++) {
+    var b = Bfield(x, y);
+    var m = Math.sqrt(b.x * b.x + b.y * b.y);
+    if (m < 1e-9) break;
+    x += b.x / m * step; y += b.y / m * step;
+    if (x < 0 || x > W || y < 0 || y > H) break;
+    pts.push({ x: x, y: y });
+  }
+  var back = [];
+  x = x0; y = y0;
+  for (var i = 0; i < 260; i++) {
+    var b = Bfield(x, y);
+    var m = Math.sqrt(b.x * b.x + b.y * b.y);
+    if (m < 1e-9) break;
+    x -= b.x / m * step; y -= b.y / m * step;
+    if (x < 0 || x > W || y < 0 || y > H) break;
+    back.push({ x: x, y: y });
+  }
+  back.reverse();
+  return back.concat(pts);
+}
+
+function drawLines(ref) {
+  ctx.strokeStyle = '#c0392b';
+  ctx.lineWidth = 1.4;
+  var seeds = [];
+  // seeds along the axis and a few rows above/below
+  var nloops = (mode === 'solenoid') ? turns : 1;
+  var halfLen = (nloops - 1) / 2 * spacing;
+  var xStart = W / 2 - halfLen - 40, xEnd = W / 2 + halfLen + 40;
+  var ys = [H / 2, H / 2 - 45, H / 2 + 45, H / 2 - 90, H / 2 + 90];
+  for (var yi = 0; yi < ys.length; yi++)
+    for (var x = xStart; x <= xEnd; x += 45)
+      seeds.push({ x: x, y: ys[yi] });
+  for (var s = 0; s < seeds.length; s++) {
+    var b0 = Bfield(seeds[s].x, seeds[s].y);
+    var m0 = Math.sqrt(b0.x * b0.x + b0.y * b0.y);
+    if (m0 < 1e-9) continue;
+    var line = traceLine(seeds[s].x, seeds[s].y);
+    if (line.length < 3) continue;
+    ctx.beginPath();
+    ctx.moveTo(line[0].x, line[0].y);
+    for (var k = 1; k < line.length; k++) ctx.lineTo(line[k].x, line[k].y);
+    ctx.stroke();
+  }
+}
+
+function drawLoops() {
+  var nloops = (mode === 'solenoid') ? turns : 1;
+  ctx.strokeStyle = '#2c3e50';
+  ctx.lineWidth = 2.5;
+  for (var li = 0; li < nloops; li++) {
+    var xc = W / 2 + (li - (nloops - 1) / 2) * spacing;
+    // loop lies in the y-z plane; in the x-y view it is a vertical line segment
+    ctx.beginPath();
+    ctx.moveTo(xc, H / 2 - R);
+    ctx.lineTo(xc, H / 2 + R);
+    ctx.stroke();
+    // current direction marker (up on the near side)
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.arc(xc, H / 2 - R, 5, 0, 2 * Math.PI);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#2c3e50';
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('current loop' + (mode === 'solenoid' ? 's (solenoid)' : ''), W / 2, H - 8);
+}
+
+var loopBtn = document.getElementById('loopBtn');
+var solenoidBtn = document.getElementById('solenoidBtn');
+var arrowBtn = document.getElementById('arrowBtn');
+var lineBtn = document.getElementById('lineBtn');
+var curSlider = document.getElementById('curSlider');
+var turnSlider = document.getElementById('turnSlider');
+var curVal = document.getElementById('curVal');
+var turnVal = document.getElementById('turnVal');
+var readout = document.getElementById('readout');
+
+loopBtn.onclick = function () { mode = 'loop'; updateButtons(); redraw(); };
+solenoidBtn.onclick = function () { mode = 'solenoid'; updateButtons(); redraw(); };
+arrowBtn.onclick = function () { view = 'arrow'; updateButtons(); redraw(); };
+lineBtn.onclick = function () { view = 'line'; updateButtons(); redraw(); };
+curSlider.oninput = function () { current = parseFloat(curSlider.value); curVal.textContent = current.toFixed(1); redraw(); };
+turnSlider.oninput = function () { turns = parseInt(turnSlider.value, 10); turnVal.textContent = turns; redraw(); };
+
+function updateButtons() {
+  loopBtn.className = mode === 'loop' ? 'active' : '';
+  solenoidBtn.className = mode === 'solenoid' ? 'active' : '';
+  arrowBtn.className = view === 'arrow' ? 'active' : '';
+  lineBtn.className = view === 'line' ? 'active' : '';
+}
+
+function updateReadout() {
+  var b = Bfield(W / 2, H / 2);
+  var m = Math.sqrt(b.x * b.x + b.y * b.y + b.z * b.z) * current;
+  readout.innerHTML = 'Geometry: <b>' + (mode === 'loop' ? 'single loop' : 'solenoid, ' + turns + ' turns') +
+    '</b> &nbsp;\u00b7&nbsp; Current: <b>' + current.toFixed(1) + '</b> &nbsp;\u00b7&nbsp; |B| at centre: <b>' +
+    m.toExponential(2) + '</b> (relative units)';
+}
+
+redraw();
+</script>
+</body>
+</html>

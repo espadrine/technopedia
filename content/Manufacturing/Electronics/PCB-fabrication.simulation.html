@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PCB Layer Stack-Up</title>
+<style>
+body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; margin: 0 0 12px; font-size: 1.1em; }
+.controls { text-align: center; margin-bottom: 12px; }
+.controls label { margin: 0 8px; font-size: 0.9em; }
+.controls select { padding: 4px 8px; border-radius: 4px; border: 1px solid #555; background: #2a2a4a; color: #eee; }
+#canvas-wrap { display: flex; justify-content: center; }
+canvas { border: 1px solid #444; border-radius: 6px; background: #0f0f23; }
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.8em; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+<h2>PCB Layer Stack-Up Visualization</h2>
+<div class="controls">
+  <label>Layers: <select id="layerCount">
+    <option value="2">2</option>
+    <option value="4" selected>4</option>
+    <option value="6">6</option>
+    <option value="8">8</option>
+    <option value="12">12</option>
+    <option value="16">16</option>
+  </select></label>
+  <label>Material: <select id="material">
+    <option value="fr4" selected>FR-4 (Dk 4.3)</option>
+    <option value="rogers">Rogers RO4350B (Dk 3.66)</option>
+  </select></label>
+</div>
+<div id="canvas-wrap"><canvas id="cv" width="600" height="420"></canvas></div>
+<div class="legend">
+  <span><span class="swatch" style="background:#b87333"></span> Copper (35 µm)</span>
+  <span><span class="swatch" style="background:#4a7c59"></span> Core (FR-4)</span>
+  <span><span class="swatch" style="background:#6b8e9b"></span> Prepreg</span>
+  <span><span class="swatch" style="background:#2d6a4f"></span> Solder mask</span>
+  <span><span class="swatch" style="background:#c9a227"></span> ENIG finish</span>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const layerSel = document.getElementById('layerCount');
+const matSel = document.getElementById('material');
+
+function draw() {
+  const n = parseInt(layerSel.value);
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padTop = 30, padBot = 30, padL = 60, padR = 60;
+  const drawH = H - padTop - padBot;
+  const drawW = W - padL - padR;
+
+  // Build layer stack from top to bottom
+  // For n layers: top copper, then alternating dielectric/copper, bottom copper
+  // Structure: Cu | dielectric | Cu | dielectric | ... | Cu
+  // n copper layers, n-1 dielectric layers between them
+  const cuThick = 4; // visual thickness for copper
+  const dieThick = Math.max(8, (drawH - n * cuThick) / (n - 1));
+  const totalH = n * cuThick + (n - 1) * dieThick;
+  const startY = padTop + (drawH - totalH) / 2;
+
+  const isCore = (i) => (i === 0 || i === n - 1) ? false : (i % 2 === 1);
+  // Actually: outer layers use prepreg, inner use core
+  // Simplified: top and bottom are outer (prepreg), middle is core
+
+  let y = startY;
+  const layers = [];
+
+  for (let i = 0; i < n; i++) {
+    // Draw copper layer
+    ctx.fillStyle = '#b87333';
+    ctx.fillRect(padL, y, drawW, cuThick);
+    layers.push({ type: 'copper', y: y, h: cuThick, label: 'L' + (i + 1) });
+    y += cuThick;
+
+    // Draw dielectric between copper layers
+    if (i < n - 1) {
+      const isOuter = (i === 0 || i === n - 2);
+      ctx.fillStyle = isOuter ? '#6b8e9b' : '#4a7c59';
+      ctx.fillRect(padL, y, drawW, dieThick);
+      layers.push({ type: isOuter ? 'prepreg' : 'core', y: y, h: dieThick, label: isOuter ? 'Prepreg' : 'Core' });
+      y += dieThick;
+    }
+  }
+
+  // Solder mask on top and bottom
+  ctx.fillStyle = '#2d6a4f';
+  ctx.fillRect(padL, startY - 3, drawW, 3);
+  ctx.fillRect(padL, y, drawW, 3);
+
+  // ENIG on top and bottom (small pads)
+  ctx.fillStyle = '#c9a227';
+  for (let px = padL + 20; px < padL + drawW - 20; px += 40) {
+    ctx.fillRect(px, startY - 6, 16, 3);
+    ctx.fillRect(px, y, 16, 3);
+  }
+
+  // Labels on the right
+  ctx.fillStyle = '#ccc';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'left';
+  for (const l of layers) {
+    const midY = l.y + l.h / 2 + 4;
+    if (l.type === 'copper') {
+      ctx.fillText(l.label, padL + drawW + 8, midY);
+    }
+  }
+
+  // Labels on the left
+  ctx.textAlign = 'right';
+  ctx.fillText('Top', padL - 8, startY + totalH / 2 - 10);
+  ctx.fillText('Bottom', padL - 8, startY + totalH / 2 + 10);
+
+  // Dimension arrow
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL - 20, startY);
+  ctx.lineTo(padL - 20, y);
+  ctx.stroke();
+  // Arrowheads
+  ctx.beginPath();
+  ctx.moveTo(padL - 23, startY + 5);
+  ctx.lineTo(padL - 20, startY);
+  ctx.lineTo(padL - 17, startY + 5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(padL - 23, y - 5);
+  ctx.lineTo(padL - 20, y);
+  ctx.lineTo(padL - 17, y - 5);
+  ctx.stroke();
+
+  // Total thickness label
+  const mat = matSel.value;
+  const totalUm = n === 2 ? 1600 : n === 4 ? 1600 : n === 6 ? 1600 : n === 8 ? 2000 : n === 12 ? 2400 : 3200;
+  ctx.save();
+  ctx.translate(padL - 35, startY + totalH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#aaa';
+  ctx.font = '10px system-ui';
+  ctx.fillText('~' + (totalUm / 1000).toFixed(1) + ' mm', 0, 0);
+  ctx.restore();
+
+  // Dk label
+  const dk = mat === 'fr4' ? '4.3' : '3.66';
+  ctx.fillStyle = '#888';
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Dk = ' + dk, W / 2, H - 8);
+}
+
+layerSel.addEventListener('change', draw);
+matSel.addEventListener('change', draw);
+draw();
+</script>
+</body>
+</html>

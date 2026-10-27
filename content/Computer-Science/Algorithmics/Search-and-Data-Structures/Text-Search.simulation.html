@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KMP string matching — step by step</title>
+<style>
+  :root {
+    --bg: #0f1220; --panel: #171b2e; --ink: #e8ecf5; --muted: #9aa3c0;
+    --accent: #4ecdc4; --match: #388e3c; --mismatch: #e94560; --jump: #e65100;
+    --cell: #232a45; --cell-edge: #3a4570; --win: #2b3a6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  label { font-size: 13px; color: var(--muted); }
+  input[type=text] {
+    background: var(--panel); color: var(--ink); border: 1px solid var(--cell-edge);
+    border-radius: 6px; padding: 6px 8px; font-family: monospace; font-size: 14px; width: 220px;
+  }
+  button {
+    background: var(--accent); color: #06231f; border: 0; border-radius: 6px;
+    padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: var(--panel); color: var(--ink); border: 1px solid var(--cell-edge); }
+  button:disabled { opacity: .4; cursor: default; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--cell-edge); border-radius: 10px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .panel h2 { font-size: 13px; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .cells { display: flex; gap: 3px; flex-wrap: wrap; }
+  .cell {
+    width: 30px; height: 34px; display: flex; align-items: center; justify-content: center;
+    background: var(--cell); border: 1px solid var(--cell-edge); border-radius: 5px;
+    font-family: monospace; font-size: 15px; position: relative;
+  }
+  .cell .idx { position: absolute; bottom: 1px; right: 3px; font-size: 8px; color: var(--muted); }
+  .cell.win { background: var(--win); border-color: var(--accent); }
+  .cell.matched { background: #1e3a2a; border-color: var(--match); }
+  .cell.hit { background: #2f5d34; border-color: #7bd389; }
+  .cell.bad { background: #4a2230; border-color: var(--mismatch); }
+  .cell .pi { position: absolute; top: 1px; right: 3px; font-size: 8px; color: var(--jump); }
+  .note {
+    font-size: 14px; line-height: 1.5; min-height: 42px; padding: 10px 12px;
+    background: #10142a; border-left: 3px solid var(--accent); border-radius: 6px;
+  }
+  .note.jump { border-left-color: var(--jump); }
+  .note.match { border-left-color: var(--match); }
+  .note.bad { border-left-color: var(--mismatch); }
+  .meta { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .meta b { color: var(--ink); }
+  .matches { font-family: monospace; }
+  .counter { font-size: 13px; color: var(--muted); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid var(--cell-edge); }
+</style>
+</head>
+<body>
+  <h1>Knuth–Morris–Pratt (KMP) — step by step</h1>
+  <p class="sub">Watch the pattern slide across the text. On a mismatch, KMP jumps using the prefix function π instead of restarting, so each text character is examined at most twice.</p>
+
+  <div class="row">
+    <label>Text</label>
+    <input type="text" id="text" value="ababababac" spellcheck="false">
+    <label>Pattern</label>
+    <input type="text" id="pattern" value="ababac" spellcheck="false">
+    <button id="load">Load</button>
+  </div>
+
+  <div class="row">
+    <button id="reset" class="ghost">⟲ Reset</button>
+    <button id="back" class="ghost">◀ Back</button>
+    <button id="step">Step ▶</button>
+    <button id="play" class="ghost">▶▶ Auto</button>
+    <span class="counter" id="counter"></span>
+  </div>
+
+  <div class="panel">
+    <h2>Text T (window = characters currently aligned with the pattern)</h2>
+    <div class="cells" id="textCells"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Pattern P (green = matched prefix of length j) · π shown above each cell</h2>
+    <div class="cells" id="patCells"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Current step</h2>
+    <div class="note" id="note">Press Load, then Step.</div>
+    <div class="meta" id="meta"></div>
+    <div class="meta">Matches found so far: <span class="matches" id="matches">—</span></div>
+  </div>
+
+  <div class="legend">
+    <span><i class="sw" style="background:var(--win);border-color:var(--accent)"></i> aligned window</span>
+    <span><i class="sw" style="background:#1e3a2a;border-color:var(--match)"></i> matched</span>
+    <span><i class="sw" style="background:#2f5d34;border-color:#7bd389"></i> full match</span>
+    <span><i class="sw" style="background:#4a2230;border-color:var(--mismatch)"></i> mismatch</span>
+  </div>
+
+<script>
+(function () {
+  var textEl = document.getElementById('text');
+  var patEl = document.getElementById('pattern');
+  var textCells = document.getElementById('textCells');
+  var patCells = document.getElementById('patCells');
+  var noteEl = document.getElementById('note');
+  var metaEl = document.getElementById('meta');
+  var matchesEl = document.getElementById('matches');
+  var counterEl = document.getElementById('counter');
+  var btnBack = document.getElementById('back');
+  var btnStep = document.getElementById('step');
+  var btnPlay = document.getElementById('play');
+  var btnReset = document.getElementById('reset');
+  var btnLoad = document.getElementById('load');
+
+  var pi = [], states = [], idx = 0, timer = null;
+
+  function prefixFunction(p) {
+    var m = p.length, out = new Array(m).fill(0), j = 0;
+    for (var i = 1; i < m; i++) {
+      while (j > 0 && p[i] !== p[j]) j = out[j - 1];
+      if (p[i] === p[j]) j++;
+      out[i] = j;
+    }
+    return out;
+  }
+
+  function buildStates(T, P) {
+    var n = T.length, m = P.length, pi = prefixFunction(P);
+    var st = [], j = 0, matches = [];
+    st.push({ i: -1, j: 0, matches: matches.slice(), note: 'Start. j = 0 (no characters matched yet).', cls: '' });
+    for (var i = 0; i < n; i++) {
+      while (j > 0 && T[i] !== P[j]) {
+        var jt = pi[j - 1];
+        st.push({ i: i, j: j, matches: matches.slice(),
+          note: 'Mismatch: T[' + i + "]='" + T[i] + "' ≠ P[" + j + "]='" + P[j] + "'. Jump j = π[" + (j - 1) + '] = ' + jt + ' (keep the shared prefix).',
+          cls: 'jump' });
+        j = jt;
+      }
+      if (T[i] === P[j]) {
+        j++;
+        if (j === m) {
+          var pos = i - m + 1;
+          matches.push(pos);
+          st.push({ i: i, j: m, matches: matches.slice(),
+            note: 'Match! The whole pattern matched ending at T[' + i + ']. Found at position ' + pos + '. Reset j = π[' + (m - 1) + '] = ' + pi[m - 1] + '.',
+            cls: 'match' });
+          j = pi[m - 1];
+        } else {
+          st.push({ i: i, j: j, matches: matches.slice(),
+            note: 'T[' + i + "]='" + T[i] + "' = P[" + (j - 1) + "]='" + P[j - 1] + "'. Advance j = " + j + '.',
+            cls: '' });
+        }
+      } else {
+        st.push({ i: i, j: 0, matches: matches.slice(),
+          note: 'T[' + i + "]='" + T[i] + "' ≠ P[0]='" + P[0] + "'. No match here; j stays 0.',
+          cls: 'bad' });
+      }
+    }
+    st.push({ i: n, j: j, matches: matches.slice(), note: 'End of text. Done.', cls: '' });
+    return { pi: pi, states: st, matches: matches };
+  }
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function render() {
+    var T = textEl.value, P = patEl.value;
+    if (!T || !P) return;
+    var s = states[idx];
+    var i = s.i, j = s.j;
+
+    // text cells
+    var th = '';
+    for (var a = 0; a < T.length; a++) {
+      var cls = 'cell';
+      if (i >= 0 && a >= i - j + 1 && a <= i) cls += ' win';
+      if (s.cls === 'match' && a >= i - P.length + 1 && a <= i) cls += ' hit';
+      if (s.cls === 'jump' && a === i) cls += ' bad';
+      if (s.cls === 'bad' && a === i) cls += ' bad';
+      th += '<div class="' + cls + '">' + esc(T[a]) + '<span class="idx">' + a + '</span></div>';
+    }
+    textCells.innerHTML = th;
+
+    // pattern cells
+    var ph = '';
+    for (var b = 0; b < P.length; b++) {
+      var pcls = 'cell';
+      if (b < j) pcls += ' matched';
+      if (s.cls === 'jump' && b === j) pcls += ' bad';
+      ph += '<div class="' + pcls + '">' + esc(P[b]) + '<span class="pi">π=' + pi[b] + '</span><span class="idx">' + b + '</span></div>';
+    }
+    patCells.innerHTML = ph;
+
+    noteEl.className = 'note ' + s.cls;
+    noteEl.textContent = s.note;
+    metaEl.innerHTML = 'i = <b>' + (i < 0 ? '—' : i) + '</b> &nbsp; j = <b>' + j + '</b> &nbsp; (pattern length m = ' + P.length + ')';
+    matchesEl.textContent = s.matches.length ? s.matches.join(', ') : 'none yet';
+    counterEl.textContent = 'step ' + idx + ' / ' + (states.length - 1);
+    btnBack.disabled = idx === 0;
+    btnStep.disabled = idx === states.length - 1;
+  }
+
+  function load() {
+    stopPlay();
+    var T = textEl.value, P = patEl.value;
+    if (!T || !P) { noteEl.textContent = 'Enter a non-empty text and pattern.'; return; }
+    if (P.length > T.length) { noteEl.textContent = 'Pattern is longer than the text — no match possible.'; return; }
+    var r = buildStates(T, P);
+    pi = r.pi; states = r.states; idx = 0;
+    render();
+  }
+
+  function step() { if (idx < states.length - 1) { idx++; render(); } }
+  function back() { if (idx > 0) { idx--; render(); } }
+  function reset() { stopPlay(); idx = 0; render(); }
+
+  function stopPlay() { if (timer) { clearInterval(timer); timer = null; btnPlay.textContent = '▶▶ Auto'; } }
+  function togglePlay() {
+    if (timer) { stopPlay(); return; }
+    if (idx >= states.length - 1) idx = 0;
+    btnPlay.textContent = '⏸ Pause';
+    timer = setInterval(function () {
+      if (idx >= states.length - 1) { stopPlay(); return; }
+      idx++; render();
+    }, 700);
+  }
+
+  btnLoad.addEventListener('click', load);
+  btnStep.addEventListener('click', step);
+  btnBack.addEventListener('click', back);
+  btnReset.addEventListener('click', reset);
+  btnPlay.addEventListener('click', togglePlay);
+  textEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+  patEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') load(); });
+
+  load();
+})();
+</script>
+</body>
+</html>

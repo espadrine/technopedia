@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Oscillations: SHM, Damping, and Driving</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+h1 { font-size: 1.2em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.control-group { display: flex; flex-direction: column; align-items: center; }
+.control-group label { font-size: 0.75em; color: #aaa; margin-bottom: 2px; }
+.control-group input[type=range] { width: 120px; }
+.control-group .val { font-size: 0.7em; color: #7ec8e3; }
+.canvas-row { display: flex; flex-wrap: wrap; gap: 12px; }
+canvas { background: #16213e; border-radius: 8px; border: 1px solid #333; }
+.btn-row { margin-top: 10px; display: flex; gap: 8px; }
+button { background: #0f3460; color: #fff; border: 1px solid #555; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+button:hover { background: #1a5276; }
+button.active { background: #e94560; border-color: #e94560; }
+</style>
+</head>
+<body>
+<h1>Oscillations: Simple Harmonic Motion, Damping &amp; Driving</h1>
+<div class="controls">
+<div class="control-group"><label>Damping γ (s⁻¹)</label><input type="range" id="damp" min="0" max="3" step="0.01" value="0"><span class="val" id="dampVal">0.00</span></div>
+<div class="control-group"><label>Drive freq ω (rad/s)</label><input type="range" id="driveFreq" min="0" max="20" step="0.1" value="0"><span class="val" id="driveFreqVal">0.0</span></div>
+<div class="control-group"><label>Drive amp F₀/m</label><input type="range" id="driveAmp" min="0" max="5" step="0.1" value="0"><span class="val" id="driveAmpVal">0.0</span></div>
+<div class="control-group"><label>Initial x₀</label><input type="range" id="initX" min="-2" max="2" step="0.1" value="1"><span class="val" id="initXVal">1.0</span></div>
+</div>
+<div class="btn-row">
+<button id="btnReset">Reset</button>
+<button id="btnPause">Pause</button>
+<button id="btnMode" class="active">Force-driven</button>
+</div>
+<div class="canvas-row" style="margin-top:12px;">
+<canvas id="cvSpring" width="360" height="260"></canvas>
+<canvas id="cvPhase" width="260" height="260"></canvas>
+<canvas id="cvResp" width="300" height="260"></canvas>
+</div>
+<script>
+const cvS = document.getElementById('cvSpring'), ctxS = cvS.getContext('2d');
+const cvP = document.getElementById('cvPhase'), ctxP = cvP.getContext('2d');
+const cvR = document.getElementById('cvResp'), ctxR = cvR.getContext('2d');
+
+let m = 1, k = 25; // ω₀ = 5 rad/s
+let gamma = 0, driveOmega = 0, driveAmp = 0;
+let x = 1, v = 0, t = 0;
+let paused = false;
+const dt = 0.005;
+let phaseTrail = [];
+const maxTrail = 2000;
+
+function readControls() {
+  gamma = parseFloat(document.getElementById('damp').value);
+  driveOmega = parseFloat(document.getElementById('driveFreq').value);
+  driveAmp = parseFloat(document.getElementById('driveAmp').value);
+  document.getElementById('dampVal').textContent = gamma.toFixed(2);
+  document.getElementById('driveFreqVal').textContent = driveOmega.toFixed(1);
+  document.getElementById('driveAmpVal').textContent = driveAmp.toFixed(1);
+}
+
+document.getElementById('damp').oninput = readControls;
+document.getElementById('driveFreq').oninput = readControls;
+document.getElementById('driveAmp').oninput = readControls;
+document.getElementById('initX').oninput = function(){ document.getElementById('initXVal').textContent = parseFloat(this.value).toFixed(1); };
+
+document.getElementById('btnReset').onclick = function() {
+  x = parseFloat(document.getElementById('initX').value); v = 0; t = 0; phaseTrail = [];
+};
+document.getElementById('btnPause').onclick = function() {
+  paused = !paused; this.textContent = paused ? 'Resume' : 'Pause';
+};
+
+function step() {
+  if (paused) return;
+  // RK4 for m x'' + c x' + k x = F0 cos(ωt)
+  const c = 2 * gamma * m;
+  function accel(xx, vv, tt) {
+    const F = driveAmp * Math.cos(driveOmega * tt);
+    return (-c * vv - k * xx + F) / m;
+  }
+  const k1v = accel(x, v, t);
+  const k1x = v;
+  const k2v = accel(x + 0.5*dt*k1x, v + 0.5*dt*k1v, t + 0.5*dt);
+  const k2x = v + 0.5*dt*k1v;
+  const k3v = accel(x + 0.5*dt*k2x, v + 0.5*dt*k2v, t + 0.5*dt);
+  const k3x = v + 0.5*dt*k2v;
+  const k4v = accel(x + dt*k3x, v + dt*k3v, t + dt);
+  const k4x = v + dt*k3v;
+  x += dt/6*(k1x + 2*k2x + 2*k3x + k4x);
+  v += dt/6*(k1v + 2*k2v + 2*k3v + k4v);
+  t += dt;
+  phaseTrail.push([x, v]);
+  if (phaseTrail.length > maxTrail) phaseTrail.shift();
+}
+
+function drawSpring() {
+  const W = cvS.width, H = cvS.height;
+  ctxS.clearRect(0, 0, W, H);
+  const cx = W/2, cy = H/2;
+  const scale = 60; // pixels per unit
+  const px = cx + x * scale;
+  const py = cy;
+  // Wall
+  ctxS.fillStyle = '#444';
+  ctxS.fillRect(20, cy-40, 10, 80);
+  // Spring (zigzag)
+  const springStart = 30, springEnd = px - 20;
+  const coils = 12;
+  ctxS.strokeStyle = '#7ec8e3';
+  ctxS.lineWidth = 2;
+  ctxS.beginPath();
+  ctxS.moveTo(springStart, cy);
+  const segLen = (springEnd - springStart) / coils;
+  for (let i = 0; i < coils; i++) {
+    const sx = springStart + i * segLen;
+    const sy = cy + (i % 2 === 0 ? -12 : 12);
+    ctxS.lineTo(sx + segLen/2, sy);
+  }
+  ctxS.lineTo(springEnd, cy);
+  ctxS.stroke();
+  // Mass
+  ctxS.fillStyle = '#e94560';
+  ctxS.beginPath();
+  ctxS.arc(px, py, 18, 0, Math.PI*2);
+  ctxS.fill();
+  ctxS.fillStyle = '#fff';
+  ctxS.font = '11px sans-serif';
+  ctxS.textAlign = 'center';
+  ctxS.fillText('m', px, py+4);
+  // Equilibrium line
+  ctxS.strokeStyle = '#555';
+  ctxS.setLineDash([4,4]);
+  ctxS.beginPath(); ctxS.moveTo(cx, cy-50); ctxS.lineTo(cx, cy+50); ctxS.stroke();
+  ctxS.setLineDash([]);
+  // Displacement arrow
+  if (Math.abs(x) > 0.05) {
+    ctxS.strokeStyle = '#f0a500';
+    ctxS.lineWidth = 2;
+    ctxS.beginPath(); ctxS.moveTo(cx, cy+40); ctxS.lineTo(px, cy+40); ctxS.stroke();
+    ctxS.fillStyle = '#f0a500';
+    ctxS.fillText('x = ' + x.toFixed(2), (cx+px)/2, cy+55);
+  }
+  // Drive force arrow
+  if (driveAmp > 0) {
+    const F = driveAmp * Math.cos(driveOmega * t);
+    const arrowLen = F * 15;
+    ctxS.strokeStyle = '#4ecdc4';
+    ctxS.lineWidth = 3;
+    ctxS.beginPath(); ctxS.moveTo(px, py-30); ctxS.lineTo(px + arrowLen, py-30); ctxS.stroke();
+    // Arrowhead
+    const dir = arrowLen > 0 ? 1 : -1;
+    ctxS.beginPath();
+    ctxS.moveTo(px + arrowLen, py-30);
+    ctxS.lineTo(px + arrowLen - 6*dir, py-35);
+    ctxS.lineTo(px + arrowLen - 6*dir, py-25);
+    ctxS.closePath();
+    ctxS.fillStyle = '#4ecdc4';
+    ctxS.fill();
+  }
+  // Time display
+  ctxS.fillStyle = '#888';
+  ctxS.font = '11px monospace';
+  ctxS.textAlign = 'left';
+  ctxS.fillText('t = ' + t.toFixed(1) + ' s', 10, 16);
+  ctxS.fillText('ω₀ = ' + Math.sqrt(k/m).toFixed(2) + ' rad/s', 10, 30);
+}
+
+function drawPhase() {
+  const W = cvP.width, H = cvP.height;
+  ctxP.clearRect(0, 0, W, H);
+  const cx = W/2, cy = H/2;
+  const scale = 25;
+  // Axes
+  ctxP.strokeStyle = '#444';
+  ctxP.lineWidth = 1;
+  ctxP.beginPath(); ctxP.moveTo(0, cy); ctxP.lineTo(W, cy); ctxP.stroke();
+  ctxP.beginPath(); ctxP.moveTo(cx, 0); ctxP.lineTo(cx, H); ctxP.stroke();
+  ctxP.fillStyle = '#888';
+  ctxP.font = '10px sans-serif';
+  ctxP.fillText('x', W-14, cy-6);
+  ctxP.fillText('ẋ', cx+6, 12);
+  // Trail
+  if (phaseTrail.length > 1) {
+    ctxP.strokeStyle = 'rgba(126,200,227,0.6)';
+    ctxP.lineWidth = 1.5;
+    ctxP.beginPath();
+    ctxP.moveTo(cx + phaseTrail[0][0]*scale, cy - phaseTrail[0][1]*scale);
+    for (let i = 1; i < phaseTrail.length; i++) {
+      ctxP.lineTo(cx + phaseTrail[i][0]*scale, cy - phaseTrail[i][1]*scale);
+    }
+    ctxP.stroke();
+  }
+  // Current point
+  ctxP.fillStyle = '#e94560';
+  ctxP.beginPath();
+  ctxP.arc(cx + x*scale, cy - v*scale, 4, 0, Math.PI*2);
+  ctxP.fill();
+}
+
+function drawResponse() {
+  const W = cvR.width, H = cvR.height;
+  ctxR.clearRect(0, 0, W, H);
+  const padL = 40, padB = 30, padT = 20, padR = 10;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const wMax = 15;
+  // Compute response curve
+  const w0 = Math.sqrt(k/m);
+  const points = [];
+  for (let i = 0; i <= 200; i++) {
+    const w = i/200 * wMax;
+    const denom = Math.sqrt(Math.pow(w0*w0 - w*w, 2) + Math.pow(2*gamma*w, 2));
+    const X = denom < 1e-10 ? 100 : (driveAmp > 0 ? driveAmp/m : 1) / denom;
+    points.push([w, Math.min(X, 10)]);
+  }
+  // Axes
+  ctxR.strokeStyle = '#555';
+  ctxR.lineWidth = 1;
+  ctxR.beginPath(); ctxR.moveTo(padL, padT); ctxR.lineTo(padL, H-padB); ctxR.lineTo(W-padR, H-padB); ctxR.stroke();
+  // Labels
+  ctxR.fillStyle = '#888';
+  ctxR.font = '10px sans-serif';
+  ctxR.textAlign = 'center';
+  ctxR.fillText('ω (rad/s)', padL + plotW/2, H-4);
+  ctxR.save();
+  ctxR.translate(10, padT + plotH/2);
+  ctxR.rotate(-Math.PI/2);
+  ctxR.fillText('Amplitude', 0, 0);
+  ctxR.restore();
+  // Tick marks
+  ctxR.textAlign = 'center';
+  for (let w = 0; w <= wMax; w += 5) {
+    const px = padL + (w/wMax)*plotW;
+    ctxR.fillText(w, px, H-padB+14);
+  }
+  // Curve
+  ctxR.strokeStyle = '#4ecdc4';
+  ctxR.lineWidth = 2;
+  ctxR.beginPath();
+  for (let i = 0; i < points.length; i++) {
+    const px = padL + (points[i][0]/wMax)*plotW;
+    const py = H - padB - (points[i][1]/10)*plotH;
+    if (i === 0) ctxR.moveTo(px, py); else ctxR.lineTo(px, py);
+  }
+  ctxR.stroke();
+  // Current frequency marker
+  if (driveOmega > 0) {
+    const mx = padL + (driveOmega/wMax)*plotW;
+    ctxR.strokeStyle = '#e94560';
+    ctxR.setLineDash([3,3]);
+    ctxR.beginPath(); ctxR.moveTo(mx, padT); ctxR.lineTo(mx, H-padB); ctxR.stroke();
+    ctxR.setLineDash([]);
+  }
+  // Resonance marker
+  const wRes = Math.sqrt(Math.max(w0*w0 - 2*gamma*gamma, 0));
+  const rx = padL + (wRes/wMax)*plotW;
+  ctxR.fillStyle = '#f0a500';
+  ctxR.font = '9px sans-serif';
+  ctxR.fillText('ω_res', rx, padT + 10);
+}
+
+function animate() {
+  for (let i = 0; i < 3; i++) step();
+  drawSpring();
+  drawPhase();
+  drawResponse();
+  requestAnimationFrame(animate);
+}
+
+readControls();
+animate();
+</script>
+</body>
+</html>

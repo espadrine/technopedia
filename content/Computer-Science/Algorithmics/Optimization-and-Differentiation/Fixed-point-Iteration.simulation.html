@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fixed-point Iteration</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.controls label { font-size: 0.85em; }
+.controls select, .controls input[type=range] { margin-left: 4px; }
+.controls input[type=range] { width: 120px; }
+#info { font-size: 0.85em; margin-bottom: 6px; color: #aab; }
+canvas { border: 1px solid #333; border-radius: 4px; background: #0f0f23; }
+.btn { background: #446; color: #eee; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+.btn:hover { background: #557; }
+</style>
+</head>
+<body>
+<h2>Fixed-point Iteration: x<sub>t+1</sub> = g(x<sub>t</sub>)</h2>
+<div class="controls">
+<label>Map g(x):
+<select id="fnSelect">
+<option value="cos">cos(x)</option>
+<option value="sqrt">(x+2)/2</option>
+<option value="damped">0.5·cos(x)+0.5x</option>
+<option value="diverge">1.5·cos(x)</option>
+<option value="newton">x − (x²−2)/(2x)</option>
+</select>
+</label>
+<label>x₀: <input type="range" id="x0" min="0.1" max="3" step="0.05" value="1.0"><span id="x0val">1.00</span></label>
+<button class="btn" id="stepBtn">Step</button>
+<button class="btn" id="runBtn">Run</button>
+<button class="btn" id="resetBtn">Reset</button>
+</div>
+<div id="info">t = 0, x = 1.000000, |x − x*| = ?</div>
+<canvas id="cv" width="600" height="400"></canvas>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const pad = 40;
+const plotW = W - 2*pad, plotH = H - 2*pad;
+
+const fns = {
+  cos: { f: x => Math.cos(x), label: 'g(x) = cos(x)', xstar: 0.739085, xmin: 0, xmax: 1.5, ymin: 0, ymax: 1.2 },
+  sqrt: { f: x => (x+2)/2, label: 'g(x) = (x+2)/2', xstar: 2, xmin: 0, xmax: 3.5, ymin: 0, ymax: 3 },
+  damped: { f: x => 0.5*Math.cos(x)+0.5*x, label: 'g(x) = 0.5cos(x)+0.5x', xstar: 0.739085, xmin: 0, xmax: 1.5, ymin: 0, ymax: 1.2 },
+  diverge: { f: x => 1.5*Math.cos(x), label: 'g(x) = 1.5cos(x)', xstar: 0.739085, xmin: 0, xmax: 1.5, ymin: 0, ymax: 1.5 },
+  newton: { f: x => x - (x*x-2)/(2*x), label: 'Newton for √2', xstar: Math.SQRT2, xmin: 0.5, xmax: 2.5, ymin: 0, ymax: 2.5 }
+};
+
+let state = { t: 0, x: 1.0, path: [], running: false, fnKey: 'cos' };
+let animId = null;
+
+function toPx(x, y, cfg) {
+  const px = pad + (x - cfg.xmin) / (cfg.xmax - cfg.xmin) * plotW;
+  const py = H - pad - (y - cfg.ymin) / (cfg.ymax - cfg.ymin) * plotH;
+  return [px, py];
+}
+
+function draw() {
+  const cfg = fns[state.fnKey];
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 10; i++) {
+    const x = pad + i * plotW / 10;
+    const y = pad + i * plotH / 10;
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H-pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W-pad, y); ctx.stroke();
+  }
+
+  // Axes labels
+  ctx.fillStyle = '#888';
+  ctx.font = '11px system-ui';
+  ctx.fillText('x', W - pad + 10, H - pad + 4);
+  ctx.fillText('y', pad - 20, pad - 10);
+
+  // y = x line
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  const [ax, ay] = toPx(cfg.xmin, cfg.xmin, cfg);
+  const [bx, by] = toPx(Math.min(cfg.xmax, cfg.ymax), Math.min(cfg.xmax, cfg.ymax), cfg);
+  ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // g(x) curve
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  let first = true;
+  for (let i = 0; i <= 200; i++) {
+    const x = cfg.xmin + i * (cfg.xmax - cfg.xmin) / 200;
+    let y;
+    try { y = cfg.f(x); } catch(e) { y = NaN; }
+    if (isNaN(y) || !isFinite(y)) { first = true; continue; }
+    const [px, py] = toPx(x, y, cfg);
+    if (first) { ctx.moveTo(px, py); first = false; }
+    else ctx.lineTo(px, py);
+  }
+  ctx.stroke();
+
+  // Fixed point
+  const [fx, fy] = toPx(cfg.xstar, cfg.xstar, cfg);
+  ctx.fillStyle = '#ff5252';
+  ctx.beginPath(); ctx.arc(fx, fy, 5, 0, 2*Math.PI); ctx.fill();
+  ctx.fillStyle = '#ff5252';
+  ctx.font = '11px system-ui';
+  ctx.fillText('x*', fx + 7, fy - 7);
+
+  // Staircase path
+  if (state.path.length > 0) {
+    ctx.strokeStyle = '#69f0ae';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    let prev = toPx(state.path[0], state.path[0], cfg);
+    ctx.moveTo(prev[0], prev[1]);
+    for (let i = 1; i < state.path.length; i++) {
+      const xVal = state.path[i];
+      const yVal = cfg.f(xVal);
+      const [px1, py1] = toPx(xVal, xVal, cfg);
+      const [px2, py2] = toPx(xVal, yVal, cfg);
+      const [px3, py3] = toPx(yVal, yVal, cfg);
+      ctx.lineTo(px1, py1);
+      ctx.lineTo(px2, py2);
+      ctx.lineTo(px3, py3);
+    }
+    ctx.stroke();
+
+    // Current point
+    const lastX = state.path[state.path.length - 1];
+    const [cx, cy] = toPx(lastX, lastX, cfg);
+    ctx.fillStyle = '#69f0ae';
+    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, 2*Math.PI); ctx.fill();
+  }
+
+  // Info
+  const err = Math.abs(state.x - cfg.xstar);
+  document.getElementById('info').textContent =
+    `t = ${state.t}, x = ${state.x.toFixed(6)}, |x − x*| = ${err.toExponential(3)}, ${cfg.label}`;
+}
+
+function step() {
+  const cfg = fns[state.fnKey];
+  state.path.push(state.x);
+  let nx;
+  try { nx = cfg.f(state.x); } catch(e) { nx = NaN; }
+  if (isNaN(nx) || !isFinite(nx)) { state.x = NaN; draw(); return; }
+  state.x = nx;
+  state.t++;
+  draw();
+}
+
+function reset() {
+  state.t = 0;
+  state.x = parseFloat(document.getElementById('x0').value);
+  state.path = [];
+  state.running = false;
+  if (animId) cancelAnimationFrame(animId);
+  draw();
+}
+
+function run() {
+  if (state.running) { state.running = false; document.getElementById('runBtn').textContent = 'Run'; return; }
+  state.running = true;
+  document.getElementById('runBtn').textContent = 'Pause';
+  function tick() {
+    if (!state.running) return;
+    step();
+    if (state.t < 200 && isFinite(state.x)) animId = requestAnimationFrame(tick);
+    else { state.running = false; document.getElementById('runBtn').textContent = 'Run'; }
+  }
+  tick();
+}
+
+document.getElementById('stepBtn').onclick = () => { state.running = false; step(); };
+document.getElementById('runBtn').onclick = run;
+document.getElementById('resetBtn').onclick = reset;
+document.getElementById('fnSelect').onchange = function() { state.fnKey = this.value; reset(); };
+document.getElementById('x0').oninput = function() {
+  document.getElementById('x0val').textContent = parseFloat(this.value).toFixed(2);
+  reset();
+};
+
+reset();
+</script>
+</body>
+</html>

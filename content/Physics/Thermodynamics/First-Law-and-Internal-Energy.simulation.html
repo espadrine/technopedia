@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>P-V Diagram of Special Thermodynamic Processes</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; margin: 5px 0; font-size: 1.1em; }
+canvas { display: block; margin: 0 auto; background: #0f0f23; border-radius: 8px; }
+.controls { text-align: center; margin: 8px 0; }
+.controls label { margin: 0 10px; font-size: 0.9em; }
+.controls input { vertical-align: middle; }
+.legend { text-align: center; font-size: 0.85em; margin-top: 5px; }
+.legend span { margin: 0 8px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h2>P–V Diagram: Four Special Processes from a Common Initial State</h2>
+<canvas id="cv" width="700" height="500"></canvas>
+<div class="controls">
+<label>γ (adiabatic index): <input type="range" id="gamma" min="1.2" max="1.7" step="0.01" value="1.4"> <span id="gammaVal">1.40</span></label>
+<label>Expansion ratio: <input type="range" id="ratio" min="1.5" max="4" step="0.1" value="3"> <span id="ratioVal">3.0</span></label>
+</div>
+<div class="legend">
+<span><span class="dot" style="background:#4fc3f7"></span>Isobaric</span>
+<span><span class="dot" style="background:#81c784"></span>Isochoric</span>
+<span><span class="dot" style="background:#ffb74d"></span>Isothermal</span>
+<span><span class="dot" style="background:#e57373"></span>Adiabatic</span>
+</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const pad = { l: 70, r: 30, t: 30, b: 50 };
+const pw = W - pad.l - pad.r;
+const ph = H - pad.t - pad.b;
+
+// Initial state: P0=1, V0=1 (normalized)
+const P0 = 1, V0 = 1;
+
+function toX(v) { return pad.l + (v / Vmax()) * pw; }
+function toY(p) { return pad.t + ph - (p / Pmax()) * ph; }
+
+function Vmax() { return parseFloat(document.getElementById('ratio').value) * V0 + 0.5; }
+function Pmax() { return P0 * 1.5; }
+
+function draw() {
+  const gamma = parseFloat(document.getElementById('gamma').value);
+  const ratio = parseFloat(document.getElementById('ratio').value);
+  document.getElementById('gammaVal').textContent = gamma.toFixed(2);
+  document.getElementById('ratioVal').textContent = ratio.toFixed(1);
+
+  const vm = Vmax(), pm = Pmax();
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#2a2a4a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 10; i++) {
+    let x = pad.l + (i/10)*pw;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t+ph); ctx.stroke();
+    let y = pad.t + (i/10)*ph;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+pw, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph); ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = '#ccc';
+  ctx.font = '13px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('V', pad.l + pw/2, H - 8);
+  ctx.save(); ctx.translate(15, pad.t + ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('P', 0, 0); ctx.restore();
+
+  // Tick labels
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = '#888';
+  for (let i = 0; i <= 4; i++) {
+    let v = (i/4)*vm;
+    ctx.fillText(v.toFixed(1), pad.l + (i/4)*pw, pad.t+ph+15);
+    let p = (i/4)*pm;
+    ctx.textAlign = 'right';
+    ctx.fillText(p.toFixed(1), pad.l-5, pad.t + ph - (i/4)*ph + 4);
+    ctx.textAlign = 'center';
+  }
+
+  const Vf = V0 * ratio;
+
+  // Helper: draw curve and shade area
+  function drawProcess(pts, color, label, labelDx, labelDy) {
+    if (pts.length < 2) return;
+    // Shade area under curve (work)
+    ctx.beginPath();
+    ctx.moveTo(toX(pts[0][0]), toY(0));
+    for (let i = 0; i < pts.length; i++) {
+      ctx.lineTo(toX(pts[i][0]), toY(pts[i][1]));
+    }
+    ctx.lineTo(toX(pts[pts.length-1][0]), toY(0));
+    ctx.closePath();
+    ctx.fillStyle = color + '33';
+    ctx.fill();
+
+    // Draw curve
+    ctx.beginPath();
+    ctx.moveTo(toX(pts[0][0]), toY(pts[0][1]));
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(toX(pts[i][0]), toY(pts[i][1]));
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Label
+    let lx = toX(pts[pts.length-1][0]) + labelDx;
+    let ly = toY(pts[pts.length-1][1]) + labelDy;
+    ctx.fillStyle = color;
+    ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, lx, ly);
+  }
+
+  // 1. Isobaric: P = P0, V from V0 to Vf
+  let isobaric = [];
+  for (let i = 0; i <= 50; i++) {
+    let v = V0 + (Vf - V0) * i / 50;
+    isobaric.push([v, P0]);
+  }
+  drawProcess(isobaric, '#4fc3f7', 'Isobaric', 5, -5);
+
+  // 2. Isochoric: V = V0, P from P0 to P0*ratio (just a vertical line, W=0)
+  let isochoric = [];
+  let P_iso_end = P0 * ratio;
+  for (let i = 0; i <= 50; i++) {
+    let p = P0 + (P_iso_end - P0) * i / 50;
+    isochoric.push([V0, p]);
+  }
+  // For isochoric, work = 0, so no area. Just draw the line.
+  ctx.beginPath();
+  ctx.moveTo(toX(V0), toY(P0));
+  ctx.lineTo(toX(V0), toY(P_iso_end));
+  ctx.strokeStyle = '#81c784';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.fillStyle = '#81c784';
+  ctx.font = 'bold 12px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('Isochoric', toX(V0) + 5, toY(P_iso_end) - 5);
+
+  // 3. Isothermal: PV = P0*V0, V from V0 to Vf
+  let isothermal = [];
+  for (let i = 0; i <= 80; i++) {
+    let v = V0 + (Vf - V0) * i / 80;
+    let p = P0 * V0 / v;
+    isothermal.push([v, p]);
+  }
+  drawProcess(isothermal, '#ffb74d', 'Isothermal', 5, 15);
+
+  // 4. Adiabatic: PV^gamma = P0*V0^gamma, V from V0 to Vf
+  let adiabatic = [];
+  for (let i = 0; i <= 80; i++) {
+    let v = V0 + (Vf - V0) * i / 80;
+    let p = P0 * Math.pow(V0 / v, gamma);
+    adiabatic.push([v, p]);
+  }
+  drawProcess(adiabatic, '#e57373', 'Adiabatic', 5, 30);
+
+  // Initial state dot
+  ctx.beginPath();
+  ctx.arc(toX(V0), toY(P0), 5, 0, 2*Math.PI);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('(V₀, P₀)', toX(V0) + 8, toY(P0) + 18);
+
+  // Work annotations
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fillText('W = P₀ΔV', toX((V0+Vf)/2) - 20, toY(P0) + 18);
+  ctx.fillStyle = '#ffb74d';
+  ctx.fillText('W = nRT ln(Vf/Vi)', toX(V0*1.8) - 10, toY(P0*V0/(V0*1.8)) - 10);
+  ctx.fillStyle = '#e57373';
+  ctx.fillText('W = −ΔU', toX(V0*1.8) - 10, toY(P0*Math.pow(V0/(V0*1.8), gamma)) + 15);
+}
+
+document.getElementById('gamma').addEventListener('input', draw);
+document.getElementById('ratio').addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

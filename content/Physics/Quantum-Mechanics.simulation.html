@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quantum Mechanics - Double Slit Simulation</title>
+<style>
+body { margin: 0; padding: 10px; font-family: sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; margin: 5px 0; font-size: 16px; }
+.controls { display: flex; justify-content: center; gap: 15px; margin: 10px 0; flex-wrap: wrap; }
+.control { display: flex; flex-direction: column; align-items: center; }
+.control label { font-size: 11px; margin-bottom: 3px; }
+.control input { width: 100px; }
+#canvas { display: block; margin: 0 auto; border: 1px solid #333; border-radius: 4px; }
+.info { text-align: center; font-size: 12px; color: #aaa; margin-top: 8px; }
+button { padding: 5px 12px; background: #16213e; color: #eee; border: 1px solid #444; border-radius: 4px; cursor: pointer; font-size: 12px; }
+button:hover { background: #0f3460; }
+</style>
+</head>
+<body>
+<h2>Double-Slit Interference: Quantum vs Classical</h2>
+<div class="controls">
+<div class="control"><label>Slit separation (d)</label><input type="range" id="slitSep" min="2" max="20" value="8" step="0.5"></div>
+<div class="control"><label>Wavelength (λ)</label><input type="range" id="wavelength" min="1" max="10" value="4" step="0.5"></div>
+<div class="control"><label>Particles/sec</label><input type="range" id="rate" min="1" max="50" value="10" step="1"></div>
+<div class="control"><label>Mode</label><select id="mode"><option value="quantum">Quantum (interference)</option><option value="classical">Classical (no interference)</option></select></div>
+<div class="control"><label>&nbsp;</label><button id="reset">Reset</button></div>
+</div>
+<canvas id="canvas" width="700" height="350"></canvas>
+<div class="info" id="info">Click Reset to start. Quantum mode: each particle is a wave that passes through both slits and interferes with itself. Classical mode: particles go through one slit or the other (no interference).</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const slitX = 150, screenX = 600;
+let particles = [];
+let hits = new Array(H).fill(0);
+let totalHits = 0;
+let animId;
+
+function getParams() {
+  return {
+    d: parseFloat(document.getElementById('slitSep').value),
+    lambda: parseFloat(document.getElementById('wavelength').value),
+    rate: parseInt(document.getElementById('rate').value),
+    mode: document.getElementById('mode').value
+  };
+}
+
+function quantumProbability(y, d, lambda) {
+  const L = screenX - slitX;
+  const theta = (y - H/2) / L;
+  const beta = Math.PI * d * Math.sin(theta) / lambda;
+  const sinc = Math.sin(beta) / (beta || 1);
+  const envelope = Math.cos(Math.PI * (y - H/2) / (2 * L) * d / lambda);
+  return sinc * sinc * envelope * envelope;
+}
+
+function classicalProbability(y, d) {
+  const y1 = H/2 - d/2, y2 = H/2 + d/2;
+  const sigma = 8;
+  const g1 = Math.exp(-((y - y1) * (y - y1)) / (2 * sigma * sigma));
+  const g2 = Math.exp(-((y - y2) * (y - y2)) / (2 * sigma * sigma));
+  return (g1 + g2) / 2;
+}
+
+function spawnParticle() {
+  const p = getParams();
+  let y;
+  if (p.mode === 'quantum') {
+    // Rejection sampling from quantum probability
+    let attempts = 0;
+    do {
+      y = Math.random() * H;
+      attempts++;
+    } while (Math.random() > quantumProbability(y, p.d, p.lambda) * 3 && attempts < 1000);
+  } else {
+    // Classical: pick a slit, Gaussian spread
+    const slit = Math.random() < 0.5 ? -1 : 1;
+    const center = H/2 + slit * p.d / 2;
+    y = center + (Math.random() + Math.random() + Math.random() - 1.5) * 10;
+    y = Math.max(0, Math.min(H - 1, y));
+  }
+  particles.push({ x: slitX, y: y, targetY: y, speed: 3 + Math.random() * 2 });
+}
+
+function draw() {
+  const p = getParams();
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw barrier with slits
+  const d = p.d;
+  ctx.fillStyle = '#444';
+  ctx.fillRect(slitX - 3, 0, 6, H/2 - d/2);
+  ctx.fillRect(slitX - 3, H/2 + d/2, 6, H/2 - d/2);
+
+  // Draw screen
+  ctx.fillStyle = '#333';
+  ctx.fillRect(screenX, 0, 5, H);
+
+  // Draw hits on screen
+  for (let i = 0; i < H; i++) {
+    if (hits[i] > 0) {
+      const intensity = Math.min(1, hits[i] / (totalHits * 0.05 + 1));
+      ctx.fillStyle = `rgba(100, 200, 255, ${intensity})`;
+      ctx.fillRect(screenX + 5, i, 3 + intensity * 8, 1);
+    }
+  }
+
+  // Draw particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const pt = particles[i];
+    pt.x += pt.speed;
+    if (pt.x >= screenX) {
+      hits[Math.round(pt.targetY)]++;
+      totalHits++;
+      particles.splice(i, 1);
+    } else {
+      // Draw wave-like path for quantum, straight for classical
+      if (p.mode === 'quantum' && pt.x > slitX && pt.x < screenX) {
+        const progress = (pt.x - slitX) / (screenX - slitX);
+        const waveY = pt.y + Math.sin(progress * 20 + pt.x * 0.1) * 3 * (1 - progress);
+        ctx.fillStyle = 'rgba(100, 200, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(pt.x, waveY, 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(255, 200, 100, 0.8)';
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Spawn new particles
+  const rate = p.rate;
+  for (let i = 0; i < rate; i++) {
+    if (Math.random() < 0.3) spawnParticle();
+  }
+
+  // Draw theoretical curve
+  ctx.beginPath();
+  ctx.strokeStyle = p.mode === 'quantum' ? 'rgba(255, 100, 100, 0.6)' : 'rgba(255, 200, 100, 0.6)';
+  ctx.lineWidth = 1.5;
+  for (let y = 0; y < H; y++) {
+    const prob = p.mode === 'quantum' ? quantumProbability(y, p.d, p.lambda) : classicalProbability(y, p.d);
+    const x = screenX + 10 + prob * 60;
+    if (y === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#888';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('Source', 20, H/2 + 4);
+  ctx.fillText('Barrier', slitX - 15, 15);
+  ctx.fillText('Screen', screenX - 5, 15);
+  ctx.fillText(p.mode === 'quantum' ? 'Predicted pattern (red)' : 'Predicted pattern (yellow)', screenX + 15, H - 10);
+
+  animId = requestAnimationFrame(draw);
+}
+
+document.getElementById('reset').addEventListener('click', () => {
+  particles = [];
+  hits = new Array(H).fill(0);
+  totalHits = 0;
+});
+
+draw();
+</script>
+</body>
+</html>

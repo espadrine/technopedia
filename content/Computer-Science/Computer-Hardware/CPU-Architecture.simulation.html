@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CPU Pipeline and IEEE-754 Simulations</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 16px; background: #f5f5f5; color: #222; }
+h2 { margin: 16px 0 8px; font-size: 1.1em; }
+.section { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; margin-right: 8px; }
+.btn-run { background: #4285f4; color: #fff; }
+.btn-mispredict { background: #ea4335; color: #fff; }
+.btn-reset { background: #999; color: #fff; }
+.btn-step { background: #34a853; color: #fff; }
+.pipeline-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 12px; }
+.stage-header { text-align: center; font-weight: bold; padding: 6px; border-radius: 4px; color: #fff; font-size: 0.85em; }
+.stage-f { background: #4285f4; }
+.stage-d { background: #34a853; }
+.stage-e { background: #f9ab00; }
+.stage-m { background: #ea4335; }
+.stage-w { background: #9c27b0; }
+.cell { height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-size: 0.8em; font-weight: 500; background: #f0f0f0; transition: all 0.3s; }
+.cell.active-f { background: #bbdefb; color: #1565c0; }
+.cell.active-d { background: #c8e6c9; color: #2e7d32; }
+.cell.active-e { background: #fff9c4; color: #f57f17; }
+.cell.active-m { background: #ffcdd2; color: #c62828; }
+.cell.active-w { background: #e1bee7; color: #6a1b9a; }
+.cell.flushed { background: #ff8a80; color: #fff; animation: flash 0.4s; }
+@keyframes flash { 0%{opacity:1} 50%{opacity:0.3} 100%{opacity:1} }
+.status { margin-top: 10px; font-size: 0.85em; color: #555; min-height: 20px; }
+/* IEEE-754 */
+.bits-row { display: flex; gap: 2px; margin: 8px 0; flex-wrap: wrap; }
+.bit { width: 24px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 3px; cursor: pointer; font-size: 0.75em; font-weight: bold; user-select: none; transition: background 0.2s; }
+.bit-sign { background: #ffcdd2; color: #c62828; }
+.bit-sign.on { background: #ea4335; color: #fff; }
+.bit-exp { background: #fff9c4; color: #f57f17; }
+.bit-exp.on { background: #f9ab00; color: #fff; }
+.bit-mant { background: #bbdefb; color: #1565c0; }
+.bit-mant.on { background: #4285f4; color: #fff; }
+.bit-label { font-size: 0.7em; margin: 4px 0; color: #666; }
+.result { margin-top: 12px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-size: 0.9em; }
+.result .val { font-size: 1.2em; font-weight: bold; color: #1565c0; }
+.legend { display: flex; gap: 12px; margin: 6px 0; font-size: 0.75em; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 12px; height: 12px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="section">
+<h2>5-Stage Pipeline with Branch Misprediction</h2>
+<p style="font-size:0.85em;color:#555;margin-bottom:8px;">Instructions flow through Fetch → Decode → Execute → Memory → Writeback. Click "Mispredict" to trigger a branch misprediction and watch the pipeline flush.</p>
+<div>
+<button class="btn-run" onclick="startPipeline()">▶ Run</button>
+<button class="btn-step" onclick="stepPipeline()">Step</button>
+<button class="btn-mispredict" onclick="triggerMispredict()">⚡ Mispredict</button>
+<button class="btn-reset" onclick="resetPipeline()">Reset</button>
+</div>
+<div class="pipeline-grid" id="pipeHeaders">
+<div class="stage-header stage-f">Fetch</div>
+<div class="stage-header stage-d">Decode</div>
+<div class="stage-header stage-e">Execute</div>
+<div class="stage-header stage-m">Memory</div>
+<div class="stage-header stage-w">Writeback</div>
+</div>
+<div id="pipeBody" style="margin-top:4px;"></div>
+<div class="status" id="pipeStatus">Press Run or Step to begin.</div>
+</div>
+
+<div class="section">
+<h2>IEEE-754 Float32 Bit Manipulation</h2>
+<p style="font-size:0.85em;color:#555;margin-bottom:8px;">Click bits to toggle them. The resulting float32 value updates in real time.</p>
+<div class="legend">
+<span><span class="dot" style="background:#ea4335;"></span> Sign (1 bit)</span>
+<span><span class="dot" style="background:#f9ab00;"></span> Exponent (8 bits)</span>
+<span><span class="dot" style="background:#4285f4;"></span> Mantissa (23 bits)</span>
+</div>
+<div class="bit-label">Sign:</div>
+<div class="bits-row" id="signBits"></div>
+<div class="bit-label">Exponent (biased by 127):</div>
+<div class="bits-row" id="expBits"></div>
+<div class="bit-label">Mantissa (fraction):</div>
+<div class="bits-row" id="mantBits"></div>
+<div class="result" id="floatResult"></div>
+<div style="margin-top:8px;">
+<button class="btn-reset" onclick="setFloat(0)">0</button>
+<button class="btn-reset" onclick="setFloat(1)">1</button>
+<button class="btn-reset" onclick="setFloat(0.5)">0.5</button>
+<button class="btn-reset" onclick="setFloat(3.14)">π</button>
+<button class="btn-reset" onclick="setFloat(-1)">-1</button>
+<button class="btn-reset" onclick="setFloat(1e38)">1e38</button>
+</div>
+</div>
+
+<script>
+// === Pipeline Simulation ===
+const STAGES = ['F','D','E','M','W'];
+const STAGE_CLASSES = ['active-f','active-d','active-e','active-m','active-w'];
+let pipe = []; // array of {id, stage} where stage is 0-4, -1 means done
+let nextId = 1;
+let running = false;
+let timer = null;
+let mispredictPending = false;
+let flushCount = 0;
+
+function createPipeBody() {
+  const body = document.getElementById('pipeBody');
+  body.innerHTML = '';
+  for (let r = 0; r < 5; r++) {
+    const row = document.createElement('div');
+    row.className = 'pipeline-grid';
+    row.id = 'pipeRow' + r;
+    for (let c = 0; c < 5; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.id = 'cell-' + r + '-' + c;
+      row.appendChild(cell);
+    }
+    body.appendChild(row);
+  }
+}
+
+function renderPipe() {
+  // Clear all cells
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 5; c++) {
+      const cell = document.getElementById('cell-' + r + '-' + c);
+      cell.className = 'cell';
+      cell.textContent = '';
+    }
+  // Place instructions
+  pipe.forEach(inst => {
+    if (inst.stage >= 0 && inst.stage < 5) {
+      const row = 4 - inst.stage; // stage 0 (F) at bottom, stage 4 (W) at top
+      const cell = document.getElementById('cell-' + row + '-' + inst.stage);
+      cell.textContent = 'I' + inst.id;
+      cell.className = 'cell ' + STAGE_CLASSES[inst.stage];
+    }
+  });
+}
+
+function stepPipeline() {
+  if (mispredictPending) {
+    // Flush: remove all instructions except the one that just branched
+    pipe = pipe.filter(inst => inst.id === pipe[pipe.length-1].id);
+    pipe.forEach(inst => inst.stage = -1); // all flushed
+    flushCount++;
+    mispredictPending = false;
+    document.getElementById('pipeStatus').textContent = '⚡ Misprediction! Pipeline flushed (' + flushCount + ' total). Refetching from correct target...';
+    renderPipe();
+    return;
+  }
+  // Advance all instructions
+  pipe.forEach(inst => { if (inst.stage >= 0) inst.stage++; });
+  // Remove completed
+  pipe = pipe.filter(inst => inst.stage < 5);
+  // Add new instruction if pipeline not full
+  if (pipe.length < 5) {
+    pipe.push({ id: nextId++, stage: 0 });
+  }
+  renderPipe();
+  document.getElementById('pipeStatus').textContent = 'Cycle ' + nextId + ' — ' + pipe.length + ' instructions in flight.';
+}
+
+function startPipeline() {
+  if (running) { stopPipeline(); return; }
+  running = true;
+  document.querySelector('.btn-run').textContent = '⏸ Pause';
+  timer = setInterval(stepPipeline, 600);
+}
+
+function stopPipeline() {
+  running = false;
+  document.querySelector('.btn-run').textContent = '▶ Run';
+  clearInterval(timer);
+}
+
+function triggerMispredict() {
+  if (pipe.length === 0) { document.getElementById('pipeStatus').textContent = 'Pipeline is empty. Run first.'; return; }
+  mispredictPending = true;
+  if (running) { stepPipeline(); }
+  else { stepPipeline(); }
+}
+
+function resetPipeline() {
+  stopPipeline();
+  pipe = [];
+  nextId = 1;
+  mispredictPending = false;
+  flushCount = 0;
+  renderPipe();
+  document.getElementById('pipeStatus').textContent = 'Reset. Press Run or Step to begin.';
+}
+
+createPipeBody();
+
+// === IEEE-754 Widget ===
+let signBit = 0;
+let expBits = new Array(8).fill(0);
+let mantBits = new Array(23).fill(0);
+
+function buildBits() {
+  // Sign
+  const signDiv = document.getElementById('signBits');
+  signDiv.innerHTML = '';
+  const sb = document.createElement('div');
+  sb.className = 'bit bit-sign' + (signBit ? ' on' : '');
+  sb.textContent = signBit;
+  sb.onclick = () => { signBit ^= 1; buildBits(); updateResult(); };
+  signDiv.appendChild(sb);
+
+  // Exponent
+  const expDiv = document.getElementById('expBits');
+  expDiv.innerHTML = '';
+  expBits.forEach((b, i) => {
+    const el = document.createElement('div');
+    el.className = 'bit bit-exp' + (b ? ' on' : '');
+    el.textContent = b;
+    el.onclick = () => { expBits[i] ^= 1; buildBits(); updateResult(); };
+    expDiv.appendChild(el);
+  });
+
+  // Mantissa
+  const mantDiv = document.getElementById('mantBits');
+  mantDiv.innerHTML = '';
+  mantBits.forEach((b, i) => {
+    const el = document.createElement('div');
+    el.className = 'bit bit-mant' + (b ? ' on' : '');
+    el.textContent = b;
+    el.onclick = () => { mantBits[i] ^= 1; buildBits(); updateResult(); };
+    mantDiv.appendChild(el);
+  });
+}
+
+function computeFloat() {
+  const s = signBit;
+  const e = expBits.reduce((acc, b, i) => acc + b * Math.pow(2, 7 - i), 0);
+  const m = mantBits.reduce((acc, b, i) => acc + b * Math.pow(2, -1 - i), 0);
+
+  if (e === 0) {
+    if (m === 0) return s === 1 ? -0 : 0;
+    // Denormal
+    return (s === 1 ? -1 : 1) * Math.pow(2, -126) * m;
+  }
+  if (e === 255) {
+    if (m === 0) return s === 1 ? -Infinity : Infinity;
+    return NaN;
+  }
+  return (s === 1 ? -1 : 1) * Math.pow(2, e - 127) * (1 + m);
+}
+
+function updateResult() {
+  const val = computeFloat();
+  const e = expBits.reduce((acc, b, i) => acc + b * Math.pow(2, 7 - i), 0);
+  const m = mantBits.reduce((acc, b, i) => acc + b * Math.pow(2, -1 - i), 0);
+  let display;
+  if (isNaN(val)) display = 'NaN';
+  else if (val === Infinity) display = '+∞';
+  else if (val === -Infinity) display = '-∞';
+  else if (val === 0) display = (signBit ? '-0' : '+0');
+  else if (Math.abs(val) < 1e-10 || Math.abs(val) > 1e15) display = val.toExponential(6);
+  else display = val.toPrecision(10);
+
+  let type;
+  if (e === 0 && m === 0) type = 'Zero';
+  else if (e === 0) type = 'Denormal';
+  else if (e === 255 && m === 0) type = 'Infinity';
+  else if (e === 255) type = 'NaN';
+  else type = 'Normal';
+
+  document.getElementById('floatResult').innerHTML =
+    '<div class="val">' + display + '</div>' +
+    '<div>Exponent (biased): ' + e + ' → actual: ' + (e === 0 ? '-126' : (e === 255 ? '∞' : (e - 127))) + '</div>' +
+    '<div>Mantissa value: ' + (1 + m).toPrecision(10) + ' (1.' + mantBits.map(b=>b).join('') + '...)</div>' +
+    '<div>Type: ' + type + '</div>';
+}
+
+function setFloat(val) {
+  const buf = new ArrayBuffer(4);
+  new Float32Array(buf)[0] = val;
+  const bytes = new Uint8Array(buf);
+  const uint = new Uint32Array(buf)[0];
+  const bits = uint.toString(2).padStart(32, '0');
+  signBit = parseInt(bits[0]);
+  expBits = bits.slice(1, 9).split('').map(Number);
+  mantBits = bits.slice(9, 32).split('').map(Number);
+  buildBits();
+  updateResult();
+}
+
+buildBits();
+updateResult();
+</script>
+</body>
+</html>

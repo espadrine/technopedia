@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Water Phase Diagram</title>
+<style>
+body { font-family: sans-serif; margin: 10px; background: #1a1a2e; color: #eee; }
+canvas { border: 1px solid #444; cursor: crosshair; }
+#info { margin-top: 10px; padding: 10px; background: #16213e; border-radius: 4px; min-height: 60px; }
+#info .phase { font-size: 1.2em; font-weight: bold; }
+#info .phase.solid { color: #74b9ff; }
+#info .phase.liquid { color: #0984e3; }
+#info .phase.vapor { color: #dfe6e9; }
+#info .phase.two-phase { color: #fdcb6e; }
+#info .phase.triple { color: #e17055; }
+#info .phase.critical { color: #e84393; }
+</style>
+</head>
+<body>
+<h3>Water P–T Phase Diagram</h3>
+<p>Click or drag on the diagram to explore. The stable phase (lowest Gibbs free energy) is highlighted.</p>
+<canvas id="c" width="700" height="500"></canvas>
+<div id="info">Click on the diagram to see phase information.</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Physical constants for water
+const T_triple = 273.16, P_triple = 611.657; // K, Pa
+const T_crit = 647.096, P_crit = 22.064e6; // K, Pa
+const T_max = 700, P_max = 25e6;
+
+// Mapping functions
+function tx(T) { return 60 + (T - 250) / (T_max - 250) * (W - 100); }
+function py(P) { return H - 40 - (P / P_max) * (H - 80); }
+function invTx(x) { return 250 + (x - 60) / (W - 100) * (T_max - 250); }
+function invPy(y) { return (H - 40 - y) / (H - 80) * P_max; }
+
+// Phase boundary functions
+// Solid-liquid: nearly vertical, slight negative slope for water
+function P_solid_liquid(T) {
+  // Water: melting point decreases slightly with pressure
+  // At 1 atm: 273.15 K, at 200 MPa: ~251 K
+  return P_triple + (T - T_triple) * (-200e6 / (273.16 - 251));
+}
+// Liquid-vapor: Clausius-Clapeyron approximation
+function P_liquid_vapor(T) {
+  if (T >= T_crit) return P_crit;
+  // Use Antoine-like fit for water vapor pressure
+  const A = 7.38765, B = 1730.63, C = 233.426; // mmHg, degC
+  const Tc = T - 273.15;
+  if (Tc < 1 || Tc > 373) {
+    // Use Clausius-Clapeyron: P = P_triple * exp(-L/R * (1/T - 1/T_triple))
+    const L = 45050; // J/mol (approximate)
+    const R = 8.314;
+    return P_triple * Math.exp(-L/R * (1/T - 1/T_triple));
+  }
+  const P_mmHg = Math.pow(10, A - B/(C + Tc));
+  return P_mmHg * 133.322;
+}
+// Solid-vapor: sublimation curve
+function P_solid_vapor(T) {
+  if (T >= T_triple) return P_triple;
+  const L_sub = 51000; // J/mol
+  const R = 8.314;
+  return P_triple * Math.exp(-L_sub/R * (1/T - 1/T_triple));
+}
+
+// Determine phase at (T, P)
+function getPhase(T, P) {
+  if (Math.abs(T - T_triple) < 2 && Math.abs(P - P_triple) / P_triple < 0.1) return 'triple';
+  if (Math.abs(T - T_crit) < 5 && Math.abs(P - P_crit) / P_crit < 0.1) return 'critical';
+  
+  const P_sl = P_solid_liquid(T);
+  const P_lv = P_liquid_vapor(T);
+  const P_sv = P_solid_vapor(T);
+  
+  if (T < T_triple) {
+    if (P > P_sv) return 'solid';
+    else return 'vapor';
+  } else if (T < T_crit) {
+    if (P > P_lv) {
+      if (T < 273.16 && P > P_sl) return 'solid';
+      return 'liquid';
+    } else {
+      return 'vapor';
+    }
+  } else {
+    return 'supercritical';
+  }
+}
+
+function getPhasesAt(T, P) {
+  const phases = [];
+  const P_sl = P_solid_liquid(T);
+  const P_lv = P_liquid_vapor(T);
+  const P_sv = P_solid_vapor(T);
+  
+  if (T < T_triple) {
+    if (Math.abs(P - P_sv) / Math.max(P_sv, 1) < 0.05) { phases.push('solid'); phases.push('vapor'); }
+    else if (P > P_sv) phases.push('solid');
+    else phases.push('vapor');
+  } else if (T < T_crit) {
+    if (Math.abs(P - P_lv) / Math.max(P_lv, 1) < 0.05) { phases.push('liquid'); phases.push('vapor'); }
+    else if (P > P_lv) {
+      if (T < 273.16 && Math.abs(P - P_sl) / Math.max(P_sl, 1) < 0.05) { phases.push('solid'); phases.push('liquid'); }
+      else phases.push('liquid');
+    } else phases.push('vapor');
+  } else {
+    phases.push('supercritical');
+  }
+  return phases;
+}
+
+let mousePos = null;
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  
+  // Background regions
+  // Solid region (left of melting curve, above sublimation)
+  ctx.fillStyle = 'rgba(116, 185, 255, 0.15)';
+  ctx.beginPath();
+  ctx.moveTo(tx(250), py(0));
+  for (let T = 250; T <= T_triple; T += 1) ctx.lineTo(tx(T), py(P_solid_vapor(T)));
+  for (let T = T_triple; T <= 320; T += 1) ctx.lineTo(tx(T), py(P_solid_liquid(T)));
+  ctx.lineTo(tx(320), py(P_max));
+  ctx.lineTo(tx(250), py(P_max));
+  ctx.closePath();
+  ctx.fill();
+  
+  // Liquid region
+  ctx.fillStyle = 'rgba(9, 132, 227, 0.15)';
+  ctx.beginPath();
+  ctx.moveTo(tx(273.16), py(P_triple));
+  for (let T = 273.16; T <= T_crit; T += 1) ctx.lineTo(tx(T), py(P_liquid_vapor(T)));
+  ctx.lineTo(tx(T_crit), py(P_max));
+  for (let T = T_crit; T >= 320; T -= 1) ctx.lineTo(tx(T), py(P_solid_liquid(T)));
+  ctx.lineTo(tx(273.16), py(P_triple));
+  ctx.closePath();
+  ctx.fill();
+  
+  // Vapor region
+  ctx.fillStyle = 'rgba(223, 230, 233, 0.08)';
+  ctx.beginPath();
+  ctx.moveTo(tx(250), py(0));
+  for (let T = 250; T <= T_triple; T += 1) ctx.lineTo(tx(T), py(P_solid_vapor(T)));
+  for (let T = T_triple; T <= T_crit; T += 1) ctx.lineTo(tx(T), py(P_liquid_vapor(T)));
+  ctx.lineTo(tx(T_max), py(P_liquid_vapor(T_max)));
+  ctx.lineTo(tx(T_max), py(0));
+  ctx.closePath();
+  ctx.fill();
+  
+  // Phase boundaries
+  ctx.lineWidth = 2;
+  
+  // Solid-liquid
+  ctx.strokeStyle = '#74b9ff';
+  ctx.beginPath();
+  ctx.moveTo(tx(T_triple), py(P_triple));
+  for (let T = T_triple; T <= 320; T += 0.5) ctx.lineTo(tx(T), py(Math.min(P_solid_liquid(T), P_max)));
+  ctx.stroke();
+  
+  // Liquid-vapor
+  ctx.strokeStyle = '#0984e3';
+  ctx.beginPath();
+  ctx.moveTo(tx(T_triple), py(P_triple));
+  for (let T = T_triple; T <= T_crit; T += 0.5) ctx.lineTo(tx(T), py(P_liquid_vapor(T)));
+  ctx.stroke();
+  
+  // Solid-vapor
+  ctx.strokeStyle = '#dfe6e9';
+  ctx.beginPath();
+  ctx.moveTo(tx(250), py(P_solid_vapor(250)));
+  for (let T = 250; T <= T_triple; T += 0.5) ctx.lineTo(tx(T), py(P_solid_vapor(T)));
+  ctx.stroke();
+  
+  // Triple point
+  ctx.fillStyle = '#e17055';
+  ctx.beginPath();
+  ctx.arc(tx(T_triple), py(P_triple), 6, 0, 2*Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Triple point', tx(T_triple) + 8, py(P_triple) - 5);
+  ctx.fillText('(273.16 K, 611.7 Pa)', tx(T_triple) + 8, py(P_triple) + 8);
+  
+  // Critical point
+  ctx.fillStyle = '#e84393';
+  ctx.beginPath();
+  ctx.arc(tx(T_crit), py(P_crit), 6, 0, 2*Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.fillText('Critical point', tx(T_crit) - 80, py(P_crit) - 10);
+  ctx.fillText('(647.1 K, 22.06 MPa)', tx(T_crit) - 80, py(P_crit) + 4);
+  
+  // Labels
+  ctx.fillStyle = '#74b9ff';
+  ctx.font = 'bold 14px sans-serif';
+  ctx.fillText('SOLID', tx(260), py(10e6));
+  ctx.fillStyle = '#0984e3';
+  ctx.fillText('LIQUID', tx(450), py(10e6));
+  ctx.fillStyle = '#dfe6e9';
+  ctx.fillText('VAPOR', tx(500), py(1e5));
+  
+  // Axes
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(60, H - 40);
+  ctx.lineTo(W - 40, H - 40);
+  ctx.moveTo(60, H - 40);
+  ctx.lineTo(60, 30);
+  ctx.stroke();
+  
+  // Axis labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('T (K)', W - 80, H - 20);
+  ctx.save();
+  ctx.translate(20, H/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('P (Pa)', -30, 0);
+  ctx.restore();
+  
+  // Tick marks
+  for (let T = 250; T <= T_max; T += 50) {
+    ctx.fillText(T.toString(), tx(T) - 10, H - 25);
+  }
+  for (let P = 0; P <= P_max; P += 5e6) {
+    const label = P === 0 ? '0' : (P/1e6).toFixed(0) + ' MPa';
+    ctx.fillText(label, 62, py(P) + 4);
+  }
+  
+  // Mouse point
+  if (mousePos) {
+    const T = invTx(mousePos.x);
+    const P = invPy(mousePos.y);
+    if (T >= 250 && T <= T_max && P >= 0 && P <= P_max) {
+      ctx.fillStyle = '#fdcb6e';
+      ctx.beginPath();
+      ctx.arc(mousePos.x, mousePos.y, 5, 0, 2*Math.PI);
+      ctx.fill();
+      
+      const phase = getPhase(T, P);
+      const phases = getPhasesAt(T, P);
+      const nPhases = phases.length;
+      const C = 1; // pure substance
+      const F = C - nPhases + 2;
+      
+      let phaseClass = phase;
+      let phaseText = phase.charAt(0).toUpperCase() + phase.slice(1);
+      if (nPhases > 1) { phaseClass = 'two-phase'; phaseText = phases.join(' + ') + ' (coexistence)'; }
+      
+      // Clapeyron slope of nearest boundary
+      let slope = '';
+      if (T < T_triple) {
+        const L_sub = 51000, R = 8.314;
+        slope = 'dP/dT ≈ ' + (P_solid_vapor(T) * L_sub / (R * T * T)).toExponential(2) + ' Pa/K (sublimation)';
+      } else if (T < T_crit) {
+        const L_vap = 45050, R = 8.314;
+        slope = 'dP/dT ≈ ' + (P_liquid_vapor(T) * L_vap / (R * T * T)).toExponential(2) + ' Pa/K (vaporization)';
+      }
+      
+      document.getElementById('info').innerHTML = 
+        '<span class="phase ' + phaseClass + '">' + phaseText + '</span><br>' +
+        'T = ' + T.toFixed(1) + ' K, P = ' + (P/1e6).toFixed(3) + ' MPa<br>' +
+        'Phase rule: F = C − P + 2 = ' + C + ' − ' + nPhases + ' + 2 = <b>' + F + '</b> degree(s) of freedom' +
+        (slope ? '<br>' + slope : '');
+    }
+  }
+}
+
+canvas.addEventListener('mousemove', function(e) {
+  const rect = canvas.getBoundingClientRect();
+  mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  draw();
+});
+canvas.addEventListener('mouseleave', function() {
+  mousePos = null;
+  document.getElementById('info').textContent = 'Click on the diagram to see phase information.';
+  draw();
+});
+
+draw();
+</script>
+</body>
+</html>

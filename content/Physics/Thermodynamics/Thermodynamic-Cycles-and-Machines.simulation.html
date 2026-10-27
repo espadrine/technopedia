@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thermodynamic Cycles — Interactive P-V and T-S Diagrams</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 10px; background: #f5f5f5; }
+h2 { text-align: center; margin: 8px 0; }
+.controls { text-align: center; margin: 10px 0; }
+.controls button { margin: 3px; padding: 6px 14px; border: 1px solid #999; border-radius: 4px; cursor: pointer; background: #fff; }
+.controls button.active { background: #333; color: #fff; }
+.sliders { text-align: center; margin: 8px 0; }
+.sliders label { margin: 0 12px; font-size: 13px; }
+.sliders input[type=range] { width: 120px; vertical-align: middle; }
+.canvas-wrap { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+canvas { background: #fff; border: 1px solid #ccc; border-radius: 4px; }
+.info { text-align: center; font-size: 13px; margin-top: 6px; color: #444; }
+</style>
+</head>
+<body>
+<h2>Thermodynamic Cycles: P-V and T-S Diagrams</h2>
+<div class="controls" id="cycleBtns"></div>
+<div class="sliders" id="sliders"></div>
+<div class="canvas-wrap">
+<canvas id="pvCanvas" width="420" height="340"></canvas>
+<canvas id="tsCanvas" width="420" height="340"></canvas>
+</div>
+<div class="info" id="info"></div>
+<script>
+(function(){
+const cycles = ['Carnot','Otto','Diesel','Brayton','Rankine','Stirling'];
+let current = 'Carnot';
+const params = { r: 8, rp: 8, rho: 2, TH: 600, TC: 300 };
+const gamma = 1.4;
+
+// Build buttons
+const btnDiv = document.getElementById('cycleBtns');
+cycles.forEach(c => {
+  const b = document.createElement('button');
+  b.textContent = c;
+  b.onclick = () => { current = c; update(); };
+  btnDiv.appendChild(b);
+});
+
+// Build sliders
+const slDiv = document.getElementById('sliders');
+function addSlider(label, key, min, max, step, val) {
+  const lbl = document.createElement('label');
+  lbl.innerHTML = label + ' = <span id="val_'+key+'">' + val + '</span> ';
+  const inp = document.createElement('input');
+  inp.type = 'range'; inp.min = min; inp.max = max; inp.step = step; inp.value = val;
+  inp.oninput = () => { params[key] = parseFloat(inp.value); document.getElementById('val_'+key).textContent = inp.value; update(); };
+  lbl.appendChild(inp);
+  slDiv.appendChild(lbl);
+}
+addSlider('r (compression)', 'r', 2, 25, 0.5, 8);
+addSlider('r_p (pressure)', 'rp', 2, 30, 0.5, 8);
+addSlider('ρ (cutoff)', 'rho', 1.2, 5, 0.1, 2);
+
+function update() {
+  // Highlight active button
+  const btns = btnDiv.querySelectorAll('button');
+  btns.forEach((b,i) => b.classList.toggle('active', cycles[i] === current));
+  drawPV();
+  drawTS();
+  updateInfo();
+}
+
+function drawPV() {
+  const cv = document.getElementById('pvCanvas');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // Axes
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(50, 300); ctx.lineTo(400, 300); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(50, 300); ctx.lineTo(50, 20); ctx.stroke();
+  ctx.fillStyle = '#333'; ctx.font = '13px sans-serif';
+  ctx.fillText('V', 410, 305);
+  ctx.fillText('P', 30, 15);
+  // Arrow heads
+  ctx.beginPath(); ctx.moveTo(400,300); ctx.lineTo(393,297); ctx.lineTo(393,303); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(50,20); ctx.lineTo(47,27); ctx.lineTo(53,27); ctx.fill();
+
+  const pts = getCyclePV();
+  if(pts.length < 2) return;
+  // Find bounds
+  let vmin=Infinity,vmax=-Infinity,pmin=Infinity,pmax=-Infinity;
+  pts.forEach(p => { vmin=Math.min(vmin,p[0]); vmax=Math.max(vmax,p[0]); pmin=Math.min(pmin,p[1]); pmax=Math.max(pmax,p[1]); });
+  const pad = 0.1;
+  vmin -= (vmax-vmin)*pad; vmax += (vmax-vmin)*pad;
+  pmin -= (pmax-pmin)*pad; pmax += (pmax-pmin)*pad;
+  function toX(v){ return 50 + (v-vmin)/(vmax-vmin)*340; }
+  function toY(p){ return 300 - (p-pmin)/(pmax-pmin)*270; }
+
+  // Draw path
+  ctx.strokeStyle = '#2266cc'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(toX(pts[0][0]), toY(pts[0][1]));
+  for(let i=1;i<pts.length;i++) ctx.lineTo(toX(pts[i][0]), toY(pts[i][1]));
+  ctx.closePath(); ctx.stroke();
+
+  // Label points
+  ctx.fillStyle = '#c00'; ctx.font = 'bold 12px sans-serif';
+  const labels = ['1','2','3','4'];
+  for(let i=0;i<Math.min(4,pts.length);i++){
+    const px = toX(pts[i][0]), py = toY(pts[i][1]);
+    ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+    ctx.fillText(labels[i], px+6, py-6);
+  }
+}
+
+function drawTS() {
+  const cv = document.getElementById('tsCanvas');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(50, 300); ctx.lineTo(400, 300); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(50, 300); ctx.lineTo(50, 20); ctx.stroke();
+  ctx.fillStyle = '#333'; ctx.font = '13px sans-serif';
+  ctx.fillText('S', 410, 305);
+  ctx.fillText('T', 30, 15);
+  ctx.beginPath(); ctx.moveTo(400,300); ctx.lineTo(393,297); ctx.lineTo(393,303); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(50,20); ctx.lineTo(47,27); ctx.lineTo(53,27); ctx.fill();
+
+  const pts = getCycleTS();
+  if(pts.length < 2) return;
+  let smin=Infinity,smax=-Infinity,tmin=Infinity,tmax=-Infinity;
+  pts.forEach(p => { smin=Math.min(smin,p[0]); smax=Math.max(smax,p[0]); tmin=Math.min(tmin,p[1]); tmax=Math.max(tmax,p[1]); });
+  const pad = 0.1;
+  smin -= (smax-smin)*pad; smax += (smax-smin)*pad;
+  tmin -= (tmax-tmin)*pad; tmax += (tmax-tmin)*pad;
+  function toX(s){ return 50 + (s-smin)/(smax-smin)*340; }
+  function toY(t){ return 300 - (t-tmin)/(tmax-tmin)*270; }
+
+  ctx.strokeStyle = '#2266cc'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(toX(pts[0][0]), toY(pts[0][1]));
+  for(let i=1;i<pts.length;i++) ctx.lineTo(toX(pts[i][0]), toY(pts[i][1]));
+  ctx.closePath(); ctx.stroke();
+
+  ctx.fillStyle = '#c00'; ctx.font = 'bold 12px sans-serif';
+  const labels = ['1','2','3','4'];
+  for(let i=0;i<Math.min(4,pts.length);i++){
+    const px = toX(pts[i][0]), py = toY(pts[i][1]);
+    ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+    ctx.fillText(labels[i], px+6, py-6);
+  }
+}
+
+function getCyclePV() {
+  const r = params.r, rp = params.rp, rho = params.rho;
+  const TH = params.TH, TC = params.TC;
+  // Normalize: set V1=1, P1=1 as reference
+  switch(current) {
+    case 'Carnot': {
+      // Isotherms: P = T/V (normalized), Adiabats: PV^γ = const
+      const V1 = 1, P1 = TC/V1;
+      const V2 = V1 * Math.pow(TH/TC, 1/(gamma-1)); // adiabatic from 1 to 2 at TH
+      const P2 = TH/V2;
+      const V3 = V2 * Math.pow(TH/TC, 1/(gamma-1)); // adiabatic from 2 to 3 at TC
+      const P3 = TC/V3;
+      const V4 = V1, P4 = P1;
+      // Generate smooth curves
+      const pts = [];
+      // 1->2 isothermal at TH
+      for(let i=0;i<=30;i++){ const v=V1+(V2-V1)*i/30; pts.push([v, TH/v]); }
+      // 2->3 adiabatic
+      for(let i=1;i<=30;i++){ const v=V2+(V3-V2)*i/30; pts.push([v, P2*Math.pow(V2/v,gamma)]); }
+      // 3->4 isothermal at TC
+      for(let i=1;i<=30;i++){ const v=V3+(V4-V3)*i/30; pts.push([v, TC/v]); }
+      // 4->1 adiabatic
+      for(let i=1;i<=30;i++){ const v=V4+(V1-V4)*i/30; if(v>0) pts.push([v, P4*Math.pow(V4/v,gamma)]); }
+      return pts;
+    }
+    case 'Otto': {
+      const V1=1, P1=1;
+      const V2=1/r, P2=P1*Math.pow(r,gamma);
+      const T2=T1*r**(gamma-1); // T1=300
+      const T3=T2*2.5; // heat addition
+      const P3=P2*(T3/T2);
+      const V3=V2;
+      const T4=T3/Math.pow(r,gamma-1);
+      const P4=P3/Math.pow(r,gamma);
+      const V4=V1;
+      const pts=[];
+      // 1->2 isentropic
+      for(let i=0;i<=30;i++){ const v=V1+(V2-V1)*i/30; pts.push([v, P1*Math.pow(V1/v,gamma)]); }
+      // 2->3 const V
+      for(let i=1;i<=10;i++){ pts.push([V2, P2+(P3-P2)*i/10]); }
+      // 3->4 isentropic
+      for(let i=1;i<=30;i++){ const v=V3+(V4-V3)*i/30; pts.push([v, P3*Math.pow(V3/v,gamma)]); }
+      // 4->1 const V
+      for(let i=1;i<=10;i++){ pts.push([V4, P4+(P1-P4)*i/10]); }
+      return pts;
+    }
+    case 'Diesel': {
+      const V1=1, P1=1;
+      const V2=1/r, P2=P1*Math.pow(r,gamma);
+      const V3=V2*rho, P3=P2;
+      const T2=300*r**(gamma-1);
+      const T3=T2*rho;
+      const T4=T3/Math.pow(r,gamma-1);
+      const P4=P3*Math.pow(V3/V4,gamma);
+      const pts=[];
+      for(let i=0;i<=30;i++){ const v=V1+(V2-V1)*i/30; pts.push([v, P1*Math.pow(V1/v,gamma)]); }
+      for(let i=1;i<=10;i++){ pts.push([V2+(V3-V2)*i/10, P2]); }
+      for(let i=1;i<=30;i++){ const v=V3+(V1-V3)*i/30; pts.push([v, P3*Math.pow(V3/v,gamma)]); }
+      for(let i=1;i<=10;i++){ pts.push([V1, P4+(P1-P4)*i/10]); }
+      return pts;
+    }
+    case 'Brayton': {
+      const P1=1, T1=300;
+      const P2=P1*rp;
+      const T2=T1*Math.pow(rp,(gamma-1)/gamma);
+      const T3=T2*2.5;
+      const P3=P2;
+      const T4=T3/Math.pow(rp,(gamma-1)/gamma);
+      const P4=P1;
+      // V = T/P (normalized)
+      const V1=T1/P1, V2=T2/P2, V3=T3/P3, V4=T4/P4;
+      const pts=[];
+      for(let i=0;i<=30;i++){ const t=T1+(T2-T1)*i/30; const p=P1*Math.pow(rp,(gamma-1)/gamma*(i/30)); const v=t/p; pts.push([v,p]); }
+      for(let i=1;i<=10;i++){ const t=T2+(T3-T2)*i/10; pts.push([t/P2, P2]); }
+      for(let i=1;i<=30;i++){ const t=T3+(T4-T3)*i/30; const p=P2*Math.pow(1/rp,(gamma-1)/gamma*(i/30)); const v=t/p; pts.push([v,p]); }
+      for(let i=1;i<=10;i++){ const t=T4+(T1-T4)*i/10; pts.push([t/P1, P1]); }
+      return pts;
+    }
+    case 'Rankine': {
+      // Simplified: use a qualitative shape
+      const pts=[];
+      // 1->2 pump (tiny)
+      pts.push([0.1, 1]); pts.push([0.12, 8]);
+      // 2->3 boiler (curve up)
+      for(let i=1;i<=30;i++){ const t=i/30; pts.push([0.12+2.5*t*t, 8+12*t]); }
+      // 3->4 turbine (curve down)
+      for(let i=1;i<=30;i++){ const t=i/30; pts.push([2.62+1.5*t, 20-15*t*t]); }
+      // 4->1 condenser (curve left-down)
+      for(let i=1;i<=30;i++){ const t=i/30; pts.push([4.12-4*t*t, 5-4*t]); }
+      return pts;
+    }
+    case 'Stirling': {
+      const V1=1, P1=TC/V1;
+      const V2=1.8, P2=TH/V2;
+      const P3=TC/V2;
+      const P4=TC/V1;
+      const pts=[];
+      // 1->2 isothermal at TH
+      for(let i=0;i<=30;i++){ const v=V1+(V2-V1)*i/30; pts.push([v, TH/v]); }
+      // 2->3 isochoric
+      for(let i=1;i<=10;i++){ pts.push([V2, TH-(TH-TC)*i/10]); }
+      // 3->4 isothermal at TC
+      for(let i=1;i<=30;i++){ const v=V2+(V1-V2)*i/30; pts.push([v, TC/v]); }
+      // 4->1 isochoric
+      for(let i=1;i<=10;i++){ pts.push([V1, TC+(P1-TC)*i/10]); }
+      return pts;
+    }
+  }
+  return [];
+}
+
+function getCycleTS() {
+  const r = params.r, rp = params.rp, rho = params.rho;
+  const TH = params.TH, TC = params.TC;
+  const T1 = 300;
+  switch(current) {
+    case 'Carnot': {
+      const s1=1, s2=2.5, s3=2.5, s4=1;
+      const pts=[];
+      for(let i=0;i<=20;i++) pts.push([s1+(s2-s1)*i/20, TH]);
+      for(let i=1;i<=10;i++) pts.push([s2, TH-(TH-TC)*i/10]);
+      for(let i=1;i<=20;i++) pts.push([s2+(s4-s2)*i/20, TC]);
+      for(let i=1;i<=10;i++) pts.push([s4, TC+(TH-TC)*i/10]);
+      return pts;
+    }
+    case 'Otto': {
+      const T2=T1*Math.pow(r,gamma-1);
+      const T3=T2*2.5;
+      const T4=T3/Math.pow(r,gamma-1);
+      const s1=1;
+      const s2=s1; // isentropic
+      const s3=s2+0.8; // const V heat in
+      const s4=s3; // isentropic
+      const pts=[];
+      for(let i=0;i<=10;i++) pts.push([s1, T1+(T2-T1)*i/10]);
+      for(let i=1;i<=20;i++){ const t=T2+(T3-T2)*i/20; pts.push([s2+(s3-s2)*i/20, t]); }
+      for(let i=1;i<=10;i++) pts.push([s3, T3-(T3-T4)*i/10]);
+      for(let i=1;i<=20;i++){ const t=T4-(T4-T1)*i/20; pts.push([s3-(s3-s1)*i/20, t]); }
+      return pts;
+    }
+    case 'Diesel': {
+      const T2=T1*Math.pow(r,gamma-1);
+      const T3=T2*rho;
+      const T4=T3/Math.pow(r,gamma-1);
+      const s1=1, s2=s1;
+      const s3=s2+1.0;
+      const s4=s3;
+      const pts=[];
+      for(let i=0;i<=10;i++) pts.push([s1, T1+(T2-T1)*i/10]);
+      for(let i=1;i<=20;i++){ const t=T2+(T3-T2)*i/20; pts.push([s2+(s3-s2)*i/20, t]); }
+      for(let i=1;i<=10;i++) pts.push([s3, T3-(T3-T4)*i/10]);
+      for(let i=1;i<=20;i++){ const t=T4-(T4-T1)*i/20; pts.push([s3-(s3-s1)*i/20, t]); }
+      return pts;
+    }
+    case 'Brayton': {
+      const T2=T1*Math.pow(rp,(gamma-1)/gamma);
+      const T3=T2*2.5;
+      const T4=T3/Math.pow(rp,(gamma-1)/gamma);
+      const s1=1, s2=s1;
+      const s3=s2+1.2;
+      const s4=s3;
+      const pts=[];
+      for(let i=0;i<=10;i++) pts.push([s1, T1+(T2-T1)*i/10]);
+      for(let i=1;i<=20;i++){ const t=T2+(T3-T2)*i/20; pts.push([s2+(s3-s2)*i/20, t]); }
+      for(let i=1;i<=10;i++) pts.push([s3, T3-(T3-T4)*i/10]);
+      for(let i=1;i<=20;i++){ const t=T4-(T4-T1)*i/20; pts.push([s3-(s3-s1)*i/20, t]); }
+      return pts;
+    }
+    case 'Rankine': {
+      const pts=[];
+      // Simplified qualitative T-S
+      pts.push([1, 300]); pts.push([1.05, 310]);
+      for(let i=1;i<=30;i++){ const t=i/30; pts.push([1.05+2*t, 310+400*t]); }
+      for(let i=1;i<=30;i++){ const t=i/30; pts.push([3.05+1.5*t, 710-400*t*t]); }
+      for(let i=1;i<=30;i++){ const t=i/30; pts.push([4.55-3.5*t*t, 310-10*t]); }
+      return pts;
+    }
+    case 'Stirling': {
+      const s1=1, s2=2.5;
+      const pts=[];
+      for(let i=0;i<=20;i++) pts.push([s1+(s2-s1)*i/20, TH]);
+      for(let i=1;i<=10;i++) pts.push([s2, TH-(TH-TC)*i/10]);
+      for(let i=1;i<=20;i++) pts.push([s2+(s1-s2)*i/20, TC]);
+      for(let i=1;i<=10;i++) pts.push([s1, TC+(TH-TC)*i/10]);
+      return pts;
+    }
+  }
+  return [];
+}
+
+function updateInfo() {
+  const el = document.getElementById('info');
+  let eta = '';
+  const r = params.r, rp = params.rp, rho = params.rho;
+  switch(current) {
+    case 'Carnot': eta = 'η = 1 − T_C/T_H = ' + (1 - params.TC/params.TH).toFixed(3); break;
+    case 'Otto': eta = 'η = 1 − 1/r^(γ−1) = ' + (1 - 1/Math.pow(r, gamma-1)).toFixed(3); break;
+    case 'Diesel': eta = 'η = 1 − (1/r^(γ−1))·(ρ^γ−1)/(γ(ρ−1)) = ' + (1 - (1/Math.pow(r,gamma-1))*(Math.pow(rho,gamma)-1)/(gamma*(rho-1))).toFixed(3); break;
+    case 'Brayton': eta = 'η = 1 − 1/r_p^((γ−1)/γ) = ' + (1 - 1/Math.pow(rp,(gamma-1)/gamma)).toFixed(3); break;
+    case 'Rankine': eta = 'η = (w_turb − w_pump)/q_boiler (see steam tables)'; break;
+    case 'Stirling': eta = 'η = 1 − T_C/T_H = ' + (1 - params.TC/params.TH).toFixed(3) + ' (perfect regen.)'; break;
+  }
+  el.textContent = current + ' cycle:  ' + eta;
+}
+
+update();
+})();
+</script>
+</body>
+</html>

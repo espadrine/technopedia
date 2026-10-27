@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Electrostatics: draggable-charge field and potential</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 10px; background: #f8f9fa; color: #2c3e50; }
+h2 { margin: 8px 0 4px; font-size: 1.1em; }
+.controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+button { padding: 4px 12px; cursor: pointer; background: #4a90d9; color: white; border: none; border-radius: 4px; font-size: 0.9em; }
+button:hover { background: #357abd; }
+button.active { background: #e67e22; }
+.panel { background: white; border-radius: 6px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: inline-block; }
+canvas { display: block; }
+.readout { font-size: 0.9em; margin-top: 6px; line-height: 1.5; }
+.readout b { font-variant-numeric: tabular-nums; }
+.hint { font-size: 0.8em; color: #777; margin-top: 4px; max-width: 540px; }
+</style>
+</head>
+<body>
+<h2>Electrostatics: drag the charges, watch the field and potential</h2>
+<div class="controls">
+  <button id="fieldBtn" class="active">Field E</button>
+  <button id="potBtn">Potential V</button>
+  <button id="addPos">Add +</button>
+  <button id="addNeg">Add &minus;</button>
+  <button id="resetBtn">Reset</button>
+</div>
+<div class="panel">
+  <canvas id="cv" width="540" height="400"></canvas>
+  <div class="readout" id="readout"></div>
+  <div class="hint">Drag a charge to move it. Click &ldquo;Add +/&minus;&rdquo; then click the canvas to place a new charge; double-click (or right-click) a charge to remove it. <b>Field</b> mode shows <i>E</i> as arrows (colour and length = strength); <b>Potential</b> mode shows <i>V</i> as a colour map (red +, blue &minus;) with dotted equipotential contours. Note that the field is always perpendicular to the equipotentials.</div>
+</div>
+<script>
+var W = 540, H = 400;
+var cv = document.getElementById('cv');
+var ctx = cv.getContext('2d');
+var k = 1;                 // Coulomb constant in pixel units
+var charges = [];
+var mode = 'field';        // 'field' or 'pot'
+var addMode = null;        // null, +1, or -1
+var dragIdx = -1;
+
+var off = document.createElement('canvas');
+var offCtx = off.getContext('2d');
+
+function reset() {
+  charges = [
+    { x: W * 0.36, y: H * 0.5, q: +1 },
+    { x: W * 0.64, y: H * 0.5, q: -1 }
+  ];
+  addMode = null;
+  updateButtons();
+  redraw();
+}
+
+function fieldAt(x, y) {
+  var ex = 0, ey = 0;
+  for (var i = 0; i < charges.length; i++) {
+    var dx = x - charges[i].x, dy = y - charges[i].y;
+    var r2 = dx * dx + dy * dy;
+    var r = Math.sqrt(r2);
+    if (r < 4) r = 4;
+    var inv = k * charges[i].q / (r2 * r);
+    ex += inv * dx;
+    ey += inv * dy;
+  }
+  return { x: ex, y: ey };
+}
+
+function potAt(x, y) {
+  var v = 0;
+  for (var i = 0; i < charges.length; i++) {
+    var dx = x - charges[i].x, dy = y - charges[i].y;
+    var r = Math.sqrt(dx * dx + dy * dy);
+    if (r < 4) r = 4;
+    v += k * charges[i].q / r;
+  }
+  return v;
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, W, H);
+  if (mode === 'pot') drawPotential();
+  else drawField();
+  drawCharges();
+  updateReadout();
+}
+
+function drawPotential() {
+  var step = 4;
+  var cols = Math.round(W / step), rows = Math.round(H / step);
+  off.width = cols; off.height = rows;
+  var V = new Array(cols * rows);
+  var vmax = 1e-9;
+  for (var j = 0; j < rows; j++)
+    for (var i = 0; i < cols; i++) {
+      var v = potAt(i * step + step / 2, j * step + step / 2);
+      V[j * cols + i] = v;
+      if (Math.abs(v) > vmax) vmax = Math.abs(v);
+    }
+  var img = offCtx.createImageData(cols, rows);
+  var data = img.data;
+  for (var j2 = 0; j2 < rows; j2++)
+    for (var i2 = 0; i2 < cols; i2++) {
+      var t = Math.max(-1, Math.min(1, V[j2 * cols + i2] / vmax));
+      var r, g, b;
+      if (t >= 0) { r = 255; g = Math.round(255 * (1 - t)); b = Math.round(255 * (1 - t)); }
+      else { r = Math.round(255 * (1 + t)); g = Math.round(255 * (1 + t)); b = 255; }
+      var idx = (j2 * cols + i2) * 4;
+      data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+    }
+  offCtx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, 0, 0, W, H);
+  // dotted equipotential contours
+  var levels = [-0.75, -0.5, -0.25, 0.25, 0.5, 0.75];
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  for (var li = 0; li < levels.length; li++) {
+    var L = levels[li] * vmax;
+    for (var j3 = 0; j3 < rows; j3++)
+      for (var i3 = 0; i3 < cols; i3++)
+        if (Math.abs(V[j3 * cols + i3] - L) < vmax * 0.045)
+          ctx.fillRect(i3 * step, j3 * step, 2, 2);
+  }
+}
+
+function drawField() {
+  ctx.fillStyle = '#f4f6f8';
+  ctx.fillRect(0, 0, W, H);
+  var step = 24;
+  var cols = Math.ceil(W / step), rows = Math.ceil(H / step);
+  var E = new Array(cols * rows);
+  var emax = 1e-9;
+  for (var j = 0; j < rows; j++)
+    for (var i = 0; i < cols; i++) {
+      var e = fieldAt(i * step + step / 2, j * step + step / 2);
+      var m = Math.sqrt(e.x * e.x + e.y * e.y);
+      E[j * cols + i] = { x: e.x, y: e.y, m: m };
+      if (m > emax) emax = m;
+    }
+  for (var j2 = 0; j2 < rows; j2++)
+    for (var i2 = 0; i2 < cols; i2++) {
+      var e2 = E[j2 * cols + i2];
+      if (e2.m < 1e-12) continue;
+      var cx = i2 * step + step / 2, cy = j2 * step + step / 2;
+      var t = Math.max(0, Math.min(1, e2.m / emax));
+      var len = 3 + 11 * t;
+      var ux = e2.x / e2.m, uy = e2.y / e2.m;
+      var x1 = cx - ux * len / 2, y1 = cy - uy * len / 2;
+      var x2 = cx + ux * len / 2, y2 = cy + uy * len / 2;
+      var col = 'rgb(' + Math.round(255 * t) + ',' + Math.round(120 * (1 - t)) + ',' + Math.round(120 * (1 - t)) + ')';
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      var ah = 4;
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - ux * ah - uy * ah * 0.6, y2 - uy * ah + ux * ah * 0.6);
+      ctx.lineTo(x2 - ux * ah + uy * ah * 0.6, y2 - uy * ah - ux * ah * 0.6);
+      ctx.closePath(); ctx.fill();
+    }
+}
+
+function drawCharges() {
+  for (var i = 0; i < charges.length; i++) {
+    var c = charges[i];
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 13, 0, 2 * Math.PI);
+    ctx.fillStyle = c.q > 0 ? '#e74c3c' : '#2980b9';
+    ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 17px system-ui';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(c.q > 0 ? '+' : '\u2212', c.x, c.y + 1);
+  }
+}
+
+function pos(ev) {
+  var rect = cv.getBoundingClientRect();
+  return { x: (ev.clientX - rect.left) * (W / rect.width), y: (ev.clientY - rect.top) * (H / rect.height) };
+}
+function chargeAt(p) {
+  for (var i = 0; i < charges.length; i++) {
+    var dx = p.x - charges[i].x, dy = p.y - charges[i].y;
+    if (dx * dx + dy * dy < 16 * 16) return i;
+  }
+  return -1;
+}
+
+cv.addEventListener('mousedown', function (ev) {
+  var p = pos(ev);
+  var idx = chargeAt(p);
+  if (idx >= 0) { dragIdx = idx; cv.style.cursor = 'grabbing'; }
+  else if (addMode) { charges.push({ x: p.x, y: p.y, q: addMode }); addMode = null; updateButtons(); redraw(); }
+});
+cv.addEventListener('mousemove', function (ev) {
+  var p = pos(ev);
+  if (dragIdx >= 0) { charges[dragIdx].x = p.x; charges[dragIdx].y = p.y; redraw(); }
+  else { cv.style.cursor = chargeAt(p) >= 0 ? 'grab' : (addMode ? 'crosshair' : 'default'); }
+});
+window.addEventListener('mouseup', function () { if (dragIdx >= 0) { dragIdx = -1; cv.style.cursor = 'default'; } });
+cv.addEventListener('dblclick', function (ev) {
+  var p = pos(ev); var idx = chargeAt(p);
+  if (idx >= 0) { charges.splice(idx, 1); redraw(); }
+});
+cv.addEventListener('contextmenu', function (ev) {
+  ev.preventDefault();
+  var p = pos(ev); var idx = chargeAt(p);
+  if (idx >= 0) { charges.splice(idx, 1); redraw(); }
+});
+
+var fieldBtn = document.getElementById('fieldBtn');
+var potBtn = document.getElementById('potBtn');
+var addPos = document.getElementById('addPos');
+var addNeg = document.getElementById('addNeg');
+var resetBtn = document.getElementById('resetBtn');
+var readout = document.getElementById('readout');
+
+fieldBtn.onclick = function () { mode = 'field'; updateButtons(); redraw(); };
+potBtn.onclick = function () { mode = 'pot'; updateButtons(); redraw(); };
+addPos.onclick = function () { addMode = +1; updateButtons(); };
+addNeg.onclick = function () { addMode = -1; updateButtons(); };
+resetBtn.onclick = reset;
+
+function updateButtons() {
+  fieldBtn.className = mode === 'field' ? 'active' : '';
+  potBtn.className = mode === 'pot' ? 'active' : '';
+  addPos.className = addMode === +1 ? 'active' : '';
+  addNeg.className = addMode === -1 ? 'active' : '';
+}
+
+function updateReadout() {
+  var npos = 0, nneg = 0;
+  for (var i = 0; i < charges.length; i++) { if (charges[i].q > 0) npos++; else nneg++; }
+  readout.innerHTML = 'Charges: <b>' + npos + '</b> positive, <b>' + nneg + '</b> negative &nbsp;\u00b7&nbsp; showing: <b>' + (mode === 'field' ? 'electric field E' : 'potential V') + '</b>';
+}
+
+reset();
+</script>
+</body>
+</html>

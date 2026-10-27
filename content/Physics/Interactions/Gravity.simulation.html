@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Gravity: orbits on a curved spacetime grid</title>
+<style>
+  body { font-family: sans-serif; margin: 0; padding: 8px; background: #fff; }
+  #controls { margin-bottom: 6px; font-size: 13px; }
+  canvas { display: block; background: #fafafa; border: 1px solid #ccc; border-radius: 4px; }
+  #readout { font-size: 12px; color: #444; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <label>Relativistic compactness:
+    <input type="range" id="alpha" min="0" max="0.6" step="0.005" value="0.05">
+  </label>
+  <button id="reset">Reset orbit</button>
+  <span id="readout"></span>
+</div>
+<canvas id="c" width="620" height="500"></canvas>
+<script>
+(function () {
+  var canvas = document.getElementById('c');
+  var ctx = canvas.getContext('2d');
+  var slider = document.getElementById('alpha');
+  var readout = document.getElementById('readout');
+
+  // Dimensionless units: GM = 1, Newtonian circular orbit at r = 1.
+  // GR correction: u'' + u = 1 + 3*delta*u^2, with u = 1/r.
+  var delta = parseFloat(slider.value); // relativistic strength
+  var u = 1 / 2.0, w = 0, phi = 0;      // u = 1/r, w = du/dphi
+  var trail = [];
+  var SCALE = 110;                      // pixels per unit length
+
+  function reset() {
+    u = 1 / 2.0; w = 0; phi = 0; trail = [];
+  }
+  slider.addEventListener('input', function () {
+    delta = parseFloat(slider.value);
+  });
+  document.getElementById('reset').addEventListener('click', reset);
+
+  // RK4 integration of the GR-corrected orbit equation
+  function f(s) { return [s[1], -s[0] + 1 + 3 * delta * s[0] * s[0], 1]; }
+  function rk4Step(h) {
+    var s = [u, w, phi];
+    var a = f(s);
+    var b = f([s[0] + h * a[0] / 2, s[1] + h * a[1] / 2, s[2] + h * a[2] / 2]);
+    var c = f([s[0] + h * b[0] / 2, s[1] + h * b[1] / 2, s[2] + h * b[2] / 2]);
+    var d = f([s[0] + h * c[0], s[1] + h * c[1], s[2] + h * c[2]]);
+    u   += h / 6 * (a[0] + 2 * b[0] + 2 * c[0] + d[0]);
+    w   += h / 6 * (a[1] + 2 * b[1] + 2 * c[1] + d[1]);
+    phi += h; // dphi/dt = 1 in this time parametrization
+  }
+
+  function drawGrid() {
+    var k = 0.35 * (delta / 0.6); // deformation depth grows with compactness
+    ctx.strokeStyle = '#d8d8e8';
+    ctx.lineWidth = 1;
+    var N = 13, span = 2.6;
+    function pullPoint(x0, y0) {
+      var r = Math.sqrt(x0 * x0 + y0 * y0) + 1e-6;
+      var pull = k / (r + 0.35);
+      var s = 1 - pull / Math.max(r, 0.4);
+      return [310 + x0 * s * SCALE, 250 + y0 * s * SCALE];
+    }
+    for (var i = 0; i < N; i++) {
+      var q = -span + 2 * span * i / (N - 1);
+      ctx.beginPath();
+      for (var t = 0; t <= 1.001; t += 0.02) {
+        var p = pullPoint(q, -span + 2 * span * t);
+        if (t === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+      }
+      ctx.stroke();
+      ctx.beginPath();
+      for (var t2 = 0; t2 <= 1.001; t2 += 0.02) {
+        var p2 = pullPoint(-span + 2 * span * i / (N - 1), -span + 2 * span * t2);
+        if (t2 === 0) ctx.moveTo(p2[0], p2[1]); else ctx.lineTo(p2[0], p2[1]);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function frame() {
+    for (var s = 0; s < 4; s++) rk4Step(0.01);
+    if (trail.length > 900) trail.shift();
+    var r = 1 / u;
+    if (r > 0.05 && r < 40) trail.push([r * Math.cos(phi), r * Math.sin(phi)]);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+
+    // central mass (dark disk), radius grows with compactness
+    ctx.beginPath();
+    ctx.arc(310, 250, 10 + 18 * delta, 0, 2 * Math.PI);
+    ctx.fillStyle = '#222';
+    ctx.fill();
+
+    // orbit trail
+    ctx.strokeStyle = '#3a6ea5';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (var i = 0; i < trail.length; i++) {
+      var px = 310 + trail[i][0] * SCALE, py = 250 + trail[i][1] * SCALE;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // particle
+    if (trail.length) {
+      var last = trail[trail.length - 1];
+      ctx.beginPath();
+      ctx.arc(310 + last[0] * SCALE, 250 + last[1] * SCALE, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#c0392b';
+      ctx.fill();
+    }
+
+    readout.textContent =
+      'Compactness \u2248 ' + delta.toFixed(2) +
+      (delta < 0.1 ? ' (weak field: closed Newtonian ellipses)'
+                   : delta < 0.35 ? ' (moderate field: periapsis precession)'
+                   : ' (strong field: strong precession / plunge risk)');
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

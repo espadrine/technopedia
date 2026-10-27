@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interfaces and Buses: Data Path Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 20px; }
+h1 { font-size: 1.2em; margin-bottom: 10px; color: #93c5fd; }
+.subtitle { font-size: 0.85em; color: #94a3b8; margin-bottom: 20px; }
+.container { display: flex; flex-direction: column; gap: 12px; }
+.stage { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 8px; background: #1e293b; border: 2px solid #334155; transition: all 0.3s; position: relative; }
+.stage.active { border-color: #3b82f6; background: #1e3a5f; box-shadow: 0 0 12px rgba(59,130,246,0.3); }
+.stage-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; flex-shrink: 0; }
+.stage-info { flex: 1; }
+.stage-name { font-weight: 600; font-size: 0.95em; }
+.stage-detail { font-size: 0.78em; color: #94a3b8; margin-top: 2px; }
+.stage-bandwidth { font-size: 0.75em; color: #60a5fa; margin-top: 2px; }
+.packet { position: absolute; right: 16px; width: 12px; height: 12px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 8px #fbbf24; opacity: 0; transition: opacity 0.3s; }
+.stage.active .packet { opacity: 1; }
+.controls { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.2s; }
+button.primary { background: #3b82f6; color: white; }
+button.primary:hover { background: #2563eb; }
+button.secondary { background: #334155; color: #e2e8f0; }
+button.secondary:hover { background: #475569; }
+.info-panel { margin-top: 16px; padding: 12px 16px; background: #1e293b; border-radius: 8px; border: 1px solid #334155; min-height: 60px; }
+.info-panel h3 { font-size: 0.9em; color: #93c5fd; margin-bottom: 6px; }
+.info-panel p { font-size: 0.82em; color: #cbd5e1; line-height: 1.5; }
+.legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75em; color: #94a3b8; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.progress-bar { width: 100%; height: 4px; background: #334155; border-radius: 2px; margin-top: 12px; overflow: hidden; }
+.progress-fill { height: 100%; background: #3b82f6; border-radius: 2px; transition: width 0.5s; width: 0%; }
+</style>
+</head>
+<body>
+<h1>📡 Data Packet Journey: Crossing Interface Classes</h1>
+<p class="subtitle">Trace a single network packet as it crosses from on-chip to wireless, passing through each physical domain.</p>
+
+<div class="container" id="stages"></div>
+
+<div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+<div class="controls">
+<button class="primary" id="btnStart" onclick="startJourney()">▶ Start Journey</button>
+<button class="secondary" id="btnStep" onclick="stepForward()">⏭ Step</button>
+<button class="secondary" id="btnReset" onclick="resetJourney()">↺ Reset</button>
+</div>
+
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>On-chip (RC delay)</div>
+<div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Board-level (transmission line)</div>
+<div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Cabled (conductor loss)</div>
+<div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>Optical (attenuation/dispersion)</div>
+<div class="legend-item"><div class="legend-dot" style="background:#ec4899"></div>Wireless (diffraction/multipath)</div>
+</div>
+
+<div class="info-panel" id="infoPanel">
+<h3>Ready</h3>
+<p>Press "Start Journey" to watch a packet travel from a CPU register to a remote server, crossing all five interface classes in sequence.</p>
+</div>
+
+<script>
+const stages = [
+{ name: "CPU Register → ALU", icon: "⚙️", color: "#22c55e", detail: "On-chip: RC-delay dominated, µm wires", bandwidth: "~10 Tb/s aggregate", info: "The packet starts in a CPU register. The ALU reads it via a register file (single-cycle SRAM access). The wire is ~50 µm of copper on the die. Delay is set by RC: R×C ≈ 0.1 ns. No impedance matching needed at this scale." },
+{ name: "Memory Controller → DDR5", icon: "💾", color: "#22c55e", detail: "On-chip → Board-level: crossing the die boundary", bandwidth: "50 GB/s (DDR5-5600)", info: "The memory controller drives the DDR5 bus. The signal crosses from the die (on-chip) to the DRAM chip via BGA pins and PCB traces. This is the on-chip to board-level boundary: the physics shifts from RC delay to transmission-line behaviour." },
+{ name: "DDR5 → PCIe → NIC", icon: "🔌", color: "#3b82f6", detail: "Board-level: impedance-matched traces, cm scale", bandwidth: "64 GB/s (PCIe Gen 5 ×16)", info: "The NIC reads the packet from memory via PCIe. The PCIe link is a differential transmission line on the PCB: 85 Ω differential impedance, terminated at both ends. The trace is ~10 cm. Dielectric loss in the FR-4 substrate is the dominant attenuation." },
+{ name: "NIC → Ethernet Cable", icon: "🔗", color: "#f59e0b", detail: "Cabled: shielded copper, m–100 m", bandwidth: "25 Gb/s (25GBASE-T)", info: "The NIC drives the Ethernet cable. The signal leaves the board and enters a Cat 6a twisted-pair cable. The skin effect concentrates current in a thin surface layer. The cable is shielded to prevent radiation and crosstalk. This is the board-level to cabled boundary: a connector (RJ45) marks the transition." },
+{ name: "Cable → Fibre (Optical)", icon: "💡", color: "#a855f7", detail: "Optical: photons in glass, 10 m – 1000 km", bandwidth: "400 Gb/s (8×50G DWDM)", info: "A transceiver at the switch converts electrical to optical. The signal is now a photon in SMF (9 µm core). Attenuation is 0.2 dB/km at 1550 nm. Chromatic dispersion spreads the pulse. WDM packs 96 wavelengths into one fibre. This is the cabled to optical boundary: the medium changes from electrons to photons." },
+{ name: "Fibre → Router → Air (Wireless)", icon: "📡", color: "#ec4899", detail: "Wireless: EM waves in free space, cm – 10⁴ km", bandwidth: "2 Gb/s (5G NR, 100 MHz)", info: "The router's 5G base station converts the optical signal back to electrical, then to RF. The signal propagates in free space: power falls as 1/d². Multipath reflections cause fading. OFDM and MIMO mitigate this. This is the optical to wireless boundary: the medium changes from guided (fibre) to unguided (air)." },
+{ name: "Air → Remote Phone", icon: "📱", color: "#ec4899", detail: "Wireless: received by mobile device", bandwidth: "2 Gb/s (5G NR)", info: "The phone's antenna receives the RF signal. The phased-array beamformer focuses the signal. The packet is demodulated (OFDM → bits), decoded (FEC → error-free), and delivered to the application. The journey is complete: the packet crossed 5 interface classes." }
+];
+
+let currentStage = -1;
+let timer = null;
+
+function buildStages() {
+const container = document.getElementById('stages');
+container.innerHTML = '';
+stages.forEach((s, i) => {
+const div = document.createElement('div');
+div.className = 'stage';
+div.id = 'stage-' + i;
+div.innerHTML = `
+<div class="stage-icon" style="background:${s.color}22; color:${s.color}">${s.icon}</div>
+<div class="stage-info">
+<div class="stage-name">${s.name}</div>
+<div class="stage-detail">${s.detail}</div>
+<div class="stage-bandwidth">${s.bandwidth}</div>
+</div>
+<div class="packet"></div>`;
+container.appendChild(div);
+});
+}
+
+function highlightStage(idx) {
+document.querySelectorAll('.stage').forEach((el, i) => {
+el.classList.toggle('active', i === idx);
+});
+document.getElementById('progress').style.width = ((idx + 1) / stages.length * 100) + '%';
+const panel = document.getElementById('infoPanel');
+panel.innerHTML = `<h3>${stages[idx].name}</h3><p>${stages[idx].info}</p>`;
+}
+
+function startJourney() {
+resetJourney();
+currentStage = 0;
+highlightStage(0);
+timer = setInterval(() => {
+currentStage++;
+if (currentStage >= stages.length) {
+clearInterval(timer);
+timer = null;
+document.getElementById('infoPanel').innerHTML = '<h3>✅ Journey Complete</h3><p>The packet crossed all 5 interface classes: on-chip → board-level → cabled → optical → wireless. Each boundary is a different physics regime and a different engineering discipline.</p>';
+return;
+}
+highlightStage(currentStage);
+}, 2000);
+}
+
+function stepForward() {
+if (timer) { clearInterval(timer); timer = null; }
+currentStage++;
+if (currentStage >= stages.length) {
+document.getElementById('infoPanel').innerHTML = '<h3>✅ Journey Complete</h3><p>The packet crossed all 5 interface classes.</p>';
+return;
+}
+highlightStage(currentStage);
+}
+
+function resetJourney() {
+if (timer) { clearInterval(timer); timer = null; }
+currentStage = -1;
+document.querySelectorAll('.stage').forEach(el => el.classList.remove('active'));
+document.getElementById('progress').style.width = '0%';
+document.getElementById('infoPanel').innerHTML = '<h3>Ready</h3><p>Press "Start Journey" to watch a packet travel from a CPU register to a remote server, crossing all five interface classes in sequence.</p>';
+}
+
+buildStages();
+</script>
+</body>
+</html>

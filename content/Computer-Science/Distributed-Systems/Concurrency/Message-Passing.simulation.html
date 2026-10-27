@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Producer-Consumer with Buffered Channel</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+h2 { text-align: center; margin-bottom: 10px; color: #64ffda; }
+.controls { text-align: center; margin-bottom: 15px; }
+.controls button { padding: 8px 16px; margin: 0 5px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+#startBtn { background: #00c853; color: #000; }
+#pauseBtn { background: #ff9800; color: #000; }
+#resetBtn { background: #f44336; color: #fff; }
+#speedSlider { width: 120px; vertical-align: middle; }
+.speed-label { font-size: 13px; color: #aaa; }
+.canvas-wrap { display: flex; justify-content: center; }
+canvas { background: #16213e; border-radius: 8px; }
+.status { text-align: center; margin-top: 10px; font-size: 13px; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Producer-Consumer: Buffered Channel</h2>
+<div class="controls">
+<button id="startBtn">Start</button>
+<button id="pauseBtn">Pause</button>
+<button id="resetBtn">Reset</button>
+<span class="speed-label">Speed:</span>
+<input type="range" id="speedSlider" min="1" max="10" value="5">
+</div>
+<div class="canvas-wrap"><canvas id="cv" width="700" height="320"></canvas></div>
+<div class="status" id="status">Press Start to begin. Buffer capacity: 6. Producer generates items; 2 consumers process them.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const BUFFER_CAP = 6;
+let buffer = [];
+let producerBlocked = false;
+let itemsProduced = 0;
+let itemsConsumed = 0;
+let running = false;
+let animId = null;
+let speed = 5;
+let producerPos = 0;
+let consumerPos = [0, 0];
+let totalItems = 20;
+let animItems = [];
+
+function reset() {
+  buffer = [];
+  producerBlocked = false;
+  itemsProduced = 0;
+  itemsConsumed = 0;
+  running = false;
+  producerPos = 0;
+  consumerPos = [0, 0];
+  totalItems = 20;
+  animItems = [];
+  if (animId) cancelAnimationFrame(animId);
+  animId = null;
+  document.getElementById('status').textContent = 'Press Start to begin. Buffer capacity: ' + BUFFER_CAP + '. Producer generates items; 2 consumers process them.';
+  draw();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 700, 320);
+  // Producer box
+  ctx.fillStyle = producerBlocked ? '#ff5252' : '#00c853';
+  ctx.fillRect(30, 120, 100, 60);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 13px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('PRODUCER', 80, 145);
+  ctx.font = '11px Courier New';
+  ctx.fillText(producerBlocked ? 'BLOCKED' : 'active', 80, 163);
+
+  // Channel (buffer)
+  ctx.strokeStyle = '#64ffda';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(180, 100, BUFFER_CAP * 50 + 20, 100);
+  ctx.fillStyle = '#64ffda';
+  ctx.font = 'bold 12px Courier New';
+  ctx.fillText('CHANNEL (buffer=' + BUFFER_CAP + ')', 180 + (BUFFER_CAP * 50 + 20) / 2, 90);
+
+  // Buffer slots
+  for (let i = 0; i < BUFFER_CAP; i++) {
+    const x = 190 + i * 50;
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, 115, 44, 70);
+    if (i < buffer.length) {
+      ctx.fillStyle = '#ffd54f';
+      ctx.font = 'bold 14px Courier New';
+      ctx.fillText(buffer[i].toString(), x + 22, 155);
+    }
+  }
+
+  // Consumers
+  for (let c = 0; c < 2; c++) {
+    const y = c === 0 ? 60 : 200;
+    ctx.fillStyle = '#448aff';
+    ctx.fillRect(560, y, 100, 50);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px Courier New';
+    ctx.fillText('CONSUMER ' + (c + 1), 610, y + 22);
+    ctx.font = '11px Courier New';
+    ctx.fillText('processed: ' + consumerPos[c], 610, y + 38);
+  }
+
+  // Arrows
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 2;
+  // Producer to channel
+  drawArrow(130, 150, 180, 150);
+  // Channel to consumers
+  drawArrow(180 + BUFFER_CAP * 50 + 20, 130, 560, 85);
+  drawArrow(180 + BUFFER_CAP * 50 + 20, 170, 560, 225);
+
+  // Animated items in transit
+  for (const item of animItems) {
+    ctx.fillStyle = '#ffd54f';
+    ctx.beginPath();
+    ctx.arc(item.x, item.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(item.val.toString(), item.x, item.y + 4);
+  }
+
+  // Stats
+  ctx.fillStyle = '#aaa';
+  ctx.font = '12px Courier New';
+  ctx.textAlign = 'left';
+  ctx.fillText('Produced: ' + itemsProduced + '/' + totalItems, 30, 290);
+  ctx.fillText('Consumed: ' + itemsConsumed, 200, 290);
+  ctx.fillText('Buffer: ' + buffer.length + '/' + BUFFER_CAP, 370, 290);
+  if (producerBlocked) {
+    ctx.fillStyle = '#ff5252';
+    ctx.fillText('⚠ Producer blocked (buffer full)', 500, 290);
+  }
+}
+
+function drawArrow(x1, y1, x2, y2) {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - 10 * Math.cos(angle - 0.4), y2 - 10 * Math.sin(angle - 0.4));
+  ctx.lineTo(x2 - 10 * Math.cos(angle + 0.4), y2 - 10 * Math.sin(angle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = '#888';
+  ctx.fill();
+}
+
+let tick = 0;
+function step() {
+  if (!running) return;
+  tick++;
+  const interval = 11 - speed;
+  if (tick % interval !== 0) { animId = requestAnimationFrame(step); return; }
+
+  // Try to produce
+  if (itemsProduced < totalItems) {
+    if (buffer.length < BUFFER_CAP) {
+      buffer.push(itemsProduced);
+      itemsProduced++;
+      animItems.push({ x: 155, y: 150, val: itemsProduced - 1, life: 10 });
+    } else {
+      producerBlocked = true;
+    }
+  } else {
+    producerBlocked = false;
+  }
+
+  // Try to consume
+  for (let c = 0; c < 2; c++) {
+    if (buffer.length > 0) {
+      const item = buffer.shift();
+      consumerPos[c]++;
+      itemsConsumed++;
+      const targetY = c === 0 ? 85 : 225;
+      animItems.push({ x: 530, y: targetY, val: item, life: 10 });
+    }
+  }
+
+  // Update anim items
+  for (let i = animItems.length - 1; i >= 0; i--) {
+    animItems[i].life--;
+    animItems[i].x += 3;
+    if (animItems[i].life <= 0) animItems.splice(i, 1);
+  }
+
+  // Check done
+  if (itemsProduced >= totalItems && buffer.length === 0 && itemsConsumed >= totalItems) {
+    running = false;
+    document.getElementById('status').textContent = 'Done! All ' + totalItems + ' items produced and consumed.';
+  } else {
+    document.getElementById('status').textContent = 'Produced: ' + itemsProduced + '/' + totalItems + ' | Buffer: ' + buffer.length + '/' + BUFFER_CAP + (producerBlocked ? ' | ⚠ Producer BLOCKED' : '');
+  }
+
+  draw();
+  animId = requestAnimationFrame(step);
+}
+
+document.getElementById('startBtn').onclick = () => {
+  if (running) return;
+  if (itemsProduced >= totalItems && buffer.length === 0) reset();
+  running = true;
+  animId = requestAnimationFrame(step);
+};
+document.getElementById('pauseBtn').onclick = () => { running = false; };
+document.getElementById('resetBtn').onclick = reset;
+document.getElementById('speedSlider').oninput = (e) => { speed = parseInt(e.target.value); };
+
+draw();
+</script>
+</body>
+</html>

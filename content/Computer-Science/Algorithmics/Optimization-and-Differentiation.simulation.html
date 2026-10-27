@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent on a 2D Loss Landscape</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 16px; }
+h1 { font-size: 1.2rem; margin-bottom: 8px; color: #fff; }
+.container { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+canvas { border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+.controls { display: flex; flex-direction: column; gap: 12px; min-width: 220px; }
+.control-group { background: #16213e; border-radius: 8px; padding: 12px; }
+.control-group label { display: block; font-size: 0.85rem; margin-bottom: 4px; color: #a0c4ff; }
+.control-group input[type=range] { width: 100%; accent-color: #4fc3f7; }
+.control-group .value { font-size: 0.8rem; color: #7ec8e3; text-align: right; }
+.btn-row { display: flex; gap: 8px; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: transform 0.1s; }
+button:active { transform: scale(0.95); }
+.btn-play { background: #4fc3f7; color: #1a1a2e; }
+.btn-reset { background: #ef5350; color: #fff; }
+.btn-step { background: #66bb6a; color: #1a1a2e; }
+select { padding: 6px 10px; border-radius: 6px; background: #0f3460; color: #e0e0e0; border: 1px solid #4fc3f7; font-size: 0.85rem; }
+.info { font-size: 0.75rem; color: #888; margin-top: 8px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<h1>Gradient Descent on a 2D Loss Landscape</h1>
+<div class="container">
+<canvas id="canvas" width="500" height="500"></canvas>
+<div class="controls">
+<div class="control-group">
+<label>Loss function</label>
+<select id="funcSelect">
+<option value="quadratic">Quadratic (x² + 10y²)</option>
+<option value="rosenbrock">Rosenbrock</option>
+<option value="beale">Beale</option>
+<option value="sumOfSines">Sum of Sines</option>
+</select>
+</div>
+<div class="control-group">
+<label>Learning rate η</label>
+<input type="range" id="lr" min="0.001" max="0.5" step="0.001" value="0.01">
+<div class="value" id="lrVal">0.010</div>
+</div>
+<div class="control-group">
+<label>Momentum β</label>
+<input type="range" id="momentum" min="0" max="0.99" step="0.01" value="0.9">
+<div class="value" id="momVal">0.90</div>
+</div>
+<div class="control-group">
+<label>Speed (steps/frame)</label>
+<input type="range" id="speed" min="1" max="20" step="1" value="5">
+<div class="value" id="speedVal">5</div>
+</div>
+<div class="btn-row">
+<button class="btn-play" id="btnPlay">▶ Play</button>
+<button class="btn-step" id="btnStep">Step</button>
+<button class="btn-reset" id="btnReset">Reset</button>
+</div>
+<div class="info" id="info">Position: (0, 0)<br>Loss: —<br>Steps: 0</div>
+</div>
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Loss functions
+const funcs = {
+  quadratic: {
+    f: (x, y) => x*x + 10*y*y,
+    grad: (x, y) => [2*x, 20*y],
+    range: [-3, 3],
+    start: [2.5, 2.5]
+  },
+  rosenbrock: {
+    f: (x, y) => (1-x)*x*x + (y-x*x)*(y-x*x),
+    grad: (x, y) => [-4*x + 6*x*x - 2*y, 2*(y - x*x)],
+    range: [-2.5, 2.5],
+    start: [-1.5, 2.0]
+  },
+  beale: {
+    f: (x, y) => (1.5 - 2*x + x*y)*(1.5 - 2*x + x*y) + (2.25 - 3*x + x*y)*(2.25 - 3*x + x*y) + (2.625 - 3.5*x + x*y)*(2.625 - 3.5*x + x*y),
+    grad: (x, y) => {
+      const a = 1.5 - 2*x + x*y, b = 2.25 - 3*x + x*y, c = 2.625 - 3.5*x + x*y;
+      return [2*a*(-2+y) + 2*b*(-3+y) + 2*c*(-3.5+y), 2*a*x + 2*b*x + 2*c*x];
+    },
+    range: [-1.5, 1.5],
+    start: [1.2, 1.2]
+  },
+  sumOfSines: {
+    f: (x, y) => Math.sin(x*x) + Math.sin(y*y) + 0.5*(x*x + y*y),
+    grad: (x, y) => [2*x*Math.cos(x*x) + x, 2*y*Math.cos(y*y) + y],
+    range: [-3, 3],
+    start: [2.5, 2.5]
+  }
+};
+
+let currentFunc = 'quadratic';
+let pos, vel, steps, playing, trail;
+
+function reset() {
+  const fn = funcs[currentFunc];
+  pos = [...fn.start];
+  vel = [0, 0];
+  steps = 0;
+  trail = [];
+  playing = false;
+  document.getElementById('btnPlay').textContent = '▶ Play';
+  updateInfo();
+  draw();
+}
+
+function step() {
+  const fn = funcs[currentFunc];
+  const lr = parseFloat(document.getElementById('lr').value);
+  const beta = parseFloat(document.getElementById('momentum').value);
+  const g = fn.grad(pos[0], pos[1]);
+  vel[0] = beta * vel[0] - lr * g[0];
+  vel[1] = beta * vel[1] - lr * g[1];
+  pos[0] += vel[0];
+  pos[1] += vel[1];
+  steps++;
+  trail.push([...pos]);
+  if (trail.length > 500) trail.shift();
+  updateInfo();
+}
+
+function updateInfo() {
+  const fn = funcs[currentFunc];
+  const loss = fn.f(pos[0], pos[1]);
+  document.getElementById('info').innerHTML =
+    `Position: (${pos[0].toFixed(3)}, ${pos[1].toFixed(3)})<br>Loss: ${loss.toFixed(6)}<br>Steps: ${steps}`;
+}
+
+// Color map
+function lossColor(v, min, max) {
+  const t = Math.max(0, Math.min(1, (v - min) / (max - min)));
+  // Dark blue -> cyan -> yellow -> red
+  const r = Math.min(255, t * 400);
+  const g = Math.min(255, Math.abs(t - 0.5) * 500);
+  const b = Math.max(0, 255 - t * 300);
+  return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+}
+
+function draw() {
+  const fn = funcs[currentFunc];
+  const [minR, maxR] = fn.range;
+  const range = maxR - minR;
+  const cx = W/2, cy = H/2;
+  const scale = (W/2 - 20) / range;
+
+  // Render landscape
+  const imgData = ctx.createImageData(W, H);
+  let minVal = Infinity, maxVal = -Infinity;
+  const vals = new Float32Array(W * H);
+
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const x = (px - cx) / scale + minR;
+      const y = (cy - py) / scale + minR;
+      const v = fn.f(x, y);
+      vals[py * W + px] = v;
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
+    }
+  }
+
+  // Use log scale for better visualization
+  const logMin = Math.log(Math.max(minVal, 1e-10));
+  const logMax = Math.log(Math.max(maxVal, minVal + 1e-10));
+
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const v = vals[py * W + px];
+      const t = Math.max(0, Math.min(1, (Math.log(Math.max(v, 1e-10)) - logMin) / (logMax - logMin)));
+      const idx = (py * W + px) * 4;
+      // Color gradient: deep blue -> teal -> yellow -> orange
+      const r = Math.round(20 + t * 235);
+      const g = Math.round(30 + t * 180 * (1 - t * 0.5));
+      const b = Math.round(80 + (1 - t) * 150);
+      imgData.data[idx] = r;
+      imgData.data[idx+1] = g;
+      imgData.data[idx+2] = b;
+      imgData.data[idx+3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // Draw grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  for (let v = Math.ceil(minR); v <= Math.floor(maxR); v++) {
+    const px = cx + (v - minR) * scale;
+    const py = cy - (v - minR) * scale;
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(W, py); ctx.stroke();
+  }
+
+  // Draw trail
+  if (trail.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < trail.length; i++) {
+      const px = cx + (trail[i][0] - minR) * scale;
+      const py = cy - (trail[i][1] - minR) * scale;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
+
+  // Draw current position
+  const px = cx + (pos[0] - minR) * scale;
+  const py = cy - (pos[1] - minR) * scale;
+  ctx.beginPath();
+  ctx.arc(px, py, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Draw gradient arrow
+  const g = fn.grad(pos[0], pos[1]);
+  const gMag = Math.sqrt(g[0]*g[0] + g[1]*g[1]);
+  if (gMag > 1e-8) {
+    const arrowLen = Math.min(40, gMag * 5);
+    const ax = px - (g[0]/gMag) * arrowLen;
+    const ay = py + (g[1]/gMag) * arrowLen;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(ax, ay);
+    ctx.strokeStyle = '#ff5252';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Arrowhead
+    const angle = Math.atan2(ay - py, ax - px);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax + 8*Math.cos(angle + 0.4), ay + 8*Math.sin(angle + 0.4));
+    ctx.lineTo(ax + 8*Math.cos(angle - 0.4), ay + 8*Math.sin(angle - 0.4));
+    ctx.closePath();
+    ctx.fillStyle = '#ff5252';
+    ctx.fill();
+  }
+}
+
+let animId = null;
+function animate() {
+  if (!playing) return;
+  const speed = parseInt(document.getElementById('speed').value);
+  for (let i = 0; i < speed; i++) step();
+  draw();
+  animId = requestAnimationFrame(animate);
+}
+
+// Event listeners
+document.getElementById('btnPlay').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('btnPlay').textContent = playing ? '⏸ Pause' : '▶ Play';
+  if (playing) animate();
+  else if (animId) cancelAnimationFrame(animId);
+});
+
+document.getElementById('btnStep').addEventListener('click', () => {
+  step();
+  draw();
+});
+
+document.getElementById('btnReset').addEventListener('click', reset);
+
+document.getElementById('funcSelect').addEventListener('change', (e) => {
+  currentFunc = e.target.value;
+  reset();
+});
+
+document.getElementById('lr').addEventListener('input', (e) => {
+  document.getElementById('lrVal').textContent = parseFloat(e.target.value).toFixed(3);
+});
+
+document.getElementById('momentum').addEventListener('input', (e) => {
+  document.getElementById('momVal').textContent = parseFloat(e.target.value).toFixed(2);
+});
+
+document.getElementById('speed').addEventListener('input', (e) => {
+  document.getElementById('speedVal').textContent = e.target.value;
+});
+
+// Initialize
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coupled Oscillations Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 10px; }
+h1 { font-size: 1.2em; margin: 8px 0; color: #7ec8e3; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 8px 0; }
+.controls label { font-size: 0.85em; }
+.controls input[type=range] { width: 100px; }
+.controls button { padding: 5px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+.btn-start { background: #4ecdc4; color: #1a1a2e; }
+.btn-reset { background: #e74c3c; color: #fff; }
+.btn-mode { background: #3498db; color: #fff; }
+canvas { border: 1px solid #333; border-radius: 6px; margin: 6px 0; }
+.info { font-size: 0.8em; color: #aaa; margin: 4px 0; text-align: center; }
+.mode-label { font-size: 0.9em; color: #f39c12; margin: 4px 0; }
+</style>
+</head>
+<body>
+<h1>Coupled Oscillations</h1>
+<div class="controls">
+  <label>Coupling k<sub>c</sub>: <span id="kcVal">50</span> N/m</label>
+  <input type="range" id="kc" min="1" max="200" value="50">
+  <label>Stiffness k: <span id="kVal">100</span> N/m</label>
+  <input type="range" id="k" min="10" max="500" value="100">
+  <button class="btn-mode" id="btnInPhase">In-phase</button>
+  <button class="btn-mode" id="btnOutPhase">Out-of-phase</button>
+  <button class="btn-mode" id="btnBeat">Beat (mass 1)</button>
+  <button class="btn-start" id="btnStart">▶ Start</button>
+  <button class="btn-reset" id="btnReset">↺ Reset</button>
+</div>
+<div class="mode-label" id="modeLabel">Mode: Beat (mass 1 displaced)</div>
+<canvas id="simCanvas" width="700" height="200"></canvas>
+<canvas id="graphCanvas" width="700" height="220"></canvas>
+<div class="info" id="info">ω₊ = 10.00 rad/s &nbsp;|&nbsp; ω₋ = 14.14 rad/s &nbsp;|&nbsp; f_beat = 0.66 Hz</div>
+<script>
+const simCanvas = document.getElementById('simCanvas');
+const simCtx = simCanvas.getContext('2d');
+const graphCanvas = document.getElementById('graphCanvas');
+const graphCtx = graphCanvas.getContext('2d');
+
+let k = 100, kc = 50, m = 1;
+let omegaPlus, omegaMinus;
+let x1 = 0, x2 = 0, v1 = 0, v2 = 0;
+let running = false;
+let time = 0;
+let dt = 0.002;
+let history = [];
+const maxHistory = 2000;
+
+function updateFrequencies() {
+  omegaPlus = Math.sqrt(k / m);
+  omegaMinus = Math.sqrt((k + 2 * kc) / m);
+  const fBeat = (omegaMinus - omegaPlus) / (2 * Math.PI);
+  document.getElementById('info').textContent =
+    'ω₊ = ' + omegaPlus.toFixed(2) + ' rad/s  |  ω₋ = ' + omegaMinus.toFixed(2) + ' rad/s  |  f_beat = ' + fBeat.toFixed(2) + ' Hz';
+}
+
+function reset() {
+  running = false;
+  time = 0;
+  history = [];
+  x1 = 0; x2 = 0; v1 = 0; v2 = 0;
+  document.getElementById('btnStart').textContent = '▶ Start';
+  drawSim();
+  drawGraph();
+}
+
+function setMode(mode) {
+  reset();
+  const A = 1.0;
+  if (mode === 'inphase') {
+    x1 = A; x2 = A; v1 = 0; v2 = 0;
+    document.getElementById('modeLabel').textContent = 'Mode: In-phase (x₁ = x₂)';
+  } else if (mode === 'outphase') {
+    x1 = A; x2 = -A; v1 = 0; v2 = 0;
+    document.getElementById('modeLabel').textContent = 'Mode: Out-of-phase (x₁ = −x₂)';
+  } else {
+    x1 = A; x2 = 0; v1 = 0; v2 = 0;
+    document.getElementById('modeLabel').textContent = 'Mode: Beat (mass 1 displaced)';
+  }
+  drawSim();
+  drawGraph();
+}
+
+function step() {
+  // RK4 integration
+  function accel(x1, x2) {
+    const a1 = (-(k + kc) * x1 + kc * x2) / m;
+    const a2 = (-(k + kc) * x2 + kc * x1) / m;
+    return [a1, a2];
+  }
+  const [a1_1, a2_1] = accel(x1, x2);
+  const [a1_2, a2_2] = accel(x1 + v1 * dt / 2, x2 + v2 * dt / 2);
+  const [a1_3, a2_3] = accel(x1 + v1 * dt / 2 + a1_1 * dt * dt / 8, x2 + v2 * dt / 2 + a2_1 * dt * dt / 8);
+  const [a1_4, a2_4] = accel(x1 + v1 * dt + a1_2 * dt * dt / 4, x2 + v2 * dt + a2_2 * dt * dt / 4);
+
+  x1 += v1 * dt + a1_1 * dt * dt / 6 + a1_2 * dt * dt / 6 + a1_3 * dt * dt / 6;
+  x2 += v2 * dt + a2_1 * dt * dt / 6 + a2_2 * dt * dt / 6 + a2_3 * dt * dt / 6;
+  v1 += (a1_1 + 2 * a1_2 + 2 * a1_3 + a1_4) * dt / 6;
+  v2 += (a2_1 + 2 * a2_2 + 2 * a2_3 + a2_4) * dt / 6;
+  time += dt;
+}
+
+function drawSpring(ctx, x1, y1, x2, y2, coils, amp) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const ux = dx / len, uy = dy / len;
+  const px = -uy, py = ux;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  const segLen = len / (coils * 2 + 2);
+  let cx = x1 + ux * segLen, cy = y1 + uy * segLen;
+  ctx.lineTo(cx, cy);
+  for (let i = 0; i < coils * 2; i++) {
+    const sign = (i % 2 === 0) ? 1 : -1;
+    cx += ux * segLen;
+    cy += uy * segLen;
+    ctx.lineTo(cx + px * amp * sign, cy + py * amp * sign);
+  }
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+}
+
+function drawSim() {
+  const W = simCanvas.width, H = simCanvas.height;
+  simCtx.clearRect(0, 0, W, H);
+  simCtx.fillStyle = '#16213e';
+  simCtx.fillRect(0, 0, W, H);
+
+  const midY = H / 2;
+  const wallL = 40, wallR = W - 40;
+  const massW = 40, massH = 40;
+  const restX1 = W * 0.35, restX2 = W * 0.65;
+  const scale = 80;
+
+  const mx1 = restX1 + x1 * scale;
+  const mx2 = restX2 + x2 * scale;
+
+  // Walls
+  simCtx.strokeStyle = '#555';
+  simCtx.lineWidth = 3;
+  simCtx.beginPath(); simCtx.moveTo(wallL, midY - 50); simCtx.lineTo(wallL, midY + 50); simCtx.stroke();
+  simCtx.beginPath(); simCtx.moveTo(wallR, midY - 50); simCtx.lineTo(wallR, midY + 50); simCtx.stroke();
+  // Hatching
+  simCtx.lineWidth = 1;
+  for (let i = -45; i <= 45; i += 10) {
+    simCtx.beginPath(); simCtx.moveTo(wallL, midY + i); simCtx.lineTo(wallL - 8, midY + i + 8); simCtx.stroke();
+    simCtx.beginPath(); simCtx.moveTo(wallR, midY + i); simCtx.lineTo(wallR + 8, midY + i + 8); simCtx.stroke();
+  }
+
+  // Springs
+  simCtx.strokeStyle = '#7ec8e3';
+  simCtx.lineWidth = 2;
+  drawSpring(simCtx, wallL, midY, mx1 - massW / 2, midY, 8, 8);
+  drawSpring(simCtx, mx1 + massW / 2, midY, mx2 - massW / 2, midY, 6, 8);
+  drawSpring(simCtx, mx2 + massW / 2, midY, wallR, midY, 8, 8);
+
+  // Masses
+  simCtx.fillStyle = '#e74c3c';
+  simCtx.fillRect(mx1 - massW / 2, midY - massH / 2, massW, massH);
+  simCtx.fillStyle = '#3498db';
+  simCtx.fillRect(mx2 - massW / 2, midY - massH / 2, massW, massH);
+
+  // Labels
+  simCtx.fillStyle = '#fff';
+  simCtx.font = '14px sans-serif';
+  simCtx.textAlign = 'center';
+  simCtx.fillText('m₁', mx1, midY + 5);
+  simCtx.fillText('m₂', mx2, midY + 5);
+
+  // Displacement arrows
+  simCtx.strokeStyle = '#f39c12';
+  simCtx.lineWidth = 2;
+  if (Math.abs(x1) > 0.01) {
+    simCtx.beginPath(); simCtx.moveTo(restX1, midY + 35); simCtx.lineTo(mx1, midY + 35); simCtx.stroke();
+    const dir = x1 > 0 ? 1 : -1;
+    simCtx.beginPath(); simCtx.moveTo(mx1, midY + 35); simCtx.lineTo(mx1 - dir * 6, midY + 32); simCtx.lineTo(mx1 - dir * 6, midY + 38); simCtx.closePath(); simCtx.fillStyle = '#f39c12'; simCtx.fill();
+  }
+  if (Math.abs(x2) > 0.01) {
+    simCtx.beginPath(); simCtx.moveTo(restX2, midY + 35); simCtx.lineTo(mx2, midY + 35); simCtx.stroke();
+    const dir = x2 > 0 ? 1 : -1;
+    simCtx.beginPath(); simCtx.moveTo(mx2, midY + 35); simCtx.lineTo(mx2 - dir * 6, midY + 32); simCtx.lineTo(mx2 - dir * 6, midY + 38); simCtx.closePath(); simCtx.fillStyle = '#f39c12'; simCtx.fill();
+  }
+
+  // Time display
+  simCtx.fillStyle = '#aaa';
+  simCtx.font = '12px monospace';
+  simCtx.textAlign = 'left';
+  simCtx.fillText('t = ' + time.toFixed(2) + ' s', 10, 18);
+}
+
+function drawGraph() {
+  const W = graphCanvas.width, H = graphCanvas.height;
+  graphCtx.clearRect(0, 0, W, H);
+  graphCtx.fillStyle = '#16213e';
+  graphCtx.fillRect(0, 0, W, H);
+
+  const padL = 50, padR = 20, padT = 20, padB = 30;
+  const gW = W - padL - padR, gH = H - padT - padB;
+  const midY = padT + gH / 2;
+
+  // Axes
+  graphCtx.strokeStyle = '#444';
+  graphCtx.lineWidth = 1;
+  graphCtx.beginPath(); graphCtx.moveTo(padL, midY); graphCtx.lineTo(padL + gW, midY); graphCtx.stroke();
+  graphCtx.beginPath(); graphCtx.moveTo(padL, padT); graphCtx.lineTo(padL, padT + gH); graphCtx.stroke();
+
+  // Labels
+  graphCtx.fillStyle = '#aaa';
+  graphCtx.font = '11px sans-serif';
+  graphCtx.textAlign = 'center';
+  graphCtx.fillText('time (s)', padL + gW / 2, H - 5);
+  graphCtx.save();
+  graphCtx.translate(12, midY);
+  graphCtx.rotate(-Math.PI / 2);
+  graphCtx.fillText('displacement', 0, 0);
+  graphCtx.restore();
+
+  if (history.length < 2) return;
+
+  const tMax = history[history.length - 1].t;
+  const tMin = history[0].t;
+  const tRange = Math.max(tMax - tMin, 0.01);
+
+  function toX(t) { return padL + (t - tMin) / tRange * gW; }
+  function toY(x) { return midY - x * (gH / 2.5); }
+
+  // x1
+  graphCtx.strokeStyle = '#e74c3c';
+  graphCtx.lineWidth = 1.5;
+  graphCtx.beginPath();
+  for (let i = 0; i < history.length; i++) {
+    const px = toX(history[i].t), py = toY(history[i].x1);
+    if (i === 0) graphCtx.moveTo(px, py); else graphCtx.lineTo(px, py);
+  }
+  graphCtx.stroke();
+
+  // x2
+  graphCtx.strokeStyle = '#3498db';
+  graphCtx.lineWidth = 1.5;
+  graphCtx.beginPath();
+  for (let i = 0; i < history.length; i++) {
+    const px = toX(history[i].t), py = toY(history[i].x2);
+    if (i === 0) graphCtx.moveTo(px, py); else graphCtx.lineTo(px, py);
+  }
+  graphCtx.stroke();
+
+  // Legend
+  graphCtx.fillStyle = '#e74c3c';
+  graphCtx.fillRect(padL + 10, padT + 5, 12, 3);
+  graphCtx.fillStyle = '#ccc';
+  graphCtx.textAlign = 'left';
+  graphCtx.fillText('x₁(t)', padL + 26, padT + 10);
+  graphCtx.fillStyle = '#3498db';
+  graphCtx.fillRect(padL + 10, padT + 15, 12, 3);
+  graphCtx.fillStyle = '#ccc';
+  graphCtx.fillText('x₂(t)', padL + 26, padT + 20);
+}
+
+let animId = null;
+let frameCount = 0;
+
+function animate() {
+  if (!running) return;
+  for (let i = 0; i < 3; i++) step();
+  frameCount++;
+  if (frameCount % 2 === 0) {
+    history.push({ t: time, x1: x1, x2: x2 });
+    if (history.length > maxHistory) history.shift();
+  }
+  drawSim();
+  drawGraph();
+  animId = requestAnimationFrame(animate);
+}
+
+document.getElementById('btnStart').addEventListener('click', function() {
+  if (running) {
+    running = false;
+    this.textContent = '▶ Start';
+    cancelAnimationFrame(animId);
+  } else {
+    running = true;
+    this.textContent = '⏸ Pause';
+    animate();
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', reset);
+document.getElementById('btnInPhase').addEventListener('click', () => setMode('inphase'));
+document.getElementById('btnOutPhase').addEventListener('click', () => setMode('outphase'));
+document.getElementById('btnBeat').addEventListener('click', () => setMode('beat'));
+
+document.getElementById('kc').addEventListener('input', function() {
+  kc = parseInt(this.value);
+  document.getElementById('kcVal').textContent = kc;
+  updateFrequencies();
+  reset();
+});
+document.getElementById('k').addEventListener('input', function() {
+  k = parseInt(this.value);
+  document.getElementById('kVal').textContent = k;
+  updateFrequencies();
+  reset();
+});
+
+updateFrequencies();
+setMode('beat');
+</script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Density explorer: change of variables and the normal family</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; padding: 12px 16px; background: #faf8f4; color: #222; }
+  h3 { margin: 4px 0 2px; font-size: 17px; }
+  p.hint { margin: 2px 0 10px; font-size: 13px; color: #555; }
+  .panel { border: 1px solid #d8d2c4; border-radius: 6px; background: #fff; padding: 8px 12px; margin-bottom: 12px; }
+  canvas { display: block; margin: 4px auto; }
+  label { font-size: 13px; margin-right: 6px; }
+  input[type=range] { vertical-align: middle; width: 170px; }
+  .val { font-family: monospace; font-size: 13px; color: #1a4d7a; min-width: 52px; display: inline-block; }
+  .out { font-size: 14px; margin-top: 4px; }
+  .out b { color: #1a4d7a; }
+  .row { margin: 3px 0; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+<h3>1 · The normal density, with adjustable μ and σ</h3>
+<p class="hint">Drag the sliders: the curve shifts with μ and spreads with σ. The shaded band is the probability of falling between the two cut points a and b — it is the area under the density, computed with the error function.</p>
+<canvas id="c1" width="640" height="270"></canvas>
+<div class="row">
+  <label>μ <input id="mu" type="range" min="-3" max="3" step="0.1" value="0"></label><span class="val" id="muV">0.0</span>
+  <label>σ <input id="sg" type="range" min="0.3" max="3" step="0.05" value="1"></label><span class="val" id="sgV">1.00</span>
+  <label>a <input id="a" type="range" min="-4" max="4" step="0.1" value="-1"></label><span class="val" id="aV">-1.0</span>
+  <label>b <input id="b" type="range" min="-4" max="4" step="0.1" value="1"></label><span class="val" id="bV">1.0</span>
+</div>
+<div class="out">P(a &lt; X ≤ b) = <b id="pV">0.6827</b> &nbsp;·&nbsp; F(b) − F(a) = <span id="cdfV">0.6827</span></div>
+</div>
+
+<div class="panel">
+<h3>2 · Change of variables: Y = X², X ~ N(0,1)</h3>
+<p class="hint">Left: the standard normal density f<sub>X</sub>, with the two preimages ±√y of a point y marked. Right: the pushed-forward density f<sub>Y</sub>(y) = (f(√y) + f(−√y)) / (2√y) — the mass of two symmetric strips, divided by the stretched width 2√y. Move the slider to see how a strip of X-mass maps to a strip of Y-mass.</p>
+<canvas id="c2" width="640" height="270"></canvas>
+<div class="row">
+  <label>y <input id="y2" type="range" min="0.05" max="7" step="0.05" value="1"></label><span class="val" id="y2V">1.00</span>
+</div>
+<div class="out">f<sub>Y</sub>(y) = <b id="fyV">0.1995</b> &nbsp;·&nbsp; mass in strip of X ≈ <span id="mxV">0.3413</span> &nbsp;·&nbsp; strip width 2√y = <span id="wV">2.00</span></div>
+</div>
+
+<script>
+"use strict";
+function erf(x){
+  var s = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  var t = 1/(1+0.3275911*x);
+  var y = 1 - (((((1.061405429*t - 1.453152027)*t) + 1.421413741)*t - 0.284496736)*t + 0.254829592)*t*Math.exp(-x*x);
+  return s*y;
+}
+function phi(x){ return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI); }
+function Phi(x){ return 0.5*(1+erf(x/Math.SQRT2)); }
+
+// ---------- Panel 1: normal density ----------
+var c1 = document.getElementById("c1"), g1 = c1.getContext("2d");
+var W1 = c1.width, H1 = c1.height;
+var XMIN1 = -4.5, XMAX1 = 4.5, YMAX1 = 0.5;
+function x1px(x){ return 40 + (x - XMIN1)/(XMAX1 - XMIN1)*(W1 - 60); }
+function y1px(v){ return H1 - 30 - (v/YMAX1)*(H1 - 50); }
+function draw1(){
+  var mu = +document.getElementById("mu").value;
+  var sg = +document.getElementById("sg").value;
+  var a  = +document.getElementById("a").value;
+  var b  = +document.getElementById("b").value;
+  document.getElementById("muV").textContent = mu.toFixed(1);
+  document.getElementById("sgV").textContent = sg.toFixed(2);
+  document.getElementById("aV").textContent = a.toFixed(1);
+  document.getElementById("bV").textContent = b.toFixed(1);
+  g1.clearRect(0,0,W1,H1);
+  // axes
+  g1.strokeStyle = "#999"; g1.lineWidth = 1;
+  g1.beginPath(); g1.moveTo(30, H1-30); g1.lineTo(W1-10, H1-30); g1.stroke();
+  g1.beginPath(); g1.moveTo(40, 20); g1.lineTo(40, H1-30); g1.stroke();
+  g1.fillStyle = "#666"; g1.font = "11px monospace";
+  for (var k = -4; k <= 4; k++){
+    g1.fillText(k, x1px(k)-4, H1-16);
+    g1.beginPath(); g1.moveTo(x1px(k), H1-30); g1.lineTo(x1px(k), H1-26); g1.stroke();
+  }
+  g1.fillText("x", W1-18, H1-16);
+  g1.fillText("f(x)", 46, 26);
+  // shaded region between a and b
+  var lo = Math.min(a,b), hi = Math.max(a,b);
+  g1.fillStyle = "rgba(66,133,244,0.25)";
+  g1.beginPath();
+  g1.moveTo(x1px(lo), y1px(0));
+  for (var x = lo; x <= hi; x += 0.02) g1.lineTo(x1px(x), y1px(phi((x-mu)/sg)/sg));
+  g1.lineTo(x1px(hi), y1px(0));
+  g1.closePath(); g1.fill();
+  // density curve
+  g1.strokeStyle = "#1a4d7a"; g1.lineWidth = 2;
+  g1.beginPath();
+  for (x = XMIN1; x <= XMAX1; x += 0.02){
+    var v = phi((x-mu)/sg)/sg;
+    if (x === XMIN1) g1.moveTo(x1px(x), y1px(v)); else g1.lineTo(x1px(x), y1px(v));
+  }
+  g1.stroke();
+  // cut lines
+  g1.strokeStyle = "#c0392b"; g1.setLineDash([4,3]); g1.lineWidth = 1;
+  [lo,hi].forEach(function(t){
+    g1.beginPath(); g1.moveTo(x1px(t), y1px(0)); g1.lineTo(x1px(t), y1px(phi((t-mu)/sg)/sg)); g1.stroke();
+  });
+  g1.setLineDash([]);
+  // probability
+  var p = Phi((hi-mu)/sg) - Phi((lo-mu)/sg);
+  document.getElementById("pV").textContent = p.toFixed(4);
+  document.getElementById("cdfV").textContent = p.toFixed(4);
+}
+["mu","sg","a","b"].forEach(function(id){
+  document.getElementById(id).addEventListener("input", draw1);
+});
+
+// ---------- Panel 2: change of variables Y = X^2 ----------
+var c2 = document.getElementById("c2"), g2 = c2.getContext("2d");
+var W2 = c2.width, H2 = c2.height;
+var YMAX2 = 0.55, YMAXX = 8;
+function fy(y){ return y <= 0 ? 0 : Math.exp(-y/2)/Math.sqrt(2*Math.PI*y); }
+function x2pxL(x){ return 30 + (x + 4)/8*(W2/2 - 60); }          // left plot: x in [-4,4]
+function x2pxR(y){ return W2/2 + 30 + y/YMAXX*(W2/2 - 70); }     // right plot: y in [0,8]
+function y2px(v){ return H2 - 30 - (v/YMAX2)*(H2 - 50); }
+function draw2(){
+  var y = +document.getElementById("y2").value;
+  document.getElementById("y2V").textContent = y.toFixed(2);
+  document.getElementById("fyV").textContent = fy(y).toFixed(4);
+  document.getElementById("wV").textContent = (2*Math.sqrt(y)).toFixed(2);
+  g2.clearRect(0,0,W2,H2);
+  g2.strokeStyle = "#999"; g2.lineWidth = 1;
+  g2.beginPath(); g2.moveTo(20, H2-30); g2.lineTo(W2/2-20, H2-30); g2.stroke();
+  g2.beginPath(); g2.moveTo(W2/2+20, H2-30); g2.lineTo(W2-10, H2-30); g2.stroke();
+  g2.fillStyle = "#666"; g2.font = "11px monospace";
+  g2.fillText("x-space: f_X", 60, 24);
+  g2.fillText("y-space: f_Y", W2/2 + 60, 24);
+  // left: standard normal, strip [-sqrt(y)-w, sqrt(y)+w]
+  var w = 0.15, s = Math.sqrt(y);
+  g2.fillStyle = "rgba(66,133,244,0.25)";
+  g2.beginPath(); g2.moveTo(x2pxL(-s-w), y2px(0));
+  for (var x = -s-w; x <= s+w; x += 0.02) g2.lineTo(x2pxL(x), y2px(phi(x)));
+  g2.lineTo(x2pxL(s+w), y2px(0)); g2.closePath(); g2.fill();
+  g2.strokeStyle = "#1a4d7a"; g2.lineWidth = 2;
+  g2.beginPath();
+  for (x = -4; x <= 4; x += 0.02){
+    var v = phi(x);
+    if (x === -4) g2.moveTo(x2pxL(x), y2px(v)); else g2.lineTo(x2pxL(x), y2px(v));
+  }
+  g2.stroke();
+  // preimage markers
+  g2.strokeStyle = "#c0392b"; g2.setLineDash([4,3]); g2.lineWidth = 1;
+  [-s, s].forEach(function(t){
+    g2.beginPath(); g2.moveTo(x2pxL(t), y2px(0)); g2.lineTo(x2pxL(t), y2px(phi(t))); g2.stroke();
+  });
+  g2.setLineDash([]);
+  g2.fillStyle = "#c0392b";
+  g2.fillText("−√y", x2pxL(-s)-8, H2-16);
+  g2.fillText("+√y", x2pxL(s)-4, H2-16);
+  // right: f_Y
+  g2.fillStyle = "rgba(66,133,244,0.25)";
+  g2.beginPath(); g2.moveTo(x2pxR(y-0.15), y2px(0));
+  for (var yy = Math.max(0.001, y-0.15); yy <= y+0.15; yy += 0.01) g2.lineTo(x2pxR(yy), y2px(fy(yy)));
+  g2.lineTo(x2pxR(y+0.15), y2px(0)); g2.closePath(); g2.fill();
+  g2.strokeStyle = "#1a4d7a"; g2.lineWidth = 2;
+  g2.beginPath();
+  for (yy = 0.02; yy <= YMAXX; yy += 0.01){
+    var v2 = fy(yy);
+    if (yy <= 0.03) g2.moveTo(x2pxR(yy), y2px(v2)); else g2.lineTo(x2pxR(yy), y2px(v2));
+  }
+  g2.stroke();
+  // marker at y
+  g2.strokeStyle = "#c0392b"; g2.setLineDash([4,3]); g2.lineWidth = 1;
+  g2.beginPath(); g2.moveTo(x2pxR(y), y2px(0)); g2.lineTo(x2pxR(y), y2px(fy(y))); g2.stroke();
+  g2.setLineDash([]);
+  g2.fillStyle = "#c0392b";
+  g2.fillText("y", x2pxR(y)-3, H2-16);
+  // mass in the X strip (trapezoid rule)
+  var n = 400, h = (2*(s+w))/n, m = 0;
+  for (var i = 0; i < n; i++){
+    var t0 = -s-w + i*h, t1 = t0 + h;
+    m += h*(phi(t0)+phi(t1))/2;
+  }
+  document.getElementById("mxV").textContent = m.toFixed(4);
+}
+document.getElementById("y2").addEventListener("input", draw2);
+
+draw1();
+draw2();
+</script>
+</body>
+</html>

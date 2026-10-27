@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lists Simulation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { text-align: center; margin-bottom: 16px; color: #fff; font-size: 1.4em; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; justify-content: center; }
+.tab { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; background: #16213e; color: #a0a0c0; font-size: 0.9em; transition: all 0.2s; }
+.tab:hover { background: #0f3460; color: #fff; }
+.tab.active { background: #e94560; color: #fff; }
+.panel { display: none; background: #16213e; border-radius: 10px; padding: 20px; min-height: 300px; }
+.panel.active { display: block; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.controls button { padding: 6px 14px; border: none; border-radius: 5px; cursor: pointer; background: #0f3460; color: #fff; font-size: 0.85em; transition: background 0.2s; }
+.controls button:hover { background: #e94560; }
+.controls input { padding: 6px 10px; border: 1px solid #333; border-radius: 5px; background: #1a1a2e; color: #fff; width: 60px; font-size: 0.85em; }
+.viz { margin-top: 16px; }
+.cell { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 2px solid #0f3460; margin: 2px; font-size: 0.85em; font-weight: bold; border-radius: 4px; background: #1a1a2e; transition: all 0.3s; }
+.cell.filled { background: #0f3460; border-color: #e94560; color: #fff; }
+.cell.highlight { background: #e94560; color: #fff; transform: scale(1.1); }
+.cell.empty { border-style: dashed; opacity: 0.4; }
+.node { display: inline-flex; align-items: center; margin: 2px; }
+.node-box { width: 50px; height: 44px; border: 2px solid #e94560; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; }
+.node-box.highlight { background: #e94560; color: #fff; }
+.arrow { font-size: 1.2em; color: #e94560; margin: 0 4px; }
+.bit { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #333; margin: 1px; font-size: 0.75em; border-radius: 3px; background: #1a1a2e; transition: all 0.3s; }
+.bit.set { background: #e94560; color: #fff; }
+.bit.highlight { border-color: #ffd700; box-shadow: 0 0 6px #ffd700; }
+.info { margin-top: 12px; padding: 10px; background: #1a1a2e; border-radius: 6px; font-size: 0.85em; color: #a0a0c0; min-height: 40px; }
+.label { font-size: 0.8em; color: #666; margin-top: 4px; }
+.stack-viz { display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; min-height: 200px; justify-content: flex-start; }
+.stack-cell { width: 80px; height: 36px; border: 2px solid #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; transition: all 0.3s; }
+.stack-cell.top { border-color: #e94560; background: #0f3460; }
+.queue-viz { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.queue-cell { width: 50px; height: 44px; border: 2px solid #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; transition: all 0.3s; }
+.queue-cell.head { border-color: #4ecdc4; }
+.queue-cell.tail { border-color: #ffd700; }
+.cap-label { font-size: 0.75em; color: #666; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Lists — Interactive Visualization</h1>
+<div class="tabs">
+<button class="tab active" onclick="showTab('array')">Array</button>
+<button class="tab" onclick="showTab('vector')">Vector</button>
+<button class="tab" onclick="showTab('linked')">Linked List</button>
+<button class="tab" onclick="showTab('stack')">Stack</button>
+<button class="tab" onclick="showTab('queue')">Queue</button>
+<button class="tab" onclick="showTab('bloom')">Bloom Filter</button>
+</div>
+
+<div id="array" class="panel active">
+<div class="controls">
+<button onclick="arrAccess()">Random Access</button>
+<button onclick="arrInsert()">Insert at Index</button>
+<button onclick="arrDelete()">Delete at Index</button>
+<input id="arrIdx" type="number" value="3" min="0" max="9" style="width:50px">
+<span style="font-size:0.8em;color:#666">index</span>
+<input id="arrVal" type="number" value="42" style="width:60px">
+<span style="font-size:0.8em;color:#666">value</span>
+</div>
+<div class="viz" id="arrViz"></div>
+<div class="info" id="arrInfo">Click a button to interact. Array: fixed-size, contiguous memory. O(1) access, O(n) insert/delete.</div>
+</div>
+
+<div id="vector" class="panel">
+<div class="controls">
+<button onclick="vecPush()">Push (append)</button>
+<button onclick="vecPop()">Pop (remove last)</button>
+<button onclick="vecReset()">Reset</button>
+</div>
+<div class="viz" id="vecViz"></div>
+<div class="cap-label" id="vecCap"></div>
+<div class="info" id="vecInfo">Push elements to see the vector grow. Capacity doubles when full.</div>
+</div>
+
+<div id="linked" class="panel">
+<div class="controls">
+<button onclick="llInsertHead()">Insert at Head</button>
+<button onclick="llInsertTail()">Insert at Tail</button>
+<button onclick="llDeleteHead()">Delete Head</button>
+<input id="llVal" type="number" value="99" style="width:60px">
+<span style="font-size:0.8em;color:#666">value</span>
+</div>
+<div class="viz" id="llViz"></div>
+<div class="info" id="llInfo">Linked list: O(1) insert/delete at known node, O(n) access by index. Poor cache locality.</div>
+</div>
+
+<div id="stack" class="panel">
+<div class="controls">
+<button onclick="stkPush()">Push</button>
+<button onclick="stkPop()">Pop</button>
+<input id="stkVal" type="number" value="5" style="width:60px">
+<span style="font-size:0.8em;color:#666">value</span>
+</div>
+<div class="viz" id="stkViz"></div>
+<div class="info" id="stkInfo">Stack (LIFO): push and pop at the top. O(1) for both operations.</div>
+</div>
+
+<div id="queue" class="panel">
+<div class="controls">
+<button onclick="queEnqueue()">Enqueue</button>
+<button onclick="queDequeue()">Dequeue</button>
+<input id="queVal" type="number" value="10" style="width:60px">
+<span style="font-size:0.8em;color:#666">value</span>
+</div>
+<div class="viz" id="queViz"></div>
+<div class="info" id="queInfo">Queue (FIFO): enqueue at tail, dequeue from head. O(1) for both operations.</div>
+</div>
+
+<div id="bloom" class="panel">
+<div class="controls">
+<button onclick="bloomInsert()">Insert</button>
+<button onclick="bloomQuery()">Query</button>
+<input id="bloomVal" type="text" value="A" style="width:60px">
+<span style="font-size:0.8em;color:#666">element</span>
+</div>
+<div class="viz" id="bloomViz"></div>
+<div class="info" id="bloomInfo">Bloom filter: probabilistic membership test. No false negatives, tunable false positives.</div>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Array
+let arr = [42, 7, 99, 1, 55, 3, 88, 12];
+function renderArr(hl) {
+  let h = '';
+  arr.forEach((v, i) => {
+    h += `<div class="cell ${v !== undefined ? 'filled' : 'empty'} ${i === hl ? 'highlight' : ''}">${v !== undefined ? v : ''}</div>`;
+  });
+  for (let i = arr.length; i < 10; i++) h += `<div class="cell empty"></div>`;
+  document.getElementById('arrViz').innerHTML = h;
+}
+function arrAccess() {
+  let i = parseInt(document.getElementById('arrIdx').value) || 0;
+  i = Math.max(0, Math.min(i, arr.length - 1));
+  renderArr(i);
+  document.getElementById('arrInfo').textContent = `Access index ${i}: value = ${arr[i]}. O(1) — direct address computation.`;
+}
+function arrInsert() {
+  let i = parseInt(document.getElementById('arrIdx').value) || 0;
+  let v = parseInt(document.getElementById('arrVal').value) || 0;
+  i = Math.max(0, Math.min(i, arr.length));
+  arr.splice(i, 0, v);
+  if (arr.length > 10) arr.pop();
+  renderArr(i);
+  document.getElementById('arrInfo').textContent = `Inserted ${v} at index ${i}. O(n) — all elements after index ${i} shifted right.`;
+}
+function arrDelete() {
+  let i = parseInt(document.getElementById('arrIdx').value) || 0;
+  i = Math.max(0, Math.min(i, arr.length - 1));
+  let v = arr.splice(i, 1)[0];
+  renderArr(i);
+  document.getElementById('arrInfo').textContent = `Deleted ${v} at index ${i}. O(n) — all elements after index ${i} shifted left.`;
+}
+renderArr(-1);
+
+// Vector
+let vec = [], vecCap = 1;
+function renderVec(hl) {
+  let h = '';
+  for (let i = 0; i < vecCap; i++) {
+    let cls = i < vec.length ? 'filled' : 'empty';
+    if (i === hl) cls += ' highlight';
+    h += `<div class="cell ${cls}">${i < vec.length ? vec[i] : ''}</div>`;
+  }
+  document.getElementById('vecViz').innerHTML = h;
+  document.getElementById('vecCap').textContent = `size = ${vec.length}, capacity = ${vecCap}`;
+}
+function vecPush() {
+  if (vec.length >= vecCap) {
+    vecCap *= 2;
+    document.getElementById('vecInfo').textContent = `Capacity full! Doubling: ${vecCap/2} → ${vecCap}. Copied ${vec.length} elements. Amortized O(1).`;
+  }
+  vec.push(Math.floor(Math.random() * 100));
+  renderVec(vec.length - 1);
+  if (vec.length < vecCap) document.getElementById('vecInfo').textContent = `Pushed ${vec[vec.length-1]}. No reallocation needed.`;
+}
+function vecPop() {
+  if (vec.length === 0) { document.getElementById('vecInfo').textContent = 'Vector is empty.'; return; }
+  let v = vec.pop();
+  renderVec(-1);
+  document.getElementById('vecInfo').textContent = `Popped ${v}. O(1).`;
+}
+function vecReset() { vec = []; vecCap = 1; renderVec(-1); document.getElementById('vecInfo').textContent = 'Reset. Capacity = 1.'; }
+renderVec(-1);
+
+// Linked List
+let ll = [3, 7, 99, 1, 55];
+function renderLL(hl) {
+  let h = '';
+  ll.forEach((v, i) => {
+    h += `<div class="node"><div class="node-box ${i === hl ? 'highlight' : ''}">${v}</div>`;
+    if (i < ll.length - 1) h += `<span class="arrow">→</span>`;
+    h += `</div>`;
+  });
+  if (ll.length === 0) h = '<span style="color:#666">NULL (empty list)</span>';
+  document.getElementById('llViz').innerHTML = h;
+}
+function llInsertHead() {
+  let v = parseInt(document.getElementById('llVal').value) || 0;
+  ll.unshift(v);
+  renderLL(0);
+  document.getElementById('llInfo').textContent = `Inserted ${v} at head. O(1) — new node points to old head.`;
+}
+function llInsertTail() {
+  let v = parseInt(document.getElementById('llVal').value) || 0;
+  ll.push(v);
+  renderLL(ll.length - 1);
+  document.getElementById('llInfo').textContent = `Inserted ${v} at tail. O(n) — must traverse to last node (or O(1) with tail pointer).`;
+}
+function llDeleteHead() {
+  if (ll.length === 0) { document.getElementById('llInfo').textContent = 'List is empty.'; return; }
+  let v = ll.shift();
+  renderLL(0);
+  document.getElementById('llInfo').textContent = `Deleted ${v} from head. O(1) — head now points to next node.`;
+}
+renderLL(-1);
+
+// Stack
+let stk = [3, 7, 1];
+function renderStk(hl) {
+  let h = '<div class="stack-viz">';
+  stk.forEach((v, i) => {
+    let cls = i === stk.length - 1 ? 'top' : '';
+    if (i === hl) cls += ' highlight';
+    h += `<div class="stack-cell ${cls}">${v}</div>`;
+  });
+  h += '</div>';
+  document.getElementById('stkViz').innerHTML = h;
+}
+function stkPush() {
+  let v = parseInt(document.getElementById('stkVal').value) || 0;
+  stk.push(v);
+  renderStk(stk.length - 1);
+  document.getElementById('stkInfo').textContent = `Pushed ${v}. O(1) — write at top index, increment.`;
+}
+function stkPop() {
+  if (stk.length === 0) { document.getElementById('stkInfo').textContent = 'Stack is empty.'; return; }
+  let v = stk.pop();
+  renderStk(-1);
+  document.getElementById('stkInfo').textContent = `Popped ${v}. O(1) — read at top index, decrement.`;
+}
+renderStk(-1);
+
+// Queue
+let que = [10, 20, 30];
+function renderQue(hl) {
+  let h = '<div class="queue-viz">';
+  que.forEach((v, i) => {
+    let cls = '';
+    if (i === 0) cls = 'head';
+    if (i === que.length - 1) cls = 'tail';
+    if (i === hl) cls += ' highlight';
+    h += `<div class="queue-cell ${cls}">${v}</div>`;
+  });
+  h += '</div>';
+  if (que.length > 0) h += '<div class="label">← head (dequeue)    tail (enqueue) →</div>';
+  document.getElementById('queViz').innerHTML = h;
+}
+function queEnqueue() {
+  let v = parseInt(document.getElementById('queVal').value) || 0;
+  que.push(v);
+  renderQue(que.length - 1);
+  document.getElementById('queInfo').textContent = `Enqueued ${v} at tail. O(1) — write at tail, advance tail pointer.`;
+}
+function queDequeue() {
+  if (que.length === 0) { document.getElementById('queInfo').textContent = 'Queue is empty.'; return; }
+  let v = que.shift();
+  renderQue(0);
+  document.getElementById('queInfo').textContent = `Dequeued ${v} from head. O(1) — read at head, advance head pointer.`;
+}
+renderQue(-1);
+
+// Bloom Filter
+let bloomBits = new Array(16).fill(0);
+let bloomElements = [];
+function hash(s, k) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+  return (h * (k + 7) + k * 13) % 16;
+}
+function renderBloom(hlBits) {
+  let h = '';
+  bloomBits.forEach((b, i) => {
+    let cls = b ? 'set' : '';
+    if (hlBits && hlBits.includes(i)) cls += ' highlight';
+    h += `<div class="bit ${cls}">${b}</div>`;
+  });
+  document.getElementById('bloomViz').innerHTML = h;
+}
+function bloomInsert() {
+  let el = document.getElementById('bloomVal').value || 'X';
+  let positions = [hash(el, 0), hash(el, 1), hash(el, 2)];
+  positions.forEach(p => bloomBits[p] = 1);
+  bloomElements.push(el);
+  renderBloom(positions);
+  document.getElementById('bloomInfo').textContent = `Inserted "${el}": set bits at positions [${positions.join(', ')}]. O(k) = O(3).`;
+}
+function bloomQuery() {
+  let el = document.getElementById('bloomVal').value || 'X';
+  let positions = [hash(el, 0), hash(el, 1), hash(el, 2)];
+  let allSet = positions.every(p => bloomBits[p] === 1);
+  renderBloom(positions);
+  if (allSet) {
+    let actuallyPresent = bloomElements.includes(el);
+    document.getElementById('bloomInfo').textContent = `Query "${el}": all bits set → "maybe present". ${actuallyPresent ? '✓ True positive.' : '⚠ False positive (element was never inserted).'}`;
+  } else {
+    document.getElementById('bloomInfo').textContent = `Query "${el}": bit(s) clear at [${positions.filter(p => bloomBits[p]===0).join(', ')}] → "definitely absent". ✓ No false negatives.`;
+  }
+}
+renderBloom(null);
+</script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Langevin Brownian Particle Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 16px; background: #fafafa; }
+h2 { font-size: 1.1em; margin-bottom: 4px; }
+.controls { display: flex; gap: 16px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+.controls input[type=range] { width: 120px; }
+canvas { border: 1px solid #ccc; background: #fff; display: block; margin: 8px 0; }
+.info { font-size: 0.85em; color: #555; margin: 4px 0; }
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+.col { flex: 1; min-width: 300px; }
+</style>
+</head>
+<body>
+<h2>Langevin Brownian Particle: Ballistic → Diffusive Transition</h2>
+<p class="info">Adjust friction γ and temperature T. The left panel shows the particle trajectory; the right panel shows the mean-squared displacement (MSD) on a log-log plot. The slope transitions from 2 (ballistic, ∝ t²) to 1 (diffusive, ∝ t).</p>
+<div class="controls">
+  <label>Friction γ: <input type="range" id="gamma" min="0.1" max="10" step="0.1" value="2"> <span id="gammaVal">2.0</span></label>
+  <label>Temperature T: <input type="range" id="temp" min="0.5" max="5" step="0.1" value="1"> <span id="tempVal">1.0</span></label>
+  <label>Mass m: <input type="range" id="mass" min="0.1" max="5" step="0.1" value="1"> <span id="massVal">1.0</span></label>
+  <button id="reset">Reset</button>
+</div>
+<div class="row">
+  <div class="col">
+    <canvas id="trajCanvas" width="400" height="300"></canvas>
+    <p class="info">Particle trajectory (last 500 steps)</p>
+  </div>
+  <div class="col">
+    <canvas id="msdCanvas" width="400" height="300"></canvas>
+    <p class="info">MSD ⟨Δx²⟩ vs t (log-log). Dashed lines: t² (ballistic) and t (diffusive).</p>
+  </div>
+</div>
+<p class="info" id="readout">D = k<sub>B</sub>T/γ = <span id="dVal">0.50</span> | Relaxation time τ = m/γ = <span id="tauVal">0.50</span></p>
+<script>
+(function(){
+const trajCtx = document.getElementById('trajCanvas').getContext('2d');
+const msdCtx = document.getElementById('msdCanvas').getContext('2d');
+const gammaSlider = document.getElementById('gamma');
+const tempSlider = document.getElementById('temp');
+const massSlider = document.getElementById('mass');
+const gammaVal = document.getElementById('gammaVal');
+const tempVal = document.getElementById('tempVal');
+const massVal = document.getElementById('massVal');
+const dVal = document.getElementById('dVal');
+const tauVal = document.getElementById('tauVal');
+
+let x = 0, v = 0, t = 0;
+let traj = [];
+let msdData = [];
+const dt = 0.01;
+const maxSteps = 2000;
+let step = 0;
+
+function params() {
+  return { gamma: parseFloat(gammaSlider.value), T: parseFloat(tempSlider.value), m: parseFloat(massSlider.value) };
+}
+
+function reset() {
+  x = 0; v = 0; t = 0; step = 0;
+  traj = [];
+  msdData = [];
+  x0 = 0;
+}
+
+let x0 = 0;
+
+gammaSlider.oninput = () => { gammaVal.textContent = parseFloat(gammaSlider.value).toFixed(1); updateReadout(); };
+tempSlider.oninput = () => { tempVal.textContent = parseFloat(tempSlider.value).toFixed(1); updateReadout(); };
+massSlider.oninput = () => { massVal.textContent = parseFloat(massSlider.value).toFixed(1); updateReadout(); };
+document.getElementById('reset').onclick = reset;
+
+function updateReadout() {
+  const p = params();
+  dVal.textContent = (p.T / p.gamma).toFixed(3);
+  tauVal.textContent = (p.m / p.gamma).toFixed(3);
+}
+
+function gauss() {
+  let u = 0, w = 0;
+  while (u === 0) u = Math.random();
+  while (w === 0) w = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * w);
+}
+
+function stepSim() {
+  const p = params();
+  const noiseAmp = Math.sqrt(2 * p.gamma * p.T / dt);
+  const F = 0;
+  v += (-p.gamma * v + F + noiseAmp * gauss()) * dt / p.m;
+  x += v * dt;
+  t += dt;
+  step++;
+  traj.push({ x: x, y: v });
+  if (traj.length > 500) traj.shift();
+  if (step % 10 === 0) {
+    msdData.push({ t: t, msd: (x - x0) * (x - x0) });
+  }
+  if (step >= maxSteps) reset();
+}
+
+function drawTraj() {
+  const W = 400, H = 300;
+  trajCtx.clearRect(0, 0, W, H);
+  if (traj.length < 2) return;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const pt of traj) {
+    if (pt.x < minX) minX = pt.x;
+    if (pt.x > maxX) maxX = pt.x;
+    if (pt.y < minY) minY = pt.y;
+    if (pt.y > maxY) maxY = pt.y;
+  }
+  const pad = 20;
+  const sx = (W - 2*pad) / (maxX - minX + 1e-9);
+  const sy = (H - 2*pad) / (maxY - minY + 1e-9);
+  trajCtx.strokeStyle = '#1565c0';
+  trajCtx.lineWidth = 1.5;
+  trajCtx.beginPath();
+  for (let i = 0; i < traj.length; i++) {
+    const px = pad + (traj[i].x - minX) * sx;
+    const py = H - pad - (traj[i].y - minY) * sy;
+    if (i === 0) trajCtx.moveTo(px, py); else trajCtx.lineTo(px, py);
+  }
+  trajCtx.stroke();
+  // Current position
+  const last = traj[traj.length - 1];
+  const lx = pad + (last.x - minX) * sx;
+  const ly = H - pad - (last.y - minY) * sy;
+  trajCtx.fillStyle = '#c62828';
+  trajCtx.beginPath();
+  trajCtx.arc(lx, ly, 5, 0, 2*Math.PI);
+  trajCtx.fill();
+  trajCtx.fillStyle = '#333';
+  trajCtx.font = '11px system-ui';
+  trajCtx.fillText('x (position)', W/2 - 30, H - 4);
+  trajCtx.save();
+  trajCtx.translate(12, H/2 + 30);
+  trajCtx.rotate(-Math.PI/2);
+  trajCtx.fillText('v (velocity)', 0, 0);
+  trajCtx.restore();
+}
+
+function drawMSD() {
+  const W = 400, H = 300;
+  msdCtx.clearRect(0, 0, W, H);
+  if (msdData.length < 5) return;
+  const pad = 40;
+  const plotW = W - 2*pad, plotH = H - 2*pad;
+  // Log-log axes
+  const tMin = Math.log10(mstdData[0].t || 0.01);
+  const tMax = Math.log10(mstdData[mstdData.length-1].t);
+  const msdMin = Math.log10(Math.max(mstdData[0].msd, 1e-10));
+  const msdMax = Math.log10(Math.max(mstdData[mstdData.length-1].msd, 1e-10));
+  const tRange = tMax - tMin || 1;
+  const msdRange = msdMax - msdMin || 1;
+
+  function toX(t) { return pad + (Math.log10(t) - tMin) / tRange * plotW; }
+  function toY(m) { return H - pad - (Math.log10(Math.max(m, 1e-10)) - msdMin) / msdRange * plotH; }
+
+  // Grid
+  msdCtx.strokeStyle = '#eee';
+  msdCtx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yy = pad + i * plotH / 4;
+    msdCtx.beginPath(); msdCtx.moveTo(pad, yy); msdCtx.lineTo(W-pad, yy); msdCtx.stroke();
+    const xx = pad + i * plotW / 4;
+    msdCtx.beginPath(); msdCtx.moveTo(xx, pad); msdCtx.lineTo(xx, H-pad); msdCtx.stroke();
+  }
+
+  // Reference lines: t^2 (ballistic) and t (diffusive)
+  const p = params();
+  const D = p.T / p.gamma;
+  // Ballistic: msd = (kBT/m) * t^2  (at short times)
+  // Diffusive: msd = 2D * t
+  msdCtx.setLineDash([5,3]);
+  msdCtx.strokeStyle = '#999';
+  msdCtx.lineWidth = 1.5;
+  // t line (diffusive)
+  msdCtx.beginPath();
+  const t1 = Math.pow(10, tMin), t2 = Math.pow(10, tMax);
+  msdCtx.moveTo(toX(t1), toY(2*D*t1));
+  msdCtx.lineTo(toX(t2), toY(2*D*t2));
+  msdCtx.stroke();
+  // t^2 line (ballistic)
+  const vTh = Math.sqrt(p.T / p.m);
+  msdCtx.beginPath();
+  msdCtx.moveTo(toX(t1), toY(vTh*vTh*t1*t1));
+  msdCtx.lineTo(toX(t2), toY(vTh*vTh*t2*t2));
+  msdCtx.stroke();
+  msdCtx.setLineDash([]);
+
+  // MSD data
+  msdCtx.strokeStyle = '#1565c0';
+  msdCtx.lineWidth = 2;
+  msdCtx.beginPath();
+  for (let i = 0; i < mstdData.length; i++) {
+    const px = toX(mstdData[i].t);
+    const py = toY(mstdData[i].msd);
+    if (i === 0) msdCtx.moveTo(px, py); else msdCtx.lineTo(px, py);
+  }
+  msdCtx.stroke();
+
+  // Labels
+  msdCtx.fillStyle = '#333';
+  msdCtx.font = '11px system-ui';
+  msdCtx.fillText('t', W - pad + 10, H - pad + 4);
+  msdCtx.save();
+  msdCtx.translate(12, H/2 + 30);
+  msdCtx.rotate(-Math.PI/2);
+  msdCtx.fillText('⟨Δx²⟩', 0, 0);
+  msdCtx.restore();
+  msdCtx.fillStyle = '#999';
+  msdCtx.fillText('— t (diffusive)', W - 140, pad + 15);
+  msdCtx.fillText('— t² (ballistic)', W - 140, pad + 30);
+}
+
+function animate() {
+  for (let i = 0; i < 5; i++) stepSim();
+  drawTraj();
+  drawMSD();
+  requestAnimationFrame(animate);
+}
+
+updateReadout();
+animate();
+})();
+</script>
+</body>
+</html>

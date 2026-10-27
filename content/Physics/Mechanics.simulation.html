@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Projectile under constant gravity</title>
+<style>
+body { margin: 0; background: #1a1a2e; color: #eee; font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; }
+canvas { border: 1px solid #333; border-radius: 4px; margin-top: 10px; }
+.controls { margin: 10px 0; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.controls label { font-size: 14px; }
+.controls input[type=range] { width: 120px; }
+button { padding: 6px 16px; border: none; border-radius: 4px; background: #4a90d9; color: #fff; cursor: pointer; font-size: 14px; }
+button:hover { background: #357abd; }
+.info { font-size: 13px; color: #aaa; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h2 style="margin:12px 0 4px">Projectile under constant gravity</h2>
+<div class="controls">
+<label>v₀ = <span id="v0val">20</span> m/s <input type="range" id="v0" min="5" max="50" value="20"></label>
+<label>θ = <span id="thval">45</span>° <input type="range" id="th" min="5" max="85" value="45"></label>
+<button id="launch">Launch</button>
+<button id="reset">Reset</button>
+</div>
+<canvas id="cv" width="700" height="400"></canvas>
+<div class="info" id="info">Press Launch to fire the projectile.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+const g = 9.81;
+let v0 = 20, theta = 45;
+let running = false, t = 0, trail = [];
+let animId = null;
+
+const v0Slider = document.getElementById('v0');
+const thSlider = document.getElementById('th');
+const v0val = document.getElementById('v0val');
+const thval = document.getElementById('thval');
+const info = document.getElementById('info');
+
+v0Slider.oninput = () => { v0 = +v0Slider.value; v0val.textContent = v0; };
+thSlider.oninput = () => { theta = +thSlider.value; thval.textContent = theta; };
+
+document.getElementById('launch').onclick = () => {
+  if (running) return;
+  running = true; t = 0; trail = [];
+  const rad = theta * Math.PI / 180;
+  const vx = v0 * Math.cos(rad), vy = v0 * Math.sin(rad);
+  const T = 2 * vy / g;
+  const R = vx * T;
+  const hMax = vy * vy / (2 * g);
+  // Scale: fit trajectory in canvas
+  const pad = 40;
+  const scaleX = (W - 2 * pad) / Math.max(R, 1);
+  const scaleY = (H - 2 * pad) / Math.max(hMax, 1);
+  const scale = Math.min(scaleX, scaleY);
+  const ox = pad, oy = H - pad;
+
+  function step() {
+    t += 0.02;
+    const x = vx * t;
+    const y = vy * t - 0.5 * g * t * t;
+    if (y < 0 || x > R * 1.05) {
+      running = false;
+      info.textContent = `Range: ${R.toFixed(1)} m | Max height: ${hMax.toFixed(1)} m | Flight time: ${T.toFixed(2)} s`;
+      return;
+    }
+    trail.push([ox + x * scale, oy - y * scale]);
+    draw(ox + x * scale, oy - y * scale, trail, scale, ox, oy, R, hMax);
+    animId = requestAnimationFrame(step);
+  }
+  animId = requestAnimationFrame(step);
+};
+
+document.getElementById('reset').onclick = () => {
+  running = false;
+  if (animId) cancelAnimationFrame(animId);
+  trail = [];
+  info.textContent = 'Press Launch to fire the projectile.';
+  draw(0, 0, [], 1, 40, H - 40, 0, 0);
+};
+
+function draw(px, py, trail, scale, ox, oy, R, hMax) {
+  ctx.clearRect(0, 0, W, H);
+  // Ground
+  ctx.strokeStyle = '#555';
+  ctx.beginPath(); ctx.moveTo(0, H - 40); ctx.lineTo(W, H - 40); ctx.stroke();
+  // Grid
+  ctx.strokeStyle = '#2a2a3e';
+  for (let i = 0; i < W; i += 50) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 50) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(W, i); ctx.stroke(); }
+  // Trajectory
+  if (trail.length > 1) {
+    ctx.strokeStyle = '#4a90d9';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(trail[0][0], trail[0][1]);
+    for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i][0], trail[i][1]);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+  // Projectile
+  if (px > 0) {
+    ctx.fillStyle = '#ff6b6b';
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, 2 * Math.PI); ctx.fill();
+  }
+  // Labels
+  if (R > 0) {
+    ctx.fillStyle = '#888';
+    ctx.font = '12px system-ui';
+    ctx.fillText(`R = ${R.toFixed(1)} m`, ox + R * scale - 60, H - 20);
+    ctx.fillText(`h = ${hMax.toFixed(1)} m`, ox + R * scale * 0.5 - 20, oy - hMax * scale - 10);
+  }
+}
+
+// Initial draw
+draw(0, 0, [], 1, 40, H - 40, 0, 0);
+</script>
+</body>
+</html>

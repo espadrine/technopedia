@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First-order model checker</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 16px; background: #f7f9fc; color: #223; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color: #556; max-width: 70ch; }
+  .wrap { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  .panel { min-width: 260px; }
+  h2 { font-size: 14px; margin: 0 0 8px; color: #334; }
+  .grid { border-collapse: separate; border-spacing: 5px; }
+  .grid td { width: 40px; height: 40px; text-align: center; vertical-align: middle; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 16px; background: #fff; border: 1px solid #d5dbe5; border-radius: 6px; cursor: pointer; user-select: none; }
+  .grid td.rowlabel, .grid td.colhead { background: #eef2f8; font-family: system-ui, sans-serif; font-size: 13px; color: #445; cursor: default; }
+  .grid td.p { background: #d3f9d8; border-color: #2f9e44; }
+  .grid td.r { background: #e7f0ff; border-color: #1a56db; }
+  .grid td.pr { background: #d0ebff; border-color: #1864ab; }
+  .legend { font-size: 12px; color: #556; margin-top: 10px; line-height: 1.7; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin: 0 4px 0 10px; }
+  .formula { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; background: #fff; border: 1px solid #d5dbe5; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .formula .txt { flex: 1; }
+  .badge { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .badge.t { background: #d3f9d8; color: #2b8a3e; }
+  .badge.f { background: #ffe3e3; color: #c0392b; }
+  .hint { font-size: 12px; color: #778; margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1>First-order model checker</h1>
+  <p class="sub">A <b>structure</b> interprets a language over a domain. Here the domain is {a, b, c}, with a unary predicate <b>P</b> and a binary relation <b>R</b>. Click a cell in the left column to toggle <b>P(x)</b>; click a cell in the matrix to toggle <b>R(x, y)</b>. The formulas on the right are re-evaluated live, showing which ones the current structure <b>satisfies</b>.</p>
+  <div class="wrap">
+    <div class="panel">
+      <h2>Structure &mdash; domain {a, b, c}</h2>
+      <table class="grid" id="grid"></table>
+      <div class="legend">
+        <span class="sw" style="background:#d3f9d8;border:1px solid #2f9e44"></span>P holds of the element
+        <span class="sw" style="background:#e7f0ff;border:1px solid #1a56db"></span>R(x, y) holds
+        <span class="sw" style="background:#d0ebff;border:1px solid #1864ab"></span>both
+      </div>
+      <div class="hint">Toggle cells to change the interpretation and watch the truth values shift.</div>
+    </div>
+    <div class="panel" style="flex:1;min-width:300px;">
+      <h2>Formulas and their truth in this structure</h2>
+      <div id="formulas"></div>
+    </div>
+  </div>
+<script>
+(function () {
+  var D = ['a', 'b', 'c'];
+  var P = { a: true, b: false, c: true };
+  var R = {
+    'a': { a: false, b: true, c: false },
+    'b': { a: false, b: false, c: true },
+    'c': { a: true, b: false, c: false }
+  };
+
+  var grid = document.getElementById('grid');
+  var formulasEl = document.getElementById('formulas');
+
+  function buildGrid() {
+    grid.innerHTML = '';
+    var head = document.createElement('tr');
+    var corner = document.createElement('td');
+    corner.className = 'colhead';
+    corner.textContent = 'R \\ P';
+    head.appendChild(corner);
+    D.forEach(function (y) {
+      var td = document.createElement('td');
+      td.className = 'colhead';
+      td.textContent = y;
+      head.appendChild(td);
+    });
+    grid.appendChild(head);
+    D.forEach(function (x) {
+      var tr = document.createElement('tr');
+      var lab = document.createElement('td');
+      lab.className = 'rowlabel';
+      lab.textContent = x;
+      tr.appendChild(lab);
+      D.forEach(function (y) {
+        var td = document.createElement('td');
+        td.textContent = (P[x] ? 'P' : '') + (R[x][y] ? 'R' : '');
+        if (P[x] && R[x][y]) td.className = 'pr';
+        else if (P[x]) td.className = 'p';
+        else if (R[x][y]) td.className = 'r';
+        td.onclick = function () { R[x][y] = !R[x][y]; render(); };
+        tr.appendChild(td);
+      });
+      grid.appendChild(tr);
+    });
+    // P toggle row
+    var trp = document.createElement('tr');
+    var labp = document.createElement('td');
+    labp.className = 'rowlabel';
+    labp.textContent = 'P(x)';
+    trp.appendChild(labp);
+    D.forEach(function (x) {
+      var td = document.createElement('td');
+      td.textContent = P[x] ? 'true' : 'false';
+      td.className = P[x] ? 'p' : '';
+      td.onclick = function () { P[x] = !P[x]; render(); };
+      trp.appendChild(td);
+    });
+    grid.appendChild(trp);
+  }
+
+  function evals() {
+    var existsP = D.some(function (x) { return P[x]; });
+    var forallP = D.every(function (x) { return P[x]; });
+    var existsR = D.some(function (x) { return D.some(function (y) { return R[x][y]; }); });
+    var forallPimplR = D.every(function (x) {
+      if (!P[x]) return true;
+      return D.some(function (y) { return R[x][y]; });
+    });
+    var contradiction = D.some(function (x) { return P[x] && !P[x]; });
+    var symmetric = D.every(function (x) {
+      return D.every(function (y) { return R[x][y] ? R[y][x] : true; });
+    });
+    return [
+      { f: '∃x P(x)', v: existsP },
+      { f: '∀x P(x)', v: forallP },
+      { f: '∃x ∃y R(x, y)', v: existsR },
+      { f: '∀x (P(x) → ∃y R(x, y))', v: forallPimplR },
+      { f: '∃x (P(x) ∧ ¬P(x))', v: contradiction },
+      { f: '∀x ∀y (R(x, y) → R(y, x))', v: symmetric }
+    ];
+  }
+
+  function buildFormulas() {
+    formulasEl.innerHTML = '';
+    evals().forEach(function (e, i) {
+      var div = document.createElement('div');
+      div.className = 'formula';
+      var txt = document.createElement('span');
+      txt.className = 'txt';
+      txt.textContent = e.f;
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + (e.v ? 't' : 'f');
+      badge.textContent = e.v ? 'satisfied' : 'false';
+      div.appendChild(txt);
+      div.appendChild(badge);
+      formulasEl.appendChild(div);
+    });
+  }
+
+  function render() { buildGrid(); buildFormulas(); }
+
+  render();
+})();
+</script>
+</body>
+</html>

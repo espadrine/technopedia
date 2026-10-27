@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Parallelism: Race Condition &amp; Synchronization</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #eee; padding: 20px; }
+h1 { font-size: 1.2em; margin-bottom: 10px; color: #64ffda; }
+.controls { margin-bottom: 15px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.9em; }
+#startBtn { background: #64ffda; color: #1a1a2e; font-weight: bold; }
+#startBtn:disabled { background: #555; color: #999; cursor: not-allowed; }
+#resetBtn { background: #ff6b6b; color: #fff; }
+label { font-size: 0.9em; display: flex; align-items: center; gap: 5px; }
+select { padding: 4px 8px; border-radius: 4px; border: 1px solid #444; background: #2a2a4a; color: #eee; font-family: inherit; }
+.memory-display { text-align: center; margin: 12px 0; padding: 12px; background: #16213e; border-radius: 8px; border: 2px solid #0f3460; }
+.memory-display .value { font-size: 2.2em; font-weight: bold; color: #ffd93d; }
+.memory-display .label { font-size: 0.8em; color: #888; margin-top: 4px; }
+.memory-display .lost { font-size: 0.85em; color: #ff6b6b; margin-top: 4px; min-height: 1.2em; }
+.rmw-display { display: flex; gap: 10px; margin: 10px 0; }
+.rmw-box { flex: 1; text-align: center; padding: 8px; background: #16213e; border-radius: 6px; border: 1px solid #0f3460; font-size: 0.8em; }
+.rmw-box .phase { font-size: 1.1em; font-weight: bold; margin-bottom: 4px; }
+.rmw-box .detail { color: #aaa; }
+.rmw-box.active { border-color: #64ffda; box-shadow: 0 0 8px rgba(100,255,218,0.3); }
+.rmw-box.read .phase { color: #4ecdc4; }
+.rmw-box.inc .phase { color: #ffd93d; }
+.rmw-box.write .phase { color: #b388ff; }
+.threads-container { display: flex; gap: 15px; margin-top: 12px; }
+.thread-panel { flex: 1; background: #16213e; border-radius: 8px; padding: 10px; border: 1px solid #0f3460; }
+.thread-panel h3 { font-size: 0.9em; margin-bottom: 6px; }
+.thread-a h3 { color: #4ecdc4; }
+.thread-b h3 { color: #ff6b9d; }
+.step-log { height: 160px; overflow-y: auto; font-size: 0.72em; line-height: 1.5; }
+.step-log div { padding: 2px 4px; border-radius: 2px; }
+.step-log .read { background: #1a3a5c; }
+.step-log .write { background: #3a1a5c; }
+.step-log .lock { background: #1a5c3a; }
+.step-log .unlock { background: #5c3a1a; }
+.step-log .conflict { background: #5c1a1a; color: #ff6b6b; font-weight: bold; }
+.step-log .cas-fail { background: #3a3a1a; color: #ffd93d; }
+.step-log .cas-ok { background: #1a5c3a; color: #69f0ae; }
+.timeline-strip { margin-top: 12px; }
+.timeline-strip h4 { font-size: 0.8em; color: #888; margin-bottom: 6px; }
+.tl-row { display: flex; align-items: center; gap: 2px; margin-bottom: 3px; }
+.tl-row .tl-label { width: 50px; font-size: 0.7em; color: #aaa; text-align: right; padding-right: 6px; }
+.tl-cells { display: flex; gap: 1px; flex: 1; }
+.tl-cell { width: 14px; height: 18px; border-radius: 2px; }
+.tl-cell.idle { background: #2a2a4a; }
+.tl-cell.read { background: #4ecdc4; }
+.tl-cell.inc { background: #ffd93d; }
+.tl-cell.write { background: #b388ff; }
+.tl-cell.lock { background: #69f0ae; }
+.tl-cell.wait { background: #555; }
+.tl-cell.conflict { background: #ff5252; }
+.legend { margin-top: 12px; font-size: 0.72em; color: #888; display: flex; gap: 12px; flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>Race Condition: Read-Modify-Write &amp; Synchronization</h1>
+<div class="controls">
+  <button id="startBtn">▶ Run</button>
+  <button id="resetBtn">↺ Reset</button>
+  <label>Iterations: <select id="iterSelect"><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select></label>
+  <label>Speed: <select id="speedSelect"><option value="400">Slow</option><option value="180" selected>Normal</option><option value="60">Fast</option></select></label>
+  <label>Sync: <select id="syncSelect"><option value="none">None (race)</option><option value="mutex" selected>Mutex</option><option value="cas">CAS (lock-free)</option></select></label>
+</div>
+<div class="memory-display">
+  <div class="value" id="counterVal">0</div>
+  <div class="label">Shared memory: <code>c</code></div>
+  <div class="lost" id="lostInfo"></div>
+</div>
+<div class="rmw-display">
+  <div class="rmw-box read" id="rmwRead"><div class="phase">READ</div><div class="detail" id="rmwReadDetail">—</div></div>
+  <div class="rmw-box inc" id="rmwInc"><div class="phase">INCREMENT</div><div class="detail" id="rmwIncDetail">—</div></div>
+  <div class="rmw-box write" id="rmwWrite"><div class="phase">WRITE</div><div class="detail" id="rmwWriteDetail">—</div></div>
+</div>
+<div class="threads-container">
+  <div class="thread-panel thread-a">
+    <h3>Thread A</h3>
+    <div class="step-log" id="logA"></div>
+  </div>
+  <div class="thread-panel thread-b">
+    <h3>Thread B</h3>
+    <div class="step-log" id="logB"></div>
+  </div>
+</div>
+<div class="timeline-strip">
+  <h4>Timeline (each cell = one step)</h4>
+  <div class="tl-row"><span class="tl-label">Thread A</span><div class="tl-cells" id="tlA"></div></div>
+  <div class="tl-row"><span class="tl-label">Thread B</span><div class="tl-cells" id="tlB"></div></div>
+</div>
+<div class="legend">
+  <span><span class="dot" style="background:#4ecdc4"></span> Read</span>
+  <span><span class="dot" style="background:#ffd93d"></span> Increment</span>
+  <span><span class="dot" style="background:#b388ff"></span> Write</span>
+  <span><span class="dot" style="background:#69f0ae"></span> Lock</span>
+  <span><span class="dot" style="background:#555"></span> Wait</span>
+  <span><span class="dot" style="background:#ff5252"></span> Lost update</span>
+</div>
+<script>
+let counter = 0;
+let mutexHeld = false;
+let mutexOwner = null;
+let running = false;
+let iterations = 10;
+let speed = 180;
+let syncMode = 'mutex';
+let lostCount = 0;
+let tlMaxCells = 60;
+
+const counterEl = document.getElementById('counterVal');
+const lostEl = document.getElementById('lostInfo');
+const logA = document.getElementById('logA');
+const logB = document.getElementById('logB');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
+const rmwRead = document.getElementById('rmwRead');
+const rmwInc = document.getElementById('rmwInc');
+const rmwWrite = document.getElementById('rmwWrite');
+const rmwReadDetail = document.getElementById('rmwReadDetail');
+const rmwIncDetail = document.getElementById('rmwIncDetail');
+const rmwWriteDetail = document.getElementById('rmwWriteDetail');
+const tlA = document.getElementById('tlA');
+const tlB = document.getElementById('tlB');
+
+function updateDisplay() {
+  counterEl.textContent = counter;
+}
+
+function log(thread, msg, cls) {
+  const el = document.getElementById(thread === 'A' ? 'logA' : 'logB');
+  const div = document.createElement('div');
+  div.className = cls;
+  div.textContent = msg;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function addTlCell(container, cls) {
+  if (container.children.length >= tlMaxCells) return;
+  const cell = document.createElement('div');
+  cell.className = 'tl-cell ' + cls;
+  container.appendChild(cell);
+}
+
+function setRmw(phase, detail) {
+  rmwRead.classList.remove('active');
+  rmwInc.classList.remove('active');
+  rmwWrite.classList.remove('active');
+  if (phase === 'read') { rmwRead.classList.add('active'); rmwReadDetail.textContent = detail; }
+  else if (phase === 'inc') { rmwInc.classList.add('active'); rmwIncDetail.textContent = detail; }
+  else if (phase === 'write') { rmwWrite.classList.add('active'); rmwWriteDetail.textContent = detail; }
+  else { rmwReadDetail.textContent = '—'; rmwIncDetail.textContent = '—'; rmwWriteDetail.textContent = '—'; }
+}
+
+async function threadA() {
+  for (let i = 0; i < iterations; i++) {
+    if (syncMode === 'mutex') {
+      while (mutexHeld) { addTlCell(tlA, 'wait'); await sleep(speed); }
+      mutexHeld = true; mutexOwner = 'A';
+      log('A', 'lock()', 'lock');
+      addTlCell(tlA, 'lock');
+      await sleep(speed * 0.5);
+    }
+    const reg = counter;
+    setRmw('read', 'c = ' + reg);
+    log('A', 'read c → ' + reg, 'read');
+    addTlCell(tlA, 'read');
+    await sleep(speed);
+    const newVal = reg + 1;
+    setRmw('inc', reg + ' + 1 = ' + newVal);
+    log('A', 'inc: ' + reg + ' → ' + newVal, 'read');
+    addTlCell(tlA, 'inc');
+    await sleep(speed);
+    if (syncMode === 'cas') {
+      if (counter === reg) {
+        counter = newVal;
+        log('A', 'CAS(' + reg + ',' + newVal + ') ✓', 'cas-ok');
+        addTlCell(tlA, 'write');
+      } else {
+        log('A', 'CAS(' + reg + ',' + newVal + ') ✗ (c=' + counter + ')', 'cas-fail');
+        addTlCell(tlA, 'conflict');
+        i--;
+        setRmw(null, '');
+        await sleep(speed * 0.5);
+        continue;
+      }
+    } else {
+      if (syncMode === 'none' && counter !== reg) {
+        lostCount++;
+        log('A', 'write c=' + newVal + ' (LOST! c was ' + counter + ')', 'conflict');
+        addTlCell(tlA, 'conflict');
+      } else {
+        log('A', 'write c = ' + newVal, 'write');
+        addTlCell(tlA, 'write');
+      }
+      counter = newVal;
+    }
+    setRmw('write', 'c = ' + counter);
+    await sleep(speed * 0.5);
+    if (syncMode === 'mutex') {
+      mutexHeld = false; mutexOwner = null;
+      log('A', 'unlock()', 'unlock');
+      addTlCell(tlA, 'lock');
+      await sleep(speed * 0.3);
+    }
+    setRmw(null, '');
+  }
+}
+
+async function threadB() {
+  for (let i = 0; i < iterations; i++) {
+    if (syncMode === 'mutex') {
+      while (mutexHeld) { addTlCell(tlB, 'wait'); await sleep(speed); }
+      mutexHeld = true; mutexOwner = 'B';
+      log('B', 'lock()', 'lock');
+      addTlCell(tlB, 'lock');
+      await sleep(speed * 0.5);
+    }
+    const reg = counter;
+    setRmw('read', 'c = ' + reg);
+    log('B', 'read c → ' + reg, 'read');
+    addTlCell(tlB, 'read');
+    await sleep(speed);
+    const newVal = reg + 1;
+    setRmw('inc', reg + ' + 1 = ' + newVal);
+    log('B', 'inc: ' + reg + ' → ' + newVal, 'read');
+    addTlCell(tlB, 'inc');
+    await sleep(speed);
+    if (syncMode === 'cas') {
+      if (counter === reg) {
+        counter = newVal;
+        log('B', 'CAS(' + reg + ',' + newVal + ') ✓', 'cas-ok');
+        addTlCell(tlB, 'write');
+      } else {
+        log('B', 'CAS(' + reg + ',' + newVal + ') ✗ (c=' + counter + ')', 'cas-fail');
+        addTlCell(tlB, 'conflict');
+        i--;
+        setRmw(null, '');
+        await sleep(speed * 0.5);
+        continue;
+      }
+    } else {
+      if (syncMode === 'none' && counter !== reg) {
+        lostCount++;
+        log('B', 'write c=' + newVal + ' (LOST! c was ' + counter + ')', 'conflict');
+        addTlCell(tlB, 'conflict');
+      } else {
+        log('B', 'write c = ' + newVal, 'write');
+        addTlCell(tlB, 'write');
+      }
+      counter = newVal;
+    }
+    setRmw('write', 'c = ' + counter);
+    await sleep(speed * 0.5);
+    if (syncMode === 'mutex') {
+      mutexHeld = false; mutexOwner = null;
+      log('B', 'unlock()', 'unlock');
+      addTlCell(tlB, 'lock');
+      await sleep(speed * 0.3);
+    }
+    setRmw(null, '');
+  }
+}
+
+async function run() {
+  if (running) return;
+  running = true;
+  startBtn.disabled = true;
+  iterations = parseInt(document.getElementById('iterSelect').value);
+  speed = parseInt(document.getElementById('speedSelect').value);
+  syncMode = document.getElementById('syncSelect').value;
+  counter = 0; mutexHeld = false; mutexOwner = null; lostCount = 0;
+  logA.innerHTML = ''; logB.innerHTML = '';
+  tlA.innerHTML = ''; tlB.innerHTML = '';
+  updateDisplay();
+  lostEl.textContent = '';
+  lostEl.style.color = '#ff6b6b';
+  setRmw(null, '');
+
+  await Promise.all([threadA(), threadB()]);
+
+  const expected = iterations * 2;
+  const lost = expected - counter;
+  if (lost > 0) {
+    lostEl.textContent = '⚠️ ' + lost + ' update(s) lost! (expected ' + expected + ', got ' + counter + ')';
+  } else {
+    lostEl.textContent = '✓ All ' + expected + ' increments applied correctly.';
+    lostEl.style.color = '#69f0ae';
+  }
+  running = false;
+  startBtn.disabled = false;
+}
+
+function reset() {
+  if (running) return;
+  counter = 0; mutexHeld = false; mutexOwner = null; lostCount = 0;
+  logA.innerHTML = ''; logB.innerHTML = '';
+  tlA.innerHTML = ''; tlB.innerHTML = '';
+  lostEl.textContent = '';
+  lostEl.style.color = '#ff6b6b';
+  setRmw(null, '');
+  updateDisplay();
+}
+
+startBtn.addEventListener('click', run);
+resetBtn.addEventListener('click', reset);
+document.getElementById('syncSelect').addEventListener('change', reset);
+document.getElementById('iterSelect').addEventListener('change', reset);
+document.getElementById('speedSelect').addEventListener('change', reset);
+</script>
+</body>
+</html>

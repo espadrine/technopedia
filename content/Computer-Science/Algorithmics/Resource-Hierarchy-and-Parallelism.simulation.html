@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Circuit Depth and Space Hierarchy Explorer</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #e0e0e0; }
+h2 { color: #50a0e0; margin-bottom: 4px; }
+.subtitle { color: #888; font-size: 0.9em; margin-bottom: 16px; }
+.panel { background: #16213e; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.panel h3 { margin: 0 0 8px 0; font-size: 1em; color: #50c080; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+.btn-and { background: #e07050; color: #fff; }
+.btn-or { background: #50a0e0; color: #fff; }
+.btn-not { background: #a070e0; color: #fff; }
+.btn-reset { background: #555; color: #fff; }
+.btn-input { background: #50c080; color: #fff; }
+#canvas { width: 100%; height: 300px; background: #0f1629; border-radius: 6px; border: 1px solid #333; }
+.metrics { display: flex; gap: 24px; margin-top: 12px; flex-wrap: wrap; }
+.metric { text-align: center; }
+.metric .value { font-size: 1.8em; font-weight: bold; color: #50a0e0; }
+.metric .label { font-size: 0.8em; color: #888; }
+.classification { margin-top: 12px; padding: 10px; background: #0f1629; border-radius: 6px; border-left: 3px solid #50c080; }
+.classification .class-name { font-size: 1.2em; font-weight: bold; color: #50c080; }
+.classification .class-desc { font-size: 0.85em; color: #aaa; margin-top: 4px; }
+.hierarchy { margin-top: 16px; }
+.hierarchy-row { display: flex; align-items: center; margin: 4px 0; }
+.hierarchy-box { padding: 4px 12px; border-radius: 4px; font-size: 0.85em; margin-right: 8px; }
+.hb-ac0 { background: #2a1a3e; border: 1px solid #a070e0; }
+.hb-nc1 { background: #1a2a3e; border: 1px solid #50a0e0; }
+.hb-nc2 { background: #1a3e2a; border: 1px solid #50c080; }
+.hb-nc { background: #3e2a1a; border: 1px solid #e0a050; }
+.hb-p { background: #3e1a1a; border: 1px solid #e07050; }
+.hb-pspace { background: #1a1a3e; border: 1px solid #7070e0; }
+.hb-exp { background: #2e1a2e; border: 1px solid #e070a0; }
+.hierarchy-arrow { color: #666; margin: 0 4px; }
+.depth-scale { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+.depth-bar { height: 20px; border-radius: 3px; transition: width 0.3s; }
+.depth-label { font-size: 0.75em; color: #888; }
+</style>
+</head>
+<body>
+<h2>Circuit Depth &amp; Space Hierarchy Explorer</h2>
+<p class="subtitle">Build Boolean circuits and see how their depth classifies them into complexity classes. Then explore the space hierarchy.</p>
+
+<div class="panel">
+<h3>Circuit Builder</h3>
+<div class="controls">
+<button class="btn-input" onclick="addInput()">+ Input</button>
+<button class="btn-and" onclick="addGate('AND')">+ AND</button>
+<button class="btn-or" onclick="addGate('OR')">+ OR</button>
+<button class="btn-not" onclick="addGate('NOT')">+ NOT</button>
+<button class="btn-reset" onclick="resetCircuit()">Reset</button>
+</div>
+<canvas id="canvas"></canvas>
+<div class="metrics">
+<div class="metric"><div class="value" id="m-depth">0</div><div class="label">Depth</div></div>
+<div class="metric"><div class="value" id="m-size">0</div><div class="label">Size (gates)</div></div>
+<div class="metric"><div class="value" id="m-inputs">0</div><div class="label">Inputs</div></div>
+<div class="metric"><div class="value" id="m-fanin">0</div><div class="label">Max fan-in</div></div>
+</div>
+<div class="classification">
+<div class="class-name" id="c-class">—</div>
+<div class="class-desc" id="c-desc">Add gates to classify the circuit.</div>
+</div>
+</div>
+
+<div class="panel">
+<h3>Space Complexity Hierarchy</h3>
+<p style="font-size:0.85em; color:#aaa; margin-bottom:12px;">Click a level to see example problems and the theorems that separate them.</p>
+<div class="hierarchy" id="hierarchy"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let nodes = [];
+let nextId = 0;
+
+function resizeCanvas() {
+  canvas.width = canvas.clientWidth * (window.devicePixelRatio || 1);
+  canvas.height = canvas.clientHeight * (window.devicePixelRatio || 1);
+  ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+}
+window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+resizeCanvas();
+
+function addInput() {
+  const n = nodes.filter(n => n.type === 'input').length;
+  nodes.push({ id: nextId++, type: 'input', label: 'x' + (n+1), depth: 0, inputs: [] });
+  update();
+}
+
+function addGate(type) {
+  const nonInputs = nodes.filter(n => n.type !== 'input');
+  const available = nodes.filter(n => n.type === 'input' || (n.type !== 'input' && n.depth < 20));
+  if (available.length === 0) { addInput(); }
+  const numInputs = type === 'NOT' ? 1 : Math.min(2, available.length);
+  const chosen = [];
+  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  for (let i = 0; i < numInputs && i < shuffled.length; i++) chosen.push(shuffled[i].id);
+  nodes.push({ id: nextId++, type, label: type, depth: 0, inputs: chosen });
+  update();
+}
+
+function resetCircuit() {
+  nodes = [];
+  nextId = 0;
+  update();
+}
+
+function computeDepths() {
+  const depthMap = {};
+  function getDepth(id) {
+    if (depthMap[id] !== undefined) return depthMap[id];
+    const node = nodes.find(n => n.id === id);
+    if (!node) return 0;
+    if (node.type === 'input') { depthMap[id] = 0; return 0; }
+    if (node.inputs.length === 0) { depthMap[id] = 1; return 1; }
+    const d = 1 + Math.max(...node.inputs.map(getDepth));
+    depthMap[id] = d;
+    return d;
+  }
+  nodes.forEach(n => getDepth(n.id));
+  return depthMap;
+}
+
+function update() {
+  const depthMap = computeDepths();
+  nodes.forEach(n => n.depth = depthMap[n.id] || 0);
+  const maxDepth = nodes.length ? Math.max(...nodes.map(n => n.depth)) : 0;
+  const gateCount = nodes.filter(n => n.type !== 'input').length;
+  const inputCount = nodes.filter(n => n.type === 'input').length;
+  const maxFanIn = nodes.length ? Math.max(...nodes.map(n => n.inputs.length || 0)) : 0;
+
+  document.getElementById('m-depth').textContent = maxDepth;
+  document.getElementById('m-size').textContent = gateCount;
+  document.getElementById('m-inputs').textContent = inputCount;
+  document.getElementById('m-fanin').textContent = maxFanIn;
+
+  let cls, desc;
+  if (gateCount === 0) { cls = '—'; desc = 'Add gates to classify the circuit.'; }
+  else if (maxDepth <= 1) { cls = 'AC⁰'; desc = 'Constant depth, unbounded fan-in. E.g., parity is NOT in AC⁰ (Furst–Saxe–Sipser, 1981).'; }
+  else if (maxDepth <= 2) { cls = 'NC¹ (depth O(log n) for n inputs)'; desc = 'Log-depth circuits. Integer addition, multiplication are in NC.'; }
+  else if (maxDepth <= 3) { cls = 'NC²'; desc = 'Depth O((log n)²). Matrix multiplication is in NC².'; }
+  else if (maxDepth <= 10) { cls = 'NC (depth O((log n)^k))'; desc = 'Polynomial-size, polylog-depth. Efficiently parallelizable.'; }
+  else { cls = 'P (sequential)'; desc = 'Depth exceeds polylog — may require sequential computation. P vs NC is open.'; }
+  document.getElementById('c-class').textContent = cls;
+  document.getElementById('c-desc').textContent = desc;
+
+  draw();
+}
+
+function draw() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+  if (nodes.length === 0) {
+    ctx.fillStyle = '#555';
+    ctx.font = '14px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Add inputs and gates to build a circuit', w/2, h/2);
+    return;
+  }
+  const maxDepth = Math.max(...nodes.map(n => n.depth));
+  const cols = maxDepth + 1;
+  const colW = w / (cols + 1);
+  const positions = {};
+  for (let d = 0; d <= maxDepth; d++) {
+    const colNodes = nodes.filter(n => n.depth === d);
+    const rowH = h / (colNodes.length + 1);
+    colNodes.forEach((n, i) => {
+      positions[n.id] = { x: colW * (d + 1), y: rowH * (i + 1) };
+    });
+  }
+  // Draw edges
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1.5;
+  nodes.forEach(n => {
+    const to = positions[n.id];
+    if (!to) return;
+    n.inputs.forEach(iid => {
+      const from = positions[iid];
+      if (!from) return;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    });
+  });
+  // Draw nodes
+  nodes.forEach(n => {
+    const pos = positions[n.id];
+    if (!pos) return;
+    if (n.type === 'input') {
+      ctx.fillStyle = '#50c080';
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, 10, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.label, pos.x, pos.y + 4);
+    } else {
+      const colors = { AND: '#e07050', OR: '#50a0e0', NOT: '#a070e0' };
+      ctx.fillStyle = colors[n.type] || '#888';
+      const rw = 36, rh = 22;
+      ctx.beginPath();
+      ctx.roundRect(pos.x - rw/2, pos.y - rh/2, rw, rh, 4);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.type, pos.x, pos.y + 4);
+    }
+  });
+}
+
+// Space hierarchy
+const levels = [
+  { name: 'L', cls: 'hb-ac0', desc: 'O(log n) space. E.g., STCON (Reingold 2008).', sep: 'Hartmanis–Stearns: L ⊊ SPACE(log n · log log n)' },
+  { name: 'NL', cls: 'hb-nc1', desc: 'Nondeterministic O(log n) space. E.g., STCON (trivial).', sep: 'Savitch: NL ⊆ PSPACE. L vs NL: open.' },
+  { name: 'PSPACE', cls: 'hb-nc2', desc: 'O(n^k) space. E.g., QBF, path of length 2^k.', sep: 'Hartmanis–Stearns: PSPACE ⊊ EXPSPACE' },
+  { name: 'EXPSPACE', cls: 'hb-nc', desc: 'O(2^{n^k}) space. E.g., TM emptiness for space-bounded TMs.', sep: 'Hartmanis–Stearns: EXPSPACE ⊊ 2-EXPSPACE' },
+  { name: '2-EXPSPACE', cls: 'hb-p', desc: 'O(2^{2^{n^k}}) space.', sep: 'Hierarchy continues: 2-EXPSPACE ⊊ 4-EXPSPACE ⊊ …' },
+];
+
+const hierDiv = document.getElementById('hierarchy');
+levels.forEach((lv, i) => {
+  const row = document.createElement('div');
+  row.className = 'hierarchy-row';
+  row.style.paddingLeft = (i * 16) + 'px';
+  row.innerHTML = `<span class="hierarchy-box ${lv.cls}">${lv.name}</span><span style="font-size:0.8em; color:#aaa;">${lv.desc}</span>`;
+  hierDiv.appendChild(row);
+  if (i < levels.length - 1) {
+    const arrow = document.createElement('div');
+    arrow.className = 'hierarchy-row';
+    arrow.style.paddingLeft = ((i + 0.5) * 16 + 8) + 'px';
+    arrow.innerHTML = `<span style="color:#666; font-size:0.75em;">⊊ ${lv.sep}</span>`;
+    hierDiv.appendChild(arrow);
+  }
+});
+
+// Initial circuit: majority on 3 inputs
+addInput(); addInput(); addInput();
+const a1 = { id: nextId++, type: 'AND', label: 'AND', depth: 0, inputs: [0, 1] };
+const a2 = { id: nextId++, type: 'AND', label: 'AND', depth: 0, inputs: [0, 2] };
+const a3 = { id: nextId++, type: 'AND', label: 'AND', depth: 0, inputs: [1, 2] };
+const o1 = { id: nextId++, type: 'OR', label: 'OR', depth: 0, inputs: [a1.id, a2.id] };
+const o2 = { id: nextId++, type: 'OR', label: 'OR', depth: 0, inputs: [o1.id, a3.id] };
+nodes.push(a1, a2, a3, o1, o2);
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Turing machine: 0^n 1^n</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; padding: 12px; background: #fafafa; color: #222; }
+  h1 { font-size: 16px; margin: 0 0 8px 0; }
+  .tape { display: flex; gap: 2px; margin: 12px 0; overflow-x: auto; padding: 4px 2px; }
+  .cell { min-width: 34px; height: 34px; border: 1px solid #bbb; border-radius: 4px;
+          display: flex; align-items: center; justify-content: center;
+          font-family: monospace; font-size: 16px; background: #fff; flex: 0 0 auto; }
+  .cell.head { border: 2px solid #e07050; background: #fdeee8; font-weight: bold; }
+  .cell.blank { color: #aaa; }
+  .controls { margin: 10px 0; }
+  button { font-family: inherit; font-size: 14px; padding: 5px 12px; margin-right: 6px;
+           border: 1px solid #999; border-radius: 4px; background: #fff; cursor: pointer; }
+  button:hover { background: #eee; }
+  input { font-family: monospace; font-size: 14px; padding: 4px 6px; width: 180px; }
+  .status { font-size: 14px; margin: 8px 0; min-height: 20px; }
+  .status b { color: #1a4060; }
+  .verdict { font-weight: bold; }
+  .verdict.accept { color: #2e7d32; }
+  .verdict.reject { color: #c62828; }
+  .desc { font-size: 13px; color: #555; margin-top: 10px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Turing machine deciding L = { 0&#8319; 1&#8319; : n &#8805; 0 }</h1>
+<div class="controls">
+  <label>Input: <input id="input" value="0011" maxlength="24"></label>
+  <button id="load">Load</button>
+  <button id="step">Step</button>
+  <button id="run">Run</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="tape" id="tape"></div>
+<div class="status" id="status"></div>
+<div class="desc">
+  The machine repeatedly matches the leftmost unmarked <b>0</b> with the leftmost
+  unmarked <b>1</b> to its right, marking them <b>X</b> and <b>Y</b>.
+  States: <b>q<sub>scan</sub></b> (find the next 0), <b>q<sub>scan1</sub></b> (in the 1-region:
+  only matched 1s may remain), <b>q<sub>find1</sub></b> (find the matching 1),
+  <b>q<sub>return</sub></b> (walk back to the start). It accepts when all 0s are matched and only
+  matched 1s / blanks remain; it rejects if a 0 has no matching 1 (more 0s), a 1 is left over
+  (more 1s), or a 0 appears after a 1 (wrong order).
+  This is a decidable but non-regular language, so the machine genuinely needs its tape as a counter.
+</div>
+<script>
+(function () {
+  var BLANK = '\u25A1';
+  var START = 'q_scan';
+  var delta = {
+    'q_scan|0':      ['q_find1', 'X', +1],
+    'q_scan|X':      ['q_scan',  'X', +1],
+    'q_scan|Y':      ['q_scan1', 'Y', +1],
+    'q_scan|1':      'REJECT',
+    'q_scan|BLANK':  'ACCEPT',
+    'q_scan1|Y':     ['q_scan1', 'Y', +1],
+    'q_scan1|0':     'REJECT',
+    'q_scan1|1':     'REJECT',
+    'q_scan1|BLANK': 'ACCEPT',
+    'q_find1|0':     ['q_find1', '0', +1],
+    'q_find1|1':     ['q_return','Y', -1],
+    'q_find1|X':     ['q_find1', 'X', +1],
+    'q_find1|Y':     ['q_find1', 'Y', +1],
+    'q_find1|BLANK': 'REJECT',
+    'q_return|X':    ['q_return','X', -1],
+    'q_return|Y':    ['q_return','Y', -1],
+    'q_return|0':    ['q_return','0', -1],
+    'q_return|1':    ['q_return','1', -1],
+    'q_return|BLANK':['q_scan',  'BLANK', +1]
+  };
+  var tape, head, state, halted, verdict, steps, timer;
+
+  function render(msg) {
+    var t = document.getElementById('tape');
+    t.innerHTML = '';
+    for (var i = 0; i < tape.length; i++) {
+      var c = document.createElement('div');
+      c.className = 'cell' + (i === head ? ' head' : '') + (tape[i] === BLANK ? ' blank' : '');
+      c.textContent = tape[i];
+      t.appendChild(c);
+    }
+    var s = document.getElementById('status');
+    var base = 'State: <b>' + state + '</b> &nbsp; Head: cell ' + head +
+               ' &nbsp; Steps: ' + steps;
+    if (msg) base += ' &nbsp; <span class="verdict ' + verdict + '">' + msg + '</span>';
+    s.innerHTML = base;
+  }
+
+  function reset() {
+    var raw = document.getElementById('input').value.replace(/[^01]/g, '');
+    if (raw.length === 0) raw = '0011';
+    tape = [BLANK];
+    for (var i = 0; i < raw.length; i++) tape.push(raw[i]);
+    for (var j = 0; j < 6; j++) tape.push(BLANK);
+    head = 1; state = START; halted = false; steps = 0; verdict = '';
+    if (timer) { clearInterval(timer); timer = null; }
+    render('machine ready');
+  }
+
+  function step() {
+    if (halted) { render('machine halted: ' + verdict); return; }
+    var sym = (head < tape.length) ? tape[head] : BLANK;
+    var key = sym === BLANK ? 'BLANK' : sym;
+    var move = delta[state + '|' + key];
+    if (!move) { halted = true; verdict = 'reject'; render('no transition — reject'); return; }
+    if (move === 'ACCEPT') { halted = true; verdict = 'accept'; render('ACCEPT — input is 0^n 1^n'); return; }
+    if (move === 'REJECT') { halted = true; verdict = 'reject'; render('REJECT — input is not 0^n 1^n'); return; }
+    var next = move[0], write = move[1], dir = move[2];
+    if (head >= tape.length) tape.push(BLANK);
+    tape[head] = (write === 'BLANK') ? BLANK : write;
+    state = next;
+    head += dir;
+    if (head < 0) head = 0;
+    steps++;
+    render();
+  }
+
+  document.getElementById('load').onclick = reset;
+  document.getElementById('reset').onclick = reset;
+  document.getElementById('step').onclick = function () { step(); };
+  document.getElementById('run').onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(function () {
+      if (halted) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  };
+  reset();
+})();
+</script>
+</body>
+</html>
+
+</script>
+</body>
+</html>

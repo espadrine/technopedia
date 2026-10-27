@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Law of large numbers with Chebyshev and Hoeffding bounds</title>
+<style>
+  body { font-family: Georgia, serif; margin: 12px; background: #fdfdfb; color: #222; }
+  h3 { margin: 4px 0 2px 0; font-size: 16px; }
+  p.sub { margin: 2px 0 8px 0; font-size: 12.5px; color: #555; }
+  .controls { font-size: 13px; margin-bottom: 8px; }
+  .controls select, .controls button { font-size: 13px; padding: 2px 8px; }
+  .controls button { cursor: pointer; }
+  canvas { display: block; border: 1px solid #ccc; background: #fff; margin-bottom: 6px; max-width: 100%; }
+  .legend { font-size: 12px; margin: 2px 0 10px 0; }
+  .sw { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin: 0 4px 2px 10px; }
+  #stat { font-size: 12.5px; color: #444; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h3>Law of large numbers: the sample mean concentrates</h3>
+<p class="sub">
+Each trial draws <i>n</i> = 1…400 i.i.d. samples and records the running sample mean.
+Top: the running mean of the latest trial stays inside the band μ ± ε more and more.
+Bottom: the empirical tail probability P(|X̄ − μ| ≥ ε), estimated over all trials, falls
+under the Chebyshev bound σ²/(nε²) and the (much sharper, for large deviations) Hoeffding
+bound exp(−2nε²/(b−a)²).
+</p>
+<div class="controls">
+  Distribution:
+  <select id="dist">
+    <option value="die">Fair die (μ = 3.5, σ² = 35/12)</option>
+    <option value="unif">Uniform[0,1] (μ = 0.5, σ² = 1/12)</option>
+  </select>
+  &nbsp; ε = <span id="epsval">1.0</span>
+  <input type="range" id="eps" min="0.1" max="2" step="0.05" value="1" style="vertical-align:middle; width:130px;">
+  <button id="run">Run 400 more trials</button>
+  <button id="reset">Reset</button>
+</div>
+<canvas id="traj" width="680" height="200"></canvas>
+<canvas id="tail" width="680" height="240"></canvas>
+<div class="legend">
+  <span class="sw" style="background:#1565c0"></span>empirical P(|X̄ − μ| ≥ ε)
+  <span class="sw" style="background:#e65100"></span>Chebyshev bound σ²/(nε²)
+  <span class="sw" style="background:#2e7d32"></span>Hoeffding bound exp(−2nε²/(b−a)²)
+</div>
+<div id="stat"></div>
+<script>
+(function () {
+  var N = 400, MAXRUNS = 12000;
+  var dists = {
+    die:  { mu: 3.5, vari: 35/12, a: 1, b: 6,
+            sample: function () { return 1 + Math.floor(Math.random() * 6); } },
+    unif: { mu: 0.5, vari: 1/12, a: 0, b: 1,
+            sample: function () { return Math.random(); } }
+  };
+  var dist = dists.die, eps = 1.0, runs = [], last = null;
+
+  var traj = document.getElementById('traj').getContext('2d');
+  var tail = document.getElementById('tail').getContext('2d');
+
+  function addTrials(k) {
+    for (var r = 0; r < k; r++) {
+      if (runs.length >= MAXRUNS) break;
+      var s = 0, arr = new Float64Array(N);
+      for (var n = 0; n < N; n++) { s += dist.sample(); arr[n] = s / (n + 1); }
+      runs.push(arr);
+    }
+    last = runs[runs.length - 1] || null;
+    draw();
+  }
+
+  // axis helpers: x = 1..N mapped to 50..660
+  function X(n) { return 50 + (n - 1) / (N - 1) * 610; }
+
+  function drawTraj() {
+    var c = traj, W = 680, H = 200;
+    c.clearRect(0, 0, W, H);
+    var a = dist.a, b = dist.b, mu = dist.mu;
+    function Y(v) { return H - 25 - (v - a) / (b - a) * (H - 45); }
+    // band mu +/- eps
+    c.fillStyle = 'rgba(255, 235, 59, 0.35)';
+    var yTop = Y(Math.min(b, mu + eps)), yBot = Y(Math.max(a, mu - eps));
+    c.fillRect(50, yTop, 610, yBot - yTop);
+    // axes
+    c.strokeStyle = '#999'; c.beginPath();
+    c.moveTo(50, 10); c.lineTo(50, H - 25); c.lineTo(660, H - 25); c.stroke();
+    // mu line
+    c.strokeStyle = '#555'; c.setLineDash([5, 4]); c.beginPath();
+    c.moveTo(50, Y(mu)); c.lineTo(660, Y(mu)); c.stroke(); c.setLineDash([]);
+    c.fillStyle = '#333'; c.font = '11px sans-serif';
+    c.fillText('\u03bc = ' + mu, 54, Y(mu) - 4);
+    c.fillText('n = 1', 46, H - 10); c.fillText('n = 400', 620, H - 10);
+    c.fillText('running sample mean  X\u0304\u2099  (latest trial)', 56, 16);
+    // trajectory
+    if (last) {
+      c.strokeStyle = '#1565c0'; c.lineWidth = 1.4; c.beginPath();
+      for (var n = 0; n < N; n++) {
+        var x = X(n + 1), y = Y(last[n]);
+        if (n === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      c.stroke(); c.lineWidth = 1;
+    }
+  }
+
+  function drawTail() {
+    var c = tail, W = 680, H = 240;
+    c.clearRect(0, 0, W, H);
+    function Y(p) { if (p > 1) p = 1; if (p < 1e-4) p = 1e-4;
+                    return 210 - (Math.log(p) - Math.log(1e-4)) / (Math.log(1) - Math.log(1e-4)) * 180; }
+    // gridlines at 1, 1e-1, 1e-2, 1e-3, 1e-4
+    c.strokeStyle = '#eee';
+    [1, 1e-1, 1e-2, 1e-3, 1e-4].forEach(function (p) {
+      c.beginPath(); c.moveTo(50, Y(p)); c.lineTo(660, Y(p)); c.stroke();
+      c.fillStyle = '#777'; c.font = '10px sans-serif';
+      c.fillText(p === 1 ? '1' : '1e' + Math.round(Math.log10(p)), 22, Y(p) + 3);
+    });
+    c.strokeStyle = '#999'; c.beginPath();
+    c.moveTo(50, 15); c.lineTo(50, 210); c.lineTo(660, 210); c.stroke();
+    c.fillStyle = '#333'; c.font = '11px sans-serif';
+    c.fillText('tail probability (log scale)', 56, 14);
+    c.fillText('n = 1', 46, 226); c.fillText('n = 400', 620, 226);
+    if (!runs.length) { c.fillText('Press "Run 400 more trials" to collect data.', 200, 120); }
+
+    function plot(fn, color, dash) {
+      c.strokeStyle = color; c.lineWidth = 1.6; if (dash) c.setLineDash([5, 4]);
+      c.beginPath();
+      for (var i = 0; i <= N - 1; i++) {
+        var n = i + 1, p = fn(n), x = X(n), y = Y(p);
+        if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+    }
+    // Chebyshev: sigma^2 / (n eps^2)
+    plot(function (n) { return dist.vari / (n * eps * eps); }, '#e65100', true);
+    // Hoeffding: exp(-2 n eps^2 / (b-a)^2)
+    var w = dist.b - dist.a;
+    plot(function (n) { return Math.exp(-2 * n * eps * eps / (w * w)); }, '#2e7d32', true);
+    // empirical
+    if (runs.length) {
+      var cnt = new Float64Array(N), m = runs.length;
+      for (var r = 0; r < m; r++) {
+        var run = runs[r];
+        for (var n = 0; n < N; n++) if (Math.abs(run[n] - dist.mu) >= eps) cnt[n]++;
+      }
+      c.strokeStyle = '#1565c0'; c.lineWidth = 1.8; c.beginPath();
+      for (var i = 0; i < N; i++) {
+        var x = X(i + 1), y = Y(cnt[i] / m);
+        if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+      }
+      c.stroke(); c.lineWidth = 1;
+      document.getElementById('stat').textContent =
+        'Trials so far: ' + m + ' \u2014 at n = 400: empirical P(|X\u0304 \u2212 \u03bc| \u2265 \u03b5) \u2248 ' +
+        (cnt[N - 1] / m).toFixed(4) +
+        ', Chebyshev bound \u2248 ' + (dist.vari / (N * eps * eps)).toFixed(4) +
+        ', Hoeffding bound \u2248 ' + Math.exp(-2 * N * eps * eps / (w * w)).toFixed(6) + '.';
+    } else {
+      document.getElementById('stat').textContent = '';
+    }
+  }
+
+  function draw() { drawTraj(); drawTail(); }
+
+  document.getElementById('run').onclick = function () { addTrials(400); };
+  document.getElementById('reset').onclick = function () { runs = []; last = null; draw(); };
+  document.getElementById('dist').onchange = function (e) {
+    dist = dists[e.target.value]; runs = []; last = null; draw();
+  };
+  document.getElementById('eps').oninput = function (e) {
+    eps = parseFloat(e.target.value);
+    document.getElementById('epsval').textContent = eps.toFixed(2);
+    draw();
+  };
+
+  addTrials(400);
+})();
+</script>
+</body>
+</html>

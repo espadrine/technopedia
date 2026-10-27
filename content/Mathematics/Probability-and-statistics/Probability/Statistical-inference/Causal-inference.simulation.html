@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Causal Inference: Do-Operator Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fafafa; color: #222; }
+h2 { margin: 0 0 8px; font-size: 1.1em; }
+.container { display: flex; flex-wrap: wrap; gap: 16px; max-width: 900px; margin: 0 auto; }
+.panel { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; flex: 1; min-width: 300px; }
+svg { display: block; margin: 0 auto; }
+button { padding: 8px 16px; margin: 6px 4px; border: 2px solid #333; border-radius: 6px; background: #fff; cursor: pointer; font-size: 0.95em; }
+button.active { background: #333; color: #fff; }
+.legend { font-size: 0.85em; margin-top: 8px; }
+.legend span { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
+.info { font-size: 0.9em; color: #555; margin-top: 8px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<h2>Causal Inference: Do-Operator &amp; Back-Door Path</h2>
+<div class="container">
+<div class="panel">
+  <h3>Structural Causal Model</h3>
+  <svg id="dag" width="280" height="200" viewBox="0 0 280 200">
+    <defs>
+      <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#333"/></marker>
+      <marker id="ah-red" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#c0392b"/></marker>
+    </defs>
+    <!-- U node -->
+    <circle id="node-U" cx="140" cy="40" r="22" fill="#f9d71d" stroke="#333" stroke-width="2"/>
+    <text x="140" y="45" text-anchor="middle" font-size="14" font-weight="bold">U</text>
+    <text x="140" y="62" text-anchor="middle" font-size="9" fill="#666">confounder</text>
+    <!-- X node -->
+    <circle id="node-X" cx="55" cy="150" r="22" fill="#a8d8ea" stroke="#333" stroke-width="2"/>
+    <text x="55" y="155" text-anchor="middle" font-size="14" font-weight="bold">X</text>
+    <!-- Y node -->
+    <circle id="node-Y" cx="225" cy="150" r="22" fill="#f4a261" stroke="#333" stroke-width="2"/>
+    <text x="225" y="155" text-anchor="middle" font-size="14" font-weight="bold">Y</text>
+    <!-- Edge U→X -->
+    <line id="edge-UX" x1="122" y1="55" x2="68" y2="135" stroke="#333" stroke-width="2" marker-end="url(#ah)"/>
+    <!-- Edge U→Y -->
+    <line id="edge-UY" x1="158" y1="55" x2="212" y2="135" stroke="#333" stroke-width="2" marker-end="url(#ah)"/>
+    <!-- Edge X→Y -->
+    <line id="edge-XY" x1="77" y1="150" x2="203" y2="150" stroke="#333" stroke-width="2" marker-end="url(#ah)"/>
+    <!-- Back-door path highlight -->
+    <path id="backdoor" d="M 55 128 Q 140 80 225 128" fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="6,4" opacity="0"/>
+    <text id="backdoor-label" x="140" y="95" text-anchor="middle" font-size="10" fill="#c0392b" opacity="0">back-door path</text>
+  </svg>
+  <div style="text-align:center; margin-top:8px;">
+    <button id="btn-obs" class="active" onclick="setMode('obs')">Observational: P(Y | X=1)</button>
+    <button id="btn-do" onclick="setMode('do')">Intervention: P(Y | do(X=1))</button>
+    <button id="btn-backdoor" onclick="toggleBackdoor()">Show back-door path</button>
+  </div>
+  <div class="info" id="mode-info">
+    <b>Observational mode:</b> We observe units that happen to have X=1. Since U causes both X and Y, the observed group is biased (higher U → higher Y). The association is confounded.
+  </div>
+</div>
+<div class="panel">
+  <h3>Distribution of Y</h3>
+  <canvas id="chart" width="320" height="220"></canvas>
+  <div class="legend">
+    <span style="background:#a8d8ea;"></span> P(Y | X=1) — associational (biased)
+    <br>
+    <span style="background:#f4a261;"></span> P(Y | do(X=1)) — interventional (true effect)
+  </div>
+  <div class="info" id="stats"></div>
+</div>
+</div>
+<script>
+// Model: U ~ Uniform(0,1), X = 1 if U > 0.4, Y = 0.6*X + 0.4*U + N(0, 0.08)
+// True causal effect of X on Y: 0.6
+// Associational effect E[Y|X=1] - E[Y|X=0] is biased by confounding
+
+function randn() { let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function generateData(n) {
+  let data = [];
+  for (let i = 0; i < n; i++) {
+    let U = Math.random();
+    let X = U > 0.4 ? 1 : 0;
+    let Y = 0.6 * X + 0.4 * U + 0.08 * randn();
+    data.push({U, X, Y});
+  }
+  return data;
+}
+
+function generateDoData(n) {
+  let data = [];
+  for (let i = 0; i < n; i++) {
+    let U = Math.random();
+    let X = 1; // do(X=1)
+    let Y = 0.6 * X + 0.4 * U + 0.08 * randn();
+    data.push({U, X, Y});
+  }
+  return data;
+}
+
+let mode = 'obs';
+let showBackdoor = false;
+let dataObs, dataDo;
+
+function init() {
+  dataObs = generateData(50000);
+  dataDo = generateDoData(50000);
+  drawChart();
+  updateStats();
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-obs').className = m === 'obs' ? 'active' : '';
+  document.getElementById('btn-do').className = m === 'do' ? 'active' : '';
+  // Update DAG visuals
+  let edgeUX = document.getElementById('edge-UX');
+  let nodeX = document.getElementById('node-X');
+  if (m === 'do') {
+    edgeUX.setAttribute('stroke', '#ccc');
+    edgeUX.setAttribute('stroke-dasharray', '4,3');
+    nodeX.setAttribute('fill', '#7ec8e3');
+    nodeX.setAttribute('stroke', '#c0392b');
+    document.getElementById('mode-info').innerHTML = '<b>Intervention mode (do(X=1)):</b> We <i>force</i> X=1 for all units, breaking the incoming edge from U. The distribution of Y now reflects only the causal effect of X, free of confounding.';
+  } else {
+    edgeUX.setAttribute('stroke', '#333');
+    edgeUX.removeAttribute('stroke-dasharray');
+    nodeX.setAttribute('fill', '#a8d8ea');
+    nodeX.setAttribute('stroke', '#333');
+    document.getElementById('mode-info').innerHTML = '<b>Observational mode:</b> We observe units that happen to have X=1. Since U causes both X and Y, the observed group is biased (higher U → higher Y). The association is confounded.';
+  }
+  drawChart();
+  updateStats();
+}
+
+function toggleBackdoor() {
+  showBackdoor = !showBackdoor;
+  document.getElementById('backdoor').setAttribute('opacity', showBackdoor ? '1' : '0');
+  document.getElementById('backdoor-label').setAttribute('opacity', showBackdoor ? '1' : '0');
+  document.getElementById('btn-backdoor').className = showBackdoor ? 'active' : '';
+}
+
+function drawChart() {
+  let canvas = document.getElementById('chart');
+  let ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  let bins = 40;
+  let yMin = -0.5, yMax = 1.8;
+  let binW = (yMax - yMin) / bins;
+
+  // Compute histograms
+  let histObs = new Array(bins).fill(0);
+  let histDo = new Array(bins).fill(0);
+
+  // For obs: only X=1 units
+  let obsCount = 0;
+  for (let d of dataObs) {
+    if (d.X === 1) {
+      let b = Math.floor((d.Y - yMin) / binW);
+      if (b >= 0 && b < bins) histObs[b]++;
+      obsCount++;
+    }
+  }
+  for (let d of dataDo) {
+    let b = Math.floor((d.Y - yMin) / binW);
+    if (b >= 0 && b < bins) histDo[b]++;
+  }
+
+  // Normalize to density
+  for (let i = 0; i < bins; i++) {
+    histObs[i] /= (obsCount * binW);
+    histDo[i] /= (dataDo.length * binW);
+  }
+
+  let maxDensity = Math.max(...histObs, ...histDo) * 1.1;
+  let padL = 40, padB = 30, padT = 10, padR = 10;
+  let plotW = canvas.width - padL - padR;
+  let plotH = canvas.height - padB - padT;
+
+  // Draw axes
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, padT + plotH);
+  ctx.lineTo(padL + plotW, padT + plotH);
+  ctx.stroke();
+
+  // Y-axis label
+  ctx.fillStyle = '#333';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    let val = (maxDensity * i / 4).toFixed(2);
+    let y = padT + plotH - (plotH * i / 4);
+    ctx.fillText(val, padL - 4, y + 4);
+  }
+  // X-axis label
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) {
+    let val = (yMin + (yMax - yMin) * i / 4).toFixed(1);
+    let x = padL + (plotW * i / 4);
+    ctx.fillText(val, x, padT + plotH + 16);
+  }
+  ctx.fillText('Y', padL + plotW / 2, canvas.height - 2);
+
+  // Draw bars
+  let barW = plotW / bins;
+  // Obs (blue)
+  ctx.fillStyle = 'rgba(168, 216, 234, 0.7)';
+  for (let i = 0; i < bins; i++) {
+    let h = (histObs[i] / maxDensity) * plotH;
+    ctx.fillRect(padL + i * barW, padT + plotH - h, barW - 1, h);
+  }
+  // Do (orange)
+  ctx.fillStyle = 'rgba(244, 162, 97, 0.7)';
+  for (let i = 0; i < bins; i++) {
+    let h = (histDo[i] / maxDensity) * plotH;
+    ctx.fillRect(padL + i * barW, padT + plotH - h, barW - 1, h);
+  }
+}
+
+function updateStats() {
+  let obsY = dataObs.filter(d => d.X === 1).map(d => d.Y);
+  let doY = dataDo.map(d => d.Y);
+  let mean = arr => arr.reduce((a,b) => a+b, 0) / arr.length;
+  let mObs = mean(obsY);
+  let mDo = mean(doY);
+  let diff = mObs - mDo;
+  document.getElementById('stats').innerHTML =
+    'E[Y | X=1] = ' + mObs.toFixed(3) + ' (biased by confounding)<br>' +
+    'E[Y | do(X=1)] = ' + mDo.toFixed(3) + ' (true causal effect)<br>' +
+    'Confounding bias ≈ ' + diff.toFixed(3) + '<br>' +
+    '<i>The true causal effect of X on Y is 0.6. The observational estimate is inflated because units with X=1 tend to have higher U, which also raises Y.</i>';
+}
+
+init();
+</script>
+</body>
+</html>

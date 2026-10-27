@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Damped Oscillations</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 12px; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; }
+.controls { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
+.control { display: flex; align-items: center; gap: 6px; }
+.control label { font-size: 0.9em; min-width: 60px; }
+.control input[type=range] { width: 140px; }
+.control span { font-size: 0.85em; min-width: 40px; text-align: right; }
+.regime { font-size: 0.95em; font-weight: bold; margin-bottom: 8px; }
+.regime.under { color: #4fc3f7; }
+.regime.critical { color: #aed581; }
+.regime.over { color: #ff8a65; }
+canvas { border: 1px solid #333; border-radius: 4px; background: #0f0f1a; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.plot-box { flex: 1; min-width: 300px; }
+.plot-box h3 { margin: 4px 0; font-size: 0.9em; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>Damped Oscillations — Three Regimes</h2>
+<div class="controls">
+  <div class="control"><label>ω₀</label><input type="range" id="w0" min="0.5" max="10" step="0.1" value="5"><span id="w0v">5.0</span></div>
+  <div class="control"><label>γ</label><input type="range" id="gamma" min="0.1" max="10" step="0.1" value="1.0"><span id="gammav">1.0</span></div>
+  <div class="control"><label>ζ</label><span id="zetav" style="min-width:50px">0.20</span></div>
+</div>
+<div class="regime" id="regime">Underdamped</div>
+<div class="row">
+  <div class="plot-box"><h3>x(t) with envelope</h3><canvas id="ct" width="500" height="280"></canvas></div>
+  <div class="plot-box"><h3>Phase space (x, ẋ)</h3><canvas id="cp" width="280" height="280"></canvas></div>
+</div>
+<script>
+const ct = document.getElementById('ct').getContext('2d');
+const cp = document.getElementById('cp').getContext('2d');
+const w0s = document.getElementById('w0');
+const gs = document.getElementById('gamma');
+const w0v = document.getElementById('w0v');
+const gammav = document.getElementById('gammav');
+const zetav = document.getElementById('zetav');
+const regimeEl = document.getElementById('regime');
+
+function draw() {
+  const w0 = parseFloat(w0s.value);
+  const g = parseFloat(gs.value);
+  const zeta = g / w0;
+  w0v.textContent = w0.toFixed(1);
+  gammav.textContent = g.toFixed(1);
+  zetav.textContent = zeta.toFixed(2);
+
+  let regime, cls;
+  if (zeta < 0.99) { regime = 'Underdamped'; cls = 'under'; }
+  else if (zeta <= 1.01) { regime = 'Critically damped'; cls = 'critical'; }
+  else { regime = 'Overdamped'; cls = 'over'; }
+  regimeEl.textContent = regime + '  (ζ = ' + zeta.toFixed(3) + ')';
+  regimeEl.className = 'regime ' + cls;
+
+  // Time range
+  const T = 10;
+  const N = 600;
+  const dt = T / N;
+
+  // Compute x(t)
+  const xs = new Array(N + 1);
+  const vxs = new Array(N + 1);
+  for (let i = 0; i <= N; i++) {
+    const t = i * dt;
+    if (zeta < 0.99) {
+      const wd = w0 * Math.sqrt(1 - zeta * zeta);
+      xs[i] = Math.exp(-g * t) * Math.cos(wd * t);
+      vxs[i] = Math.exp(-g * t) * (-g * Math.cos(wd * t) - wd * Math.sin(wd * t));
+    } else if (zeta <= 1.01) {
+      xs[i] = (1 + g * t) * Math.exp(-g * t);
+      vxs[i] = Math.exp(-g * t) * (-g * g * t);
+    } else {
+      const disc = Math.sqrt(g * g - w0 * w0);
+      const r1 = -g + disc;
+      const r2 = -g - disc;
+      // x = A e^{r1 t} + B e^{r2 t}, with x(0)=1, x'(0)=0
+      // A + B = 1, A r1 + B r2 = 0 => A = -r2/(r1-r2), B = r1/(r1-r2)
+      const A = -r2 / (r1 - r2);
+      const B = r1 / (r1 - r2);
+      xs[i] = A * Math.exp(r1 * t) + B * Math.exp(r2 * t);
+      vxs[i] = A * r1 * Math.exp(r1 * t) + B * r2 * Math.exp(r2 * t);
+    }
+  }
+
+  // --- Plot x(t) ---
+  const W = 500, H = 280, pad = 35;
+  ct.clearRect(0, 0, W, H);
+  // Axes
+  ct.strokeStyle = '#444';
+  ct.lineWidth = 1;
+  ct.beginPath();
+  ct.moveTo(pad, pad); ct.lineTo(W - 10, pad); ct.lineTo(W - 10, H - pad); ct.lineTo(pad, H - pad); ct.closePath();
+  ct.stroke();
+  // Zero line
+  const yMid = (pad + H - pad) / 2;
+  ct.strokeStyle = '#333';
+  ct.beginPath(); ct.moveTo(pad, yMid); ct.lineTo(W - 10, yMid); ct.stroke();
+  // Labels
+  ct.fillStyle = '#888'; ct.font = '11px system-ui';
+  ct.fillText('t', W - 15, H - pad + 15);
+  ct.fillText('x', pad - 15, pad + 5);
+  // Scale: y range [-1.2, 1.2]
+  const yScale = (H - 2 * pad) / 2.4;
+  const xScale = (W - pad - 10) / T;
+
+  // Envelope (underdamped only)
+  if (zeta < 0.99) {
+    ct.strokeStyle = 'rgba(255,193,7,0.5)';
+    ct.lineWidth = 1.5;
+    ct.setLineDash([4, 4]);
+    ct.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = i * dt;
+      const px = pad + t * xScale;
+      const py = yMid - Math.exp(-g * t) * yScale;
+      i === 0 ? ct.moveTo(px, py) : ct.lineTo(px, py);
+    }
+    ct.stroke();
+    ct.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const t = i * dt;
+      const px = pad + t * xScale;
+      const py = yMid + Math.exp(-g * t) * yScale;
+      i === 0 ? ct.moveTo(px, py) : ct.lineTo(px, py);
+    }
+    ct.stroke();
+    ct.setLineDash([]);
+  }
+
+  // x(t) curve
+  ct.strokeStyle = '#4fc3f7';
+  ct.lineWidth = 2;
+  ct.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const px = pad + i * dt * xScale;
+    const py = yMid - xs[i] * yScale;
+    i === 0 ? ct.moveTo(px, py) : ct.lineTo(px, py);
+  }
+  ct.stroke();
+
+  // --- Phase space ---
+  const PW = 280, PH = 280, ppad = 30;
+  cp.clearRect(0, 0, PW, PH);
+  cp.strokeStyle = '#444';
+  cp.lineWidth = 1;
+  cp.beginPath();
+  cp.moveTo(ppad, ppad); cp.lineTo(PW - 10, ppad); cp.lineTo(PW - 10, PH - ppad); cp.lineTo(ppad, PH - ppad); cp.closePath();
+  cp.stroke();
+  const pMidX = (ppad + PW - 10) / 2;
+  const pMidY = (ppad + PH - ppad) / 2;
+  cp.strokeStyle = '#333';
+  cp.beginPath(); cp.moveTo(ppad, pMidY); cp.lineTo(PW - 10, pMidY); cp.stroke();
+  cp.beginPath(); cp.moveTo(pMidX, ppad); cp.lineTo(pMidX, PH - ppad); cp.stroke();
+  cp.fillStyle = '#888'; cp.font = '11px system-ui';
+  cp.fillText('x', PW - 20, PH - ppad + 15);
+  cp.fillText('ẋ', pMidX + 5, ppad - 5);
+
+  // Find max |x| and |vx| for scaling
+  let maxX = 0, maxV = 0;
+  for (let i = 0; i <= N; i++) {
+    if (Math.abs(xs[i]) > maxX) maxX = Math.abs(xs[i]);
+    if (Math.abs(vxs[i]) > maxV) maxV = Math.abs(vxs[i]);
+  }
+  if (maxX < 0.01) maxX = 1;
+  if (maxV < 0.01) maxV = 1;
+  const pScaleX = (PW - 2 * ppad) / (2 * maxX * 1.1);
+  const pScaleY = (PH - 2 * ppad) / (2 * maxV * 1.1);
+
+  cp.strokeStyle = '#aed581';
+  cp.lineWidth = 1.5;
+  cp.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const px = pMidX + xs[i] * pScaleX;
+    const py = pMidY - vxs[i] * pScaleY;
+    i === 0 ? cp.moveTo(px, py) : cp.lineTo(px, py);
+  }
+  cp.stroke();
+
+  // Origin dot
+  cp.fillStyle = '#ff8a65';
+  cp.beginPath(); cp.arc(pMidX, pMidY, 3, 0, 2 * Math.PI); cp.fill();
+}
+
+w0s.addEventListener('input', draw);
+gs.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

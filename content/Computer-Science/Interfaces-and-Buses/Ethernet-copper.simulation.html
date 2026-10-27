@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Ethernet twisted-pair link budget</title>
+<style>
+  body { font-family: sans-serif; margin: 10px; background: #fff; color: #222; }
+  .controls { margin: 8px 0; }
+  select, input[type=range] { vertical-align: middle; }
+  .bar { display: inline-block; height: 12px; vertical-align: middle; }
+  .pass { color: #1a7a2a; font-weight: bold; }
+  .fail { color: #b02020; font-weight: bold; }
+  .note { font-size: 12px; color: #555; max-width: 760px; }
+  table { border-collapse: collapse; font-size: 13px; }
+  td, th { border: 1px solid #bbb; padding: 3px 8px; text-align: left; }
+</style>
+</head>
+<body>
+<div style="font-size:14px;font-weight:bold;margin-bottom:4px">Which PHY rates close the link?</div>
+<div class="controls">
+  <label>Cable: <select id="cat">
+    <option value="5e">Cat 5e (100 MHz, UTP)</option>
+    <option value="6" selected>Cat 6 (250 MHz, UTP)</option>
+    <option value="6a">Cat 6a (500 MHz, UTP/F/UTP)</option>
+    <option value="7">Cat 7 (600 MHz, S/FTP)</option>
+    <option value="8">Cat 8 (2000 MHz, S/FTP)</option>
+  </select></label>
+  &nbsp;&nbsp;
+  <label>Length: <span id="lenLabel">60 m</span>
+  <input type="range" id="len" min="1" max="100" value="60" style="width:260px"></label>
+</div>
+<canvas id="chart" width="720" height="330" style="max-width:100%;background:#fafafa;border:1px solid #ccc"></canvas>
+<div id="rows"></div>
+<div class="note" id="verdict" style="margin-top:6px"></div>
+<div class="note" style="margin-top:6px">
+  Model: available SNR = 81 dB &minus; insertion loss (20 dB·&radic;(f/100 MHz)·L/100 m) &minus; crosstalk penalty
+  (per category, scaling with length). Required SNR = Shannon bound 10·log<sub>10</sub>(2<sup>&eta;</sup>&minus;1) for spectral
+  efficiency &eta; = payload-per-pair &divide; bandwidth, plus an implementation margin (modulation loss, FEC overhead).
+  The model captures crosstalk <i>within</i> the cable only; the certified reach limits additionally account for
+  <b>alien</b> crosstalk from neighbouring cables in the same bundle, so a PASS also requires the length to be within
+  the standard&rsquo;s certified reach for that cable &mdash; which is why the verdict can fail even when the raw margin looks positive.
+</div>
+<script>
+(function(){
+  var S0 = 81; // dB: transmit power minus noise floor, arbitrary reference
+  // residual self-crosstalk (NEXT/FEXT) penalty at 100 m, dB, per category
+  var AXT = { '5e': 28, '6': 25, '6a': 13, '7': 9, '8': 4 };
+  // certified reach, metres (null = PHY not certified on this cable)
+  var CERT = {
+    '1g':   { '5e':100, '6':100, '6a':100, '7':100, '8':100 },
+    '2g5':  { '5e':100, '6':100, '6a':100, '7':100, '8':100 },
+    '5g':   { '5e':null,'6':100, '6a':100, '7':100, '8':100 },
+    '10g':  { '5e':null,'6':55,  '6a':100, '7':100, '8':100 }
+  };
+  var PHYS = [
+    { id:'1g',  name:'1000BASE-T',  pairGb:0.25,  B:100, f:100, margin:6, col:'#1a7a2a' },
+    { id:'2g5', name:'2.5GBASE-T',  pairGb:0.625, B:400, f:400, margin:7, col:'#7a4bb0' },
+    { id:'5g',  name:'5GBASE-T',    pairGb:1.25,  B:400, f:400, margin:7, col:'#b07a1a' },
+    { id:'10g', name:'10GBASE-T',   pairGb:2.5,   B:400, f:400, margin:8, col:'#b02020' }
+  ];
+  function avail(f, L, cat){ return S0 - 20*Math.sqrt(f/100)*(L/100) - AXT[cat]*(L/100); }
+  function required(p){
+    var eta = (p.pairGb*1e9)/(p.B*1e6);   // bits/s/Hz per pair (pairGb is per-pair payload)
+    return 10*Math.log10(Math.pow(2, eta)-1) + p.margin;
+  }
+  var cv = document.getElementById('chart'), ctx = cv.getContext('2d');
+  var X0=50, Y0=10, W=560, H=280;
+  function xOf(L){ return X0 + (L/100)*W; }
+  function yOf(s){ return Y0 + H - (Math.max(0, Math.min(50, s))/50)*H; }
+  function labelY(s){ return Math.max(Y0+14, Math.min(Y0+H-6, yOf(s))); }
+  function draw(){
+    var cat = document.getElementById('cat').value;
+    var L = +document.getElementById('len').value;
+    document.getElementById('lenLabel').textContent = L + ' m';
+    ctx.clearRect(0,0,720,330);
+    // grid + axes
+    ctx.font='11px sans-serif';
+    for(var s=0;s<=50;s+=10){
+      ctx.beginPath(); ctx.moveTo(X0,yOf(s)); ctx.lineTo(X0+W,yOf(s));
+      ctx.strokeStyle='#eee'; ctx.stroke();
+      ctx.fillStyle='#444'; ctx.fillText(s+' dB', 12, yOf(s)+4);
+    }
+    ctx.strokeStyle='#999';
+    ctx.beginPath(); ctx.moveTo(X0,Y0); ctx.lineTo(X0,Y0+H); ctx.lineTo(X0+W,Y0+H); ctx.stroke();
+    ctx.fillStyle='#444';
+    for(var l=0;l<=100;l+=20){
+      ctx.fillText(l+' m', xOf(l)-10, Y0+H+16);
+      ctx.beginPath(); ctx.moveTo(xOf(l),Y0+H); ctx.lineTo(xOf(l),Y0+H+4); ctx.stroke();
+    }
+    ctx.fillText('SNR (dB)', X0-40, Y0+8);
+    // available SNR curves at 100 MHz and 400 MHz
+    function curve(f, color){
+      ctx.beginPath();
+      for(var l=1;l<=100;l+=1){
+        var x=xOf(l), y=yOf(avail(f,l,cat));
+        if(l===1) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke(); ctx.lineWidth=1;
+    }
+    curve(100, '#2a7fd4');
+    curve(400, '#d4772a');
+    ctx.fillStyle='#2a7fd4'; ctx.fillText('available SNR at 100 MHz (1000BASE-T)', X0+8, labelY(avail(100,8,cat))-6);
+    ctx.fillStyle='#d4772a'; ctx.fillText('available SNR at 400 MHz (2.5/5/10GBASE-T)', X0+8, labelY(avail(400,8,cat))-6);
+    // requirement lines
+    PHYS.forEach(function(p){
+      var req = required(p);
+      ctx.strokeStyle = p.col; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(X0, yOf(req)); ctx.lineTo(X0+W, yOf(req)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = p.col;
+      ctx.fillText(p.name+' needs '+req.toFixed(1)+' dB', X0+W-165, labelY(req)-4);
+    });
+    // current length marker
+    ctx.strokeStyle='#333';
+    ctx.beginPath(); ctx.moveTo(xOf(L),Y0); ctx.lineTo(xOf(L),Y0+H); ctx.stroke();
+    ctx.fillStyle='#333'; ctx.fillText(L+' m', xOf(L)+4, Y0+12);
+    // verdict table
+    var html = '<table><tr><th>PHY</th><th>Available SNR</th><th>Required SNR</th><th>Margin</th><th>Verdict</th></tr>';
+    PHYS.forEach(function(p){
+      var a = avail(p.f, L, cat), req = required(p), m = a - req;
+      var cert = CERT[p.id][cat];
+      var verdict, cls;
+      if(cert === null){ verdict = 'not certified on this cable'; cls='fail'; }
+      else if(L > cert){ verdict = 'margin ok, but beyond the certified '+cert+' m reach'; cls='fail'; }
+      else if(m >= 0){ verdict = 'PASS'; cls='pass'; }
+      else { verdict = 'FAIL — link will not close'; cls='fail'; }
+      html += '<tr><td>'+p.name+'</td><td>'+a.toFixed(1)+' dB</td><td>'+req.toFixed(1)+' dB</td>'+
+              '<td><span class="bar" style="width:'+(Math.max(0,Math.min(160,40+m*6)))+'px;background:'+(m>=0?'#3a2':'#c33')+'"></span> '+(m>=0?'+':'')+m.toFixed(1)+' dB</td>'+
+              '<td class="'+cls+'">'+verdict+'</td></tr>';
+    });
+    html += '</table>';
+    document.getElementById('rows').innerHTML = html;
+    document.getElementById('verdict').innerHTML =
+      'Try: Cat 6 at 55 m vs 60 m (the certified limit in the table on the page, not the raw budget, is what fails);'+
+      ' Cat 5e at 100 m (only 1 and 2.5 Gb/s survive); Cat 6a at 100 m (10 Gb/s closes with ~1 dB to spare).';
+  }
+  document.getElementById('cat').addEventListener('change', draw);
+  document.getElementById('len').addEventListener('input', draw);
+  draw();
+})();
+</script>
+</body>
+</html>

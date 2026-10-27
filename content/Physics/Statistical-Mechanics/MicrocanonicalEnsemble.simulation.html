@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Microcanonical Ensemble – 2D Gas with Fixed Energy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;display:flex;flex-direction:column;align-items:center;padding:16px;min-height:100vh}
+h1{font-size:1.1rem;margin-bottom:8px;color:#a8d8ea}
+.controls{display:flex;align-items:center;gap:16px;margin:10px 0;flex-wrap:wrap;justify-content:center}
+.controls label{font-size:.85rem}
+input[type=range]{width:160px;accent-color:#f4a261}
+.val{font-weight:bold;color:#f4a261;min-width:50px;display:inline-block}
+.canvas-wrap{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-top:12px}
+canvas{background:#16213e;border-radius:8px;border:1px solid #333}
+.legend{font-size:.75rem;color:#aaa;margin-top:4px;text-align:center}
+.info{font-size:.8rem;color:#ccc;margin-top:8px;max-width:700px;text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+<h1>Microcanonical Ensemble: 2D Gas with Fixed Total Energy</h1>
+<div class="controls">
+<label>Particles N:</label>
+<input type="range" id="nSlider" min="2" max="20" step="1" value="8">
+<span class="val" id="nVal">8</span>
+<label>Total Energy E:</label>
+<input type="range" id="eSlider" min="1" max="50" step="1" value="20">
+<span class="val" id="eVal">20</span>
+<button id="resetBtn" style="background:#f4a261;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-weight:bold">Reset</button>
+</div>
+<div class="canvas-wrap">
+<div>
+<canvas id="box" width="300" height="300"></canvas>
+<div class="legend">2D box: particles with fixed total kinetic energy</div>
+</div>
+<div>
+<canvas id="phase" width="300" height="300"></canvas>
+<div class="legend">Phase space (q, p) for particle 1: energy circle</div>
+</div>
+<div>
+<canvas id="energy" width="300" height="300"></canvas>
+<div class="legend">Energy distribution &amp; Ω(E) curve</div>
+</div>
+</div>
+<div class="info">
+Each particle bounces elastically in the box. Total kinetic energy is conserved (microcanonical constraint).
+The phase-space panel shows the accessible region H ≤ E for one particle. The right panel plots Ω(E) ∝ E for a 1D particle.
+</div>
+<script>
+const nSlider=document.getElementById('nSlider');
+const eSlider=document.getElementById('eSlider');
+const nVal=document.getElementById('nVal');
+const eVal=document.getElementById('eVal');
+const resetBtn=document.getElementById('resetBtn');
+const cBox=document.getElementById('box');
+const cPhase=document.getElementById('phase');
+const cEnergy=document.getElementById('energy');
+const xB=cBox.getContext('2d');
+const xP=cPhase.getContext('2d');
+const xE=cEnergy.getContext('2d');
+
+let N=8, E_total=20;
+let particles=[];
+const boxSize=280, boxPad=10;
+
+function initParticles(){
+  particles=[];
+  const ePer=E_total/N;
+  const vMax=Math.sqrt(2*ePer);
+  for(let i=0;i<N;i++){
+    const angle=Math.random()*2*Math.PI;
+    const v=vMax*(0.5+0.5*Math.random());
+    particles.push({
+      x:boxPad+20+Math.random()*(boxSize-40),
+      y:boxPad+20+Math.random()*(boxSize-40),
+      vx:v*Math.cos(angle),
+      vy:v*Math.sin(angle),
+      r:6
+    });
+  }
+  // Normalize to exact total energy
+  let ke=0;
+  for(const p of particles) ke+=0.5*(p.vx*p.vx+p.vy*p.vy);
+  const scale=Math.sqrt(E_total/ke);
+  for(const p of particles){p.vx*=scale;p.vy*=scale;}
+}
+
+function step(){
+  const dt=0.5;
+  for(const p of particles){
+    p.x+=p.vx*dt;
+    p.y+=p.vy*dt;
+    if(p.x<p.r){p.x=p.r;p.vx=Math.abs(p.vx);}
+    if(p.x>boxSize-p.r){p.x=boxSize-p.r;p.vx=-Math.abs(p.vx);}
+    if(p.y<p.r){p.y=p.r;p.vy=Math.abs(p.vy);}
+    if(p.y>boxSize-p.r){p.y=boxSize-p.r;p.vy=-Math.abs(p.vy);}
+  }
+}
+
+function drawBox(){
+  xB.clearRect(0,0,300,300);
+  // Box border
+  xB.strokeStyle='#4ecdc4';xB.lineWidth=2;
+  xB.strokeRect(2,2,boxSize,boxSize);
+  // Particles
+  for(let i=0;i<particles.length;i++){
+    const p=particles[i];
+    const hue=(i/N)*360;
+    xB.fillStyle=`hsl(${hue},70%,60%)`;
+    xB.beginPath();xB.arc(p.x,p.y,p.r,0,Math.PI*2);xB.fill();
+    if(i===0){
+      xB.strokeStyle='#fff';xB.lineWidth=1.5;
+      xB.beginPath();xB.arc(p.x,p.y,p.r+2,0,Math.PI*2);xB.stroke();
+    }
+  }
+  // Energy display
+  let ke=0;
+  for(const p of particles) ke+=0.5*(p.vx*p.vx+p.vy*p.vy);
+  xB.fillStyle='#f4a261';xB.font='12px system-ui';
+  xB.fillText('KE = '+ke.toFixed(2)+' (target: '+E_total+')',10,295);
+}
+
+function drawPhase(){
+  xP.clearRect(0,0,300,300);
+  const cx=150,cy=150;
+  const p0=particles[0];
+  if(!p0) return;
+  const ePer=E_total/N;
+  const vMax=Math.sqrt(2*ePer);
+  const scale=120/vMax;
+  // Axes
+  xP.strokeStyle='#555';xP.lineWidth=1;
+  xP.beginPath();xP.moveTo(20,cy);xP.lineTo(280,cy);xP.stroke();
+  xP.beginPath();xP.moveTo(cx,20);xP.lineTo(cx,280);xP.stroke();
+  xP.fillStyle='#888';xP.font='11px system-ui';
+  xP.fillText('p_x',270,cy-5);
+  xP.fillText('p_y',cx+5,25);
+  // Energy circle (accessible region boundary)
+  const R=vMax*scale;
+  xP.strokeStyle='#f4a261';xP.lineWidth=2;
+  xP.beginPath();xP.arc(cx,cy,R,0,Math.PI*2);xP.stroke();
+  // Fill interior
+  xP.fillStyle='rgba(244,162,97,0.1)';
+  xP.beginPath();xP.arc(cx,cy,R,0,Math.PI*2);xP.fill();
+  // Current state of particle 0
+  const px=p0.vx*scale, py=-p0.vy*scale;
+  xP.fillStyle='#4ecdc4';
+  xP.beginPath();xP.arc(cx+px,cy+py,5,0,Math.PI*2);xP.fill();
+  // Trail
+  xP.fillStyle='rgba(78,205,196,0.3)';
+  xP.beginPath();xP.arc(cx+px*0.9,cy+py*0.9,3,0,Math.PI*2);xP.fill();
+  // Label
+  xP.fillStyle='#f4a261';xP.font='11px system-ui';
+  xP.fillText('H = E (energy surface)',cx-R,cy-R-8);
+  xP.fillStyle='#4ecdc4';
+  xP.fillText('current state',cx+px+8,cy+py);
+  // Ω label
+  xP.fillStyle='#ccc';xP.font='11px system-ui';
+  xP.fillText('Ω = π·(√(2mE))²/h² ∝ E',20,290);
+}
+
+function drawEnergy(){
+  xE.clearRect(0,0,300,300);
+  const pad={l:45,r:15,t:20,b:35};
+  const w=300-pad.l-pad.r, h=300-pad.t-pad.b;
+  // Axes
+  xE.strokeStyle='#555';xE.lineWidth=1;
+  xE.beginPath();xE.moveTo(pad.l,pad.t);xE.lineTo(pad.l,pad.t+h);xE.lineTo(pad.l+w,pad.t+h);xE.stroke();
+  xE.fillStyle='#888';xE.font='10px system-ui';
+  xE.fillText('Ω(E)',5,pad.t-5);
+  xE.fillText('E',pad.l+w/2-5,295);
+  // Ω(E) ∝ E for 1D particle (linear)
+  xE.strokeStyle='#4ecdc4';xE.lineWidth=2;
+  xE.beginPath();
+  xE.moveTo(pad.l,pad.t+h);
+  xE.lineTo(pad.l+w,pad.t+10);
+  xE.stroke();
+  xE.fillStyle='#4ecdc4';xE.font='11px system-ui';
+  xE.fillText('Ω(E) ∝ E (1D)',pad.l+w-80,pad.t+25);
+  // Current energy marker
+  const eFrac=E_total/50;
+  const mx=pad.l+eFrac*w;
+  xE.strokeStyle='#f4a261';xE.lineWidth=1.5;xE.setLineDash([4,3]);
+  xE.beginPath();xE.moveTo(mx,pad.t);xE.lineTo(mx,pad.t+h);xE.stroke();
+  xE.setLineDash([]);
+  xE.fillStyle='#f4a261';
+  xE.beginPath();xE.arc(mx,pad.t+h-(eFrac)*h,5,0,Math.PI*2);xE.fill();
+  // S(E) = k_B ln E curve (secondary)
+  xE.strokeStyle='rgba(168,216,234,0.6)';xE.lineWidth=1.5;
+  xE.beginPath();
+  for(let i=1;i<=200;i++){
+    const e=i/200;
+    const s=Math.log(e+0.01)/Math.log(50);
+    const x=pad.l+e*w;
+    const y=pad.t+h-s*h;
+    i===1?xE.moveTo(x,y):xE.lineTo(x,y);
+  }
+  xE.stroke();
+  xE.fillStyle='rgba(168,216,234,0.8)';xE.font='10px system-ui';
+  xE.fillText('S(E) = k_B ln Ω',pad.l+5,pad.t+15);
+  // Ticks
+  for(let e=0;e<=50;e+=10){
+    const x=pad.l+(e/50)*w;
+    xE.fillStyle='#666';xE.font='9px system-ui';
+    xE.fillText(e,x-4,pad.t+h+14);
+  }
+}
+
+function update(){
+  N=parseInt(nSlider.value);
+  E_total=parseInt(eSlider.value);
+  nVal.textContent=N;
+  eVal.textContent=E_total;
+}
+
+nSlider.addEventListener('input',()=>{update();initParticles();});
+eSlider.addEventListener('input',()=>{update();initParticles();});
+resetBtn.addEventListener('click',()=>{initParticles();});
+
+initParticles();
+
+function animate(){
+  step();
+  drawBox();
+  drawPhase();
+  drawEnergy();
+  requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>

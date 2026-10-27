@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Additive Manufacturing Simulation</title>
+<style>
+body { margin: 0; padding: 10px; font-family: monospace; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; margin: 5px 0; font-size: 14px; }
+.controls { text-align: center; margin: 8px 0; }
+.controls button { padding: 6px 12px; margin: 0 3px; cursor: pointer; background: #16213e; color: #eee; border: 1px solid #0f3460; border-radius: 4px; font-size: 11px; }
+.controls button.active { background: #0f3460; border-color: #e94560; }
+.controls label { margin-left: 10px; font-size: 12px; }
+#canvas { display: block; margin: 0 auto; border: 1px solid #333; background: #0d1117; }
+.info { text-align: center; font-size: 11px; color: #aaa; margin-top: 5px; }
+</style>
+</head>
+<body>
+<h2>Additive Manufacturing — Layer-by-Layer Build</h2>
+<div class="controls">
+<button id="btnFDM" class="active" onclick="setMode('FDM')">FDM</button>
+<button id="btnSLA" onclick="setMode('SLA')">SLA</button>
+<button id="btnSLM" onclick="setMode('SLM')">SLM</button>
+<button id="btnBJ" onclick="setMode('BJ')">Binder Jet</button>
+<button id="btnDED" onclick="setMode('DED')">DED</button>
+<button id="btnPlay" onclick="togglePlay()">&#9654; Play</button>
+<button id="btnStep" onclick="step()">&#9654;|</button>
+<button id="btnReset" onclick="reset()">&#8634;</button>
+<label>Speed: <input type="range" id="speed" min="1" max="10" value="3" oninput="speedVal=this.value"></label>
+</div>
+<canvas id="canvas" width="600" height="400"></canvas>
+<div class="info" id="info">Layer 0 / 20 — Press Play to start</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let mode = 'FDM';
+let playing = false;
+let layer = 0;
+const maxLayers = 20;
+let speedVal = 3;
+let animId = null;
+let laserActive = false;
+let recoaterActive = false;
+
+// Precompute layer geometry (truncated pyramid shape)
+const partW = 200;
+const partX = 200;
+const layerH = 12;
+const layerWidths = [];
+for (let i = 0; i < maxLayers; i++) {
+  layerWidths.push(partW - i * 5);
+}
+
+// Precompute powder dot positions (stable, no flicker)
+const powderDots = [];
+for (let i = 0; i < 300; i++) {
+  powderDots.push({
+    x: 110 + Math.random() * 380,
+    y: Math.random() * (maxLayers * layerH + 10)
+  });
+}
+
+// Precompute binder droplet positions
+const binderDrops = [];
+for (let i = 0; i < 60; i++) {
+  binderDrops.push({
+    x: 200 + Math.random() * 200,
+    y: 0
+  });
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btnFDM').classList.toggle('active', m==='FDM');
+  document.getElementById('btnSLA').classList.toggle('active', m==='SLA');
+  document.getElementById('btnSLM').classList.toggle('active', m==='SLM');
+  document.getElementById('btnBJ').classList.toggle('active', m==='BJ');
+  document.getElementById('btnDED').classList.toggle('active', m==='DED');
+  reset();
+}
+
+function togglePlay() {
+  playing = !playing;
+  document.getElementById('btnPlay').innerHTML = playing ? '&#9646;&#9646; Pause' : '&#9654; Play';
+  if (playing) animate();
+  else if (animId) clearTimeout(animId);
+}
+
+function step() {
+  if (layer < maxLayers) {
+    layer++;
+    laserActive = true;
+    setTimeout(() => { laserActive = false; }, 500);
+    updateInfo();
+    draw();
+  }
+}
+
+function reset() {
+  layer = 0;
+  playing = false;
+  laserActive = false;
+  recoaterActive = false;
+  document.getElementById('btnPlay').innerHTML = '&#9654; Play';
+  if (animId) clearTimeout(animId);
+  updateInfo();
+  draw();
+}
+
+function animate() {
+  if (!playing) return;
+  if (layer < maxLayers) {
+    laserActive = true;
+    layer++;
+    updateInfo();
+    draw();
+    setTimeout(() => {
+      laserActive = false;
+      if (mode === 'SLM' || mode === 'BJ') {
+        recoaterActive = true;
+        draw();
+        setTimeout(() => {
+          recoaterActive = false;
+          draw();
+        }, 400);
+      }
+      if (layer < maxLayers) {
+        animId = setTimeout(animate, Math.max(100, 1000 - speedVal * 90));
+      } else {
+        playing = false;
+        document.getElementById('btnPlay').innerHTML = '&#9654; Play';
+      }
+    }, 300);
+  } else {
+    playing = false;
+    document.getElementById('btnPlay').innerHTML = '&#9654; Play';
+  }
+}
+
+function updateInfo() {
+  const labels = {
+    FDM: 'FDM: nozzle extrudes filament',
+    SLA: 'SLA: UV laser cures resin layer',
+    SLM: 'SLM: laser scans powder bed',
+    BJ: 'Binder jet: printhead jets binder',
+    DED: 'DED: torch deposits wire/powder'
+  };
+  document.getElementById('info').textContent = 'Layer ' + layer + ' / ' + maxLayers + ' — ' + labels[mode];
+}
+
+function draw() {
+  ctx.clearRect(0, 0, 600, 400);
+  const baseY = 350;
+
+  if (mode === 'FDM') {
+    drawFDM(baseY);
+  } else if (mode === 'SLA') {
+    drawSLA(baseY);
+  } else if (mode === 'SLM') {
+    drawSLM(baseY);
+  } else if (mode === 'BJ') {
+    drawBJ(baseY);
+  } else if (mode === 'DED') {
+    drawDED(baseY);
+  }
+
+  // Layer counter
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px monospace';
+  ctx.fillText('Layer: ' + layer + '/' + maxLayers, 10, 20);
+  ctx.fillText('Mode: ' + mode, 10, 35);
+}
+
+function drawFDM(baseY) {
+  // Build platform
+  ctx.fillStyle = '#444';
+  ctx.fillRect(150, baseY, 300, 10);
+  ctx.fillStyle = '#666';
+  ctx.font = '10px monospace';
+  ctx.fillText('Build platform', 220, baseY + 25);
+
+  // Deposited layers (precomputed widths)
+  for (let i = 0; i < layer; i++) {
+    const y = baseY - (i + 1) * layerH;
+    const w = layerWidths[i];
+    const x = partX + (partW - w) / 2;
+    ctx.fillStyle = i === layer - 1 ? '#e94560' : '#ff6b6b';
+    ctx.fillRect(x, y, w, layerH - 1);
+    // Infill lines
+    ctx.strokeStyle = '#aa3333';
+    ctx.lineWidth = 1;
+    for (let j = 0; j < w; j += 8) {
+      ctx.beginPath();
+      ctx.moveTo(x + j, y);
+      ctx.lineTo(x + j, y + layerH - 1);
+      ctx.stroke();
+    }
+  }
+
+  // Nozzle
+  const ny = baseY - layer * layerH - 20;
+  const nx = partX + partW / 2;
+  ctx.fillStyle = '#888';
+  ctx.beginPath();
+  ctx.moveTo(nx - 15, ny - 30);
+  ctx.lineTo(nx + 15, ny - 30);
+  ctx.lineTo(nx + 5, ny);
+  ctx.lineTo(nx - 5, ny);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.arc(nx, ny, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // Filament line
+  ctx.strokeStyle = '#ff6b6b';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(nx, ny - 30);
+  ctx.lineTo(nx, ny - 80);
+  ctx.stroke();
+  ctx.fillStyle = '#aaa';
+  ctx.font = '10px monospace';
+  ctx.fillText('Nozzle (200°C)', nx + 20, ny - 15);
+}
+
+function drawSLA(baseY) {
+  // Vat
+  ctx.fillStyle = '#333';
+  ctx.fillRect(100, baseY - maxLayers * layerH - 20, 400, maxLayers * layerH + 30);
+  ctx.strokeStyle = '#555';
+  ctx.strokeRect(100, baseY - maxLayers * layerH - 20, 400, maxLayers * layerH + 30);
+
+  // Resin (blue tint)
+  ctx.fillStyle = 'rgba(74, 144, 217, 0.15)';
+  ctx.fillRect(102, baseY - maxLayers * layerH - 18, 396, maxLayers * layerH + 26);
+
+  // Cured layers
+  for (let i = 0; i < layer; i++) {
+    const y = baseY - (i + 1) * layerH;
+    const w = layerWidths[i];
+    const x = partX + (partW - w) / 2;
+    ctx.fillStyle = i === layer - 1 ? '#e94560' : '#4a90d9';
+    ctx.fillRect(x, y, w, layerH - 1);
+  }
+
+  // Platform
+  ctx.fillStyle = '#666';
+  ctx.fillRect(150, baseY, 300, 8);
+
+  // UV Laser
+  const ly = baseY - layer * layerH;
+  const lx = partX + partW / 2;
+  if (laserActive) {
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lx, 20);
+    ctx.lineTo(lx, ly);
+    ctx.stroke();
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Laser head
+  ctx.fillStyle = '#888';
+  ctx.fillRect(lx - 20, 10, 40, 15);
+  ctx.fillStyle = '#ffff00';
+  ctx.font = '10px monospace';
+  ctx.fillText('UV Laser', lx + 25, 22);
+
+  // Transparent bottom indicator
+  ctx.fillStyle = '#4a90d9';
+  ctx.font = '9px monospace';
+  ctx.fillText('Transparent vat bottom', 200, baseY + 20);
+}
+
+function drawSLM(baseY) {
+  // Container
+  ctx.fillStyle = '#333';
+  ctx.fillRect(100, baseY - maxLayers * layerH - 20, 400, maxLayers * layerH + 30);
+  ctx.strokeStyle = '#555';
+  ctx.strokeRect(100, baseY - maxLayers * layerH - 20, 400, maxLayers * layerH + 30);
+
+  // Unfused powder (precomputed dots, stable)
+  ctx.fillStyle = '#555';
+  for (let i = 0; i < powderDots.length; i++) {
+    const px = powderDots[i].x;
+    const py = baseY - maxLayers * layerH - 10 + powderDots[i].y;
+    if (py > baseY - layer * layerH) {
+      ctx.fillRect(px, py, 2, 2);
+    }
+  }
+
+  // Fused layers (precomputed widths)
+  for (let i = 0; i < layer; i++) {
+    const y = baseY - (i + 1) * layerH;
+    const w = layerWidths[i];
+    const x = partX + (partW - w) / 2;
+    ctx.fillStyle = i === layer - 1 ? '#ffd700' : '#c0c0c0';
+    ctx.fillRect(x, y, w, layerH - 1);
+  }
+
+  // Build platform
+  ctx.fillStyle = '#666';
+  ctx.fillRect(150, baseY, 300, 8);
+
+  // Laser
+  const ly = baseY - layer * layerH;
+  const lx = partX + partW / 2;
+  if (laserActive) {
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(lx, 20);
+    ctx.lineTo(lx, ly);
+    ctx.stroke();
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Laser head
+  ctx.fillStyle = '#888';
+  ctx.fillRect(lx - 20, 10, 40, 15);
+  ctx.fillStyle = '#aaa';
+  ctx.font = '10px monospace';
+  ctx.fillText('Laser (400-1000W)', lx + 25, 22);
+
+  // Recoater blade
+  if (recoaterActive) {
+    ctx.fillStyle = '#4a90d9';
+    ctx.fillRect(100, baseY - (layer + 1) * layerH - 5, 400, 4);
+    ctx.fillStyle = '#aaa';
+    ctx.fillText('Recoater blade', 105, baseY - (layer + 1) * layerH - 10);
+  }
+
+  // Powder hopper
+  ctx.fillStyle = '#555';
+  ctx.fillRect(520, baseY - maxLayers * layerH - 20, 40, 60);
+  ctx.fillStyle = '#777';
+  ctx.font = '9px monospace';
+  ctx.fillText('Powder', 525, baseY - maxLayers * layerH + 10);
+}
+
+function drawBJ(baseY) {
+  // Container
+  ctx.fillStyle = '#333';
+  ctx.fillRect(100, baseY - maxLayers * layerH - 20, 400, maxLayers * layerH + 30);
+  ctx.strokeStyle = '#555';
+  ctx.strokeRect(100, baseY - maxLayers * layerH - 20, 400, maxLayers * layerH + 30);
+
+  // Powder bed (tan color)
+  ctx.fillStyle = 'rgba(139, 115, 85, 0.3)';
+  ctx.fillRect(102, baseY - maxLayers * layerH - 18, 396, maxLayers * layerH + 26);
+
+  // Green part (brown, precomputed widths)
+  for (let i = 0; i < layer; i++) {
+    const y = baseY - (i + 1) * layerH;
+    const w = layerWidths[i];
+    const x = partX + (partW - w) / 2;
+    ctx.fillStyle = i === layer - 1 ? '#D2691E' : '#6B4226';
+    ctx.fillRect(x, y, w, layerH - 1);
+  }
+
+  // Build platform
+  ctx.fillStyle = '#666';
+  ctx.fillRect(150, baseY, 300, 8);
+
+  // Printhead
+  const py = baseY - layer * layerH - 30;
+  ctx.fillStyle = '#888';
+  ctx.fillRect(150, py - 20, 300, 15);
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px monospace';
+  ctx.fillText('Printhead', 270, py - 8);
+
+  // Nozzles and droplets
+  if (laserActive) {
+    for (let i = 0; i < 10; i++) {
+      const nx = 170 + i * 28;
+      ctx.fillStyle = '#4a90d9';
+      ctx.beginPath();
+      ctx.arc(nx, py + 5, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Droplet falling
+      ctx.beginPath();
+      ctx.arc(nx, py + 15, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Recoater
+  if (recoaterActive) {
+    ctx.fillStyle = '#4a90d9';
+    ctx.fillRect(100, baseY - (layer + 1) * layerH - 5, 400, 4);
+    ctx.fillStyle = '#aaa';
+    ctx.font = '10px monospace';
+    ctx.fillText('Recoater', 105, baseY - (layer + 1) * layerH - 10);
+  }
+
+  // Label
+  ctx.fillStyle = '#8B7355';
+  ctx.font = '9px monospace';
+  ctx.fillText('Powder bed', 420, baseY - 10);
+}
+
+function drawDED(baseY) {
+  // Substrate
+  ctx.fillStyle = '#555';
+  ctx.fillRect(100, baseY, 400, 15);
+  ctx.fillStyle = '#666';
+  ctx.font = '10px monospace';
+  ctx.fillText('Substrate (multi-axis stage)', 180, baseY + 30);
+
+  // Deposited beads (precomputed widths, stacked)
+  for (let i = 0; i < layer; i++) {
+    const y = baseY - (i + 1) * layerH;
+    const w = layerWidths[i];
+    const x = partX + (partW - w) / 2;
+    ctx.fillStyle = i === layer - 1 ? '#ff6600' : '#c0c0c0';
+    ctx.fillRect(x, y, w, layerH - 2);
+    // Bead texture
+    ctx.strokeStyle = '#999';
+    ctx.lineWidth = 0.5;
+    for (let j = 0; j < w; j += 12) {
+      ctx.beginPath();
+      ctx.arc(x + j + 6, y + layerH / 2, 4, 0, Math.PI);
+      ctx.stroke();
+    }
+  }
+
+  // Torch
+  const ty = baseY - layer * layerH - 40;
+  const tx = partX + partW / 2;
+  ctx.fillStyle = '#888';
+  ctx.fillRect(tx - 25, ty - 30, 50, 30);
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px monospace';
+  ctx.fillText('Torch', tx - 12, ty - 10);
+
+  // Laser/Arc beam
+  if (laserActive) {
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx, baseY - layer * layerH);
+    ctx.stroke();
+    // Melt pool glow
+    ctx.fillStyle = '#ff6600';
+    ctx.beginPath();
+    ctx.ellipse(tx, baseY - layer * layerH, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Wire feed
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(tx + 30, ty - 50);
+  ctx.lineTo(tx + 5, baseY - layer * layerH - 5);
+  ctx.stroke();
+  ctx.fillStyle = '#aaa';
+  ctx.font = '10px monospace';
+  ctx.fillText('Wire', tx + 35, ty - 40);
+
+  // Multi-axis hint
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(100, baseY + 15);
+  ctx.lineTo(500, baseY + 15);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+draw();
+</script>
+</body>
+</html>
+

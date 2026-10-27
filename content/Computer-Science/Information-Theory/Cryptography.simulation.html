@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cryptography Interactive</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 12px; color: #7fdbca; }
+h2 { font-size: 1.1em; margin: 16px 0 8px; color: #a8d8ea; }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.tab { padding: 8px 16px; background: #16213e; border: 1px solid #0f3460; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 0.9em; }
+.tab.active { background: #0f3460; color: #7fdbca; border-bottom-color: #7fdbca; }
+.panel { display: none; }
+.panel.active { display: block; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; align-items: center; }
+.controls label { font-size: 0.85em; }
+.controls input, .controls select { background: #16213e; border: 1px solid #0f3460; color: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.85em; }
+.controls button { background: #0f3460; color: #7fdbca; border: 1px solid #7fdbca; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+.controls button:hover { background: #7fdbca; color: #1a1a2e; }
+.viz { background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 16px; margin: 10px 0; min-height: 200px; position: relative; overflow: hidden; }
+.block { display: inline-block; width: 48px; height: 48px; margin: 3px; border-radius: 4px; text-align: center; line-height: 48px; font-size: 0.7em; font-weight: bold; border: 2px solid transparent; transition: all 0.3s; }
+.block.pt { background: #2d6a4f; border-color: #40916c; }
+.block.ct { background: #7b2d26; border-color: #9b4d44; }
+.block.iv { background: #3d348b; border-color: #5a4fcf; }
+.block.nonce { background: #6b4c9a; border-color: #8b6cb8; }
+.block.enc { background: #1d3557; border-color: #457b9d; }
+.arrow { display: inline-block; width: 24px; text-align: center; color: #7fdbca; font-size: 1.2em; vertical-align: middle; }
+.row { margin: 8px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.row-label { font-size: 0.8em; color: #a8d8ea; min-width: 50px; font-weight: bold; }
+.dh-container { display: flex; justify-content: space-around; align-items: flex-start; flex-wrap: wrap; gap: 20px; }
+.party { text-align: center; }
+.party h3 { color: #7fdbca; margin-bottom: 8px; }
+.key-box { background: #0f3460; border: 1px solid #7fdbca; border-radius: 6px; padding: 8px 12px; margin: 6px 0; font-size: 0.85em; min-width: 160px; }
+.key-box .label { color: #a8d8ea; font-size: 0.8em; }
+.key-box .value { color: #ffd166; font-family: monospace; word-break: break-all; }
+.channel { text-align: center; font-size: 0.8em; color: #ef476f; margin: 4px 0; }
+.feistel-viz { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.feistel-row { display: flex; align-items: center; gap: 8px; }
+.feistel-box { padding: 6px 12px; border-radius: 4px; font-size: 0.8em; font-weight: bold; min-width: 60px; text-align: center; }
+.feistel-L { background: #2d6a4f; border: 1px solid #40916c; }
+.feistel-R { background: #7b2d26; border: 1px solid #9b4d44; }
+.feistel-F { background: #1d3557; border: 1px solid #457b9d; }
+.feistel-xor { background: #3d348b; border: 1px solid #5a4fcf; }
+.status { margin-top: 10px; font-size: 0.85em; color: #ffd166; min-height: 20px; }
+.legend { display: flex; gap: 12px; margin: 8px 0; font-size: 0.75em; flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>Cryptography Interactive</h1>
+<div class="tabs">
+<div class="tab active" onclick="switchTab(0)">Diffie-Hellman</div>
+<div class="tab" onclick="switchTab(1)">Block Cipher Modes</div>
+<div class="tab" onclick="switchTab(2)">Feistel Network</div>
+</div>
+
+<!-- Tab 0: Diffie-Hellman -->
+<div class="panel active" id="panel0">
+<h2>Interactive Diffie-Hellman Key Exchange</h2>
+<div class="controls">
+<label>p = <input type="number" id="dh-p" value="23" min="5" max="97"></label>
+<label>g = <input type="number" id="dh-g" value="5" min="2" max="20"></label>
+<label>Alice's a = <input type="number" id="dh-a" value="6" min="1" max="20"></label>
+<label>Bob's b = <input type="number" id="dh-b" value="15" min="1" max="20"></label>
+<button onclick="runDH()">Exchange</button>
+</div>
+<div class="viz" id="dh-viz">
+<div class="dh-container">
+<div class="party">
+<h3>Alice</h3>
+<div class="key-box"><div class="label">Private a</div><div class="value" id="dh-priv-a">—</div></div>
+<div class="key-box"><div class="label">Public g^a mod p</div><div class="value" id="dh-pub-a">—</div></div>
+<div class="key-box"><div class="label">Shared secret</div><div class="value" id="dh-secret-a">—</div></div>
+</div>
+<div style="text-align:center; padding-top:40px;">
+<div class="channel">→ g^a mod p →</div>
+<div class="channel">← g^b mod p ←</div>
+</div>
+<div class="party">
+<h3>Bob</h3>
+<div class="key-box"><div class="label">Private b</div><div class="value" id="dh-priv-b">—</div></div>
+<div class="key-box"><div class="label">Public g^b mod p</div><div class="value" id="dh-pub-b">—</div></div>
+<div class="key-box"><div class="label">Shared secret</div><div class="value" id="dh-secret-b">—</div></div>
+</div>
+</div>
+</div>
+<div class="status" id="dh-status">Click "Exchange" to run the protocol.</div>
+</div>
+
+<!-- Tab 1: Block Cipher Modes -->
+<div class="panel" id="panel1">
+<h2>Block Cipher Mode Comparison</h2>
+<div class="controls">
+<label>Plaintext blocks: <input type="text" id="mode-pt" value="AB AB CD AB" size="14"></label>
+<button onclick="runModes()">Encrypt</button>
+</div>
+<div class="legend">
+<span><span class="swatch" style="background:#2d6a4f;"></span> Plaintext</span>
+<span><span class="swatch" style="background:#7b2d26;"></span> Ciphertext</span>
+<span><span class="swatch" style="background:#3d348b;"></span> IV / Nonce</span>
+<span><span class="swatch" style="background:#1d3557;"></span> E_k(·)</span>
+</div>
+<div class="viz" id="mode-viz">
+<div class="row" id="mode-ecb"><span class="row-label">ECB:</span></div>
+<div class="row" id="mode-cbc"><span class="row-label">CBC:</span></div>
+<div class="row" id="mode-ctr"><span class="row-label">CTR:</span></div>
+</div>
+<div class="status" id="mode-status">Note: identical plaintext blocks (AB) produce identical ciphertext in ECB but different ciphertext in CBC and CTR.</div>
+</div>
+
+<!-- Tab 2: Feistel Network -->
+<div class="panel" id="panel2">
+<h2>Feistel Network (Luby-Rackoff)</h2>
+<div class="controls">
+<label>Rounds: <input type="number" id="feistel-rounds" value="4" min="1" max="8"></label>
+<button onclick="runFeistel()">Animate</button>
+<button onclick="resetFeistel()">Reset</button>
+</div>
+<div class="viz" id="feistel-viz">
+<div class="feistel-viz" id="feistel-anim"></div>
+</div>
+<div class="status" id="feistel-status">Click "Animate" to step through the Feistel rounds.</div>
+</div>
+
+<script>
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', j===i));
+}
+
+// Diffie-Hellman
+function modPow(base, exp, mod) {
+  let result = 1, b = base % mod;
+  while (exp > 0) {
+    if (exp % 2 === 1) result = (result * b) % mod;
+    b = (b * b) % mod;
+    exp = Math.floor(exp / 2);
+  }
+  return result;
+}
+function runDH() {
+  const p = parseInt(document.getElementById('dh-p').value);
+  const g = parseInt(document.getElementById('dh-g').value);
+  const a = parseInt(document.getElementById('dh-a').value);
+  const b = parseInt(document.getElementById('dh-b').value);
+  const pubA = modPow(g, a, p);
+  const pubB = modPow(g, b, p);
+  const secretA = modPow(pubB, a, p);
+  const secretB = modPow(pubA, b, p);
+  document.getElementById('dh-priv-a').textContent = a;
+  document.getElementById('dh-priv-b').textContent = b;
+  document.getElementById('dh-pub-a').textContent = pubA + ' = ' + g + '^' + a + ' mod ' + p;
+  document.getElementById('dh-pub-b').textContent = pubB + ' = ' + g + '^' + b + ' mod ' + p;
+  document.getElementById('dh-secret-a').textContent = secretA + ' = ' + pubB + '^' + a + ' mod ' + p;
+  document.getElementById('dh-secret-b').textContent = secretB + ' = ' + pubA + '^' + b + ' mod ' + p;
+  document.getElementById('dh-status').textContent = 'Both parties computed the same shared secret: ' + secretA + '. An eavesdropper sees only g, p, g^a, g^b and cannot compute g^(ab) without solving discrete log.';
+}
+
+// Block Cipher Modes
+function runModes() {
+  const ptStr = document.getElementById('mode-pt').value.trim();
+  const blocks = ptStr.split(/\s+/).filter(x => x.length > 0);
+  const n = blocks.length;
+  // Simulate encryption: E_k(x) = some deterministic transform
+  function enc(x, counter) {
+    // Simple visual transform: rotate chars + add counter
+    let result = '';
+    for (let i = 0; i < x.length; i++) {
+      result += String.fromCharCode(((x.charCodeAt(i) - 65 + counter + 7) % 26) + 65);
+    }
+    return result;
+  }
+  // ECB
+  let ecbRow = document.getElementById('mode-ecb');
+  ecbRow.innerHTML = '<span class="row-label">ECB:</span>';
+  for (let i = 0; i < n; i++) {
+    const c = enc(blocks[i], i+1);
+    ecbRow.innerHTML += '<span class="block pt">' + blocks[i] + '</span><span class="arrow">→</span><span class="block enc">E</span><span class="arrow">→</span><span class="block ct">' + c + '</span> ';
+  }
+  // CBC
+  let cbcRow = document.getElementById('mode-cbc');
+  cbcRow.innerHTML = '<span class="row-label">CBC:</span><span class="block iv">IV</span><span class="arrow">→</span>';
+  let prevC = 'IV';
+  for (let i = 0; i < n; i++) {
+    const xored = xorBlocks(blocks[i], prevC);
+    const c = enc(xored, i+1);
+    cbcRow.innerHTML += '<span class="block pt">' + blocks[i] + '</span><span class="arrow">⊕</span><span class="block enc">E</span><span class="arrow">→</span><span class="block ct">' + c + '</span> ';
+    prevC = c;
+  }
+  // CTR
+  let ctrRow = document.getElementById('mode-ctr');
+  ctrRow.innerHTML = '<span class="row-label">CTR:</span>';
+  for (let i = 0; i < n; i++) {
+    const ks = enc('KS', i+1);
+    const c = xorBlocks(blocks[i], ks);
+    ctrRow.innerHTML += '<span class="block nonce">N' + (i+1) + '</span><span class="arrow">→</span><span class="block enc">E</span><span class="arrow">⊕</span><span class="block pt">' + blocks[i] + '</span><span class="arrow">→</span><span class="block ct">' + c + '</span> ';
+  }
+  document.getElementById('mode-status').textContent = 'ECB: identical blocks → identical ciphertext (pattern visible). CBC/CTR: chaining/keystream hides patterns.';
+}
+function xorBlocks(a, b) {
+  let result = '';
+  for (let i = 0; i < a.length; i++) {
+    const ca = a.charCodeAt(i) - 65;
+    const cb = (b.charCodeAt(i % b.length) - 65);
+    result += String.fromCharCode(((ca ^ cb) % 26) + 65);
+  }
+  return result;
+}
+
+// Feistel Network
+let feistelTimer = null;
+function runFeistel() {
+  resetFeistel();
+  const rounds = parseInt(document.getElementById('feistel-rounds').value);
+  let L = 'L₀', R = 'R₀';
+  const container = document.getElementById('feistel-anim');
+  let step = 0;
+  function animateStep() {
+    if (step >= rounds) {
+      document.getElementById('feistel-status').textContent = 'Done! After ' + rounds + ' rounds: L=' + L + ', R=' + R + '. The output is a permutation (bijection) even though F_k is not.';
+      return;
+    }
+    const round = step + 1;
+    const newL = R;
+    const newR = L + '⊕F(' + R + ')';
+    const row = document.createElement('div');
+    row.className = 'feistel-row';
+    row.innerHTML = '<span class="feistel-box feistel-L">' + L + '</span><span class="feistel-box feistel-R">' + R + '</span><span class="arrow">→</span><span class="feistel-box feistel-F">F_k(' + R + ')</span><span class="arrow">⊕</span><span class="feistel-box feistel-xor">' + newR + '</span><span class="arrow">→</span><span class="feistel-box feistel-L">' + newL + '</span><span class="feistel-box feistel-R">' + newR + '</span>';
+    container.appendChild(row);
+    L = newL; R = newR;
+    step++;
+    document.getElementById('feistel-status').textContent = 'Round ' + step + '/' + rounds + ': L=' + L + ', R=' + R;
+    feistelTimer = setTimeout(animateStep, 800);
+  }
+  animateStep();
+}
+function resetFeistel() {
+  if (feistelTimer) clearTimeout(feistelTimer);
+  document.getElementById('feistel-anim').innerHTML = '';
+  document.getElementById('feistel-status').textContent = 'Click "Animate" to step through the Feistel rounds.';
+}
+
+// Initialize
+runDH();
+runModes();
+</script>
+</body>
+</html>

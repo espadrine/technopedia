@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Optical interconnect simulations</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; background: #fafafa; color: #222; }
+  h3 { margin: 6px 0 6px; font-size: 15px; }
+  .panel { border: 1px solid #ccc; border-radius: 8px; padding: 10px; margin-bottom: 16px; background: #fff; }
+  label { margin-right: 6px; font-size: 13px; }
+  input[type=range] { vertical-align: middle; width: 140px; }
+  select, button { font-size: 13px; padding: 2px 6px; margin: 2px 4px 2px 0; }
+  .val { font-weight: bold; }
+  canvas { display: block; background: #101418; border-radius: 6px; margin: 6px 0; }
+  .readout { font-size: 13px; margin-top: 4px; }
+  .row { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<div class="panel" id="dispersion">
+  <h3>Pulse spreading: modal vs. chromatic dispersion</h3>
+  <div class="row">
+    <label>Regime:
+      <select id="dispRegime">
+        <option value="modal">Modal (MMF, OM4)</option>
+        <option value="chromatic">Chromatic (SMF, 1550 nm)</option>
+      </select>
+    </label>
+    <label>Length <span class="val" id="dispLval">40</span> km
+      <input type="range" id="dispL" min="1" max="200" value="40">
+    </label>
+    <label>Laser linewidth <span class="val" id="dispDLval">0.10</span> nm
+      <input type="range" id="dispDL" min="1" max="100" value="10">
+    </label>
+  </div>
+  <canvas id="dispCanvas" width="700" height="170"></canvas>
+  <div class="readout" id="dispOut"></div>
+</div>
+
+<div class="panel" id="wdm">
+  <h3>DWDM spectrum visualizer (ITU-T G.694.1 grid)</h3>
+  <div class="row">
+    <label>Band:
+      <select id="wdmBand">
+        <option value="C">C-band (1530–1565 nm)</option>
+        <option value="CE">Extended C (1525–1568 nm)</option>
+        <option value="CL">C+L bands (1530–1625 nm)</option>
+      </select>
+    </label>
+    <label>Spacing:
+      <select id="wdmSpacing">
+        <option value="100">100 GHz (≈0.8 nm)</option>
+        <option value="50">50 GHz (≈0.4 nm)</option>
+      </select>
+    </label>
+    <label>Per-channel rate:
+      <select id="wdmRate">
+        <option value="100">100 Gb/s</option>
+        <option value="400">400 Gb/s</option>
+        <option value="800">800 Gb/s</option>
+      </select>
+    </label>
+    <button id="wdmFill">Fill all</button>
+    <button id="wdmClear">Clear</button>
+  </div>
+  <div id="wdmSvg"></div>
+  <div class="readout" id="wdmOut"></div>
+</div>
+
+<div class="panel" id="linkbudget">
+  <h3>Link-budget calculator</h3>
+  <div class="row">
+    <label>Fibre:
+      <select id="lbFibre">
+        <option value="0.20">SMF @ 1550 nm (0.20 dB/km)</option>
+        <option value="0.35">SMF @ 1310 nm (0.35 dB/km)</option>
+        <option value="3.0">OM4 MMF @ 850 nm (3.0 dB/km)</option>
+      </select>
+    </label>
+    <label>Length <span class="val" id="lbLval">40</span> km
+      <input type="range" id="lbL" min="1" max="200" value="40">
+    </label>
+  </div>
+  <div class="row">
+    <label>Launch power <span class="val" id="lbPval">0</span> dBm
+      <input type="range" id="lbP" min="-5" max="10" value="0">
+    </label>
+    <label>Receiver sensitivity <span class="val" id="lbSval">-28</span> dBm
+      <input type="range" id="lbS" min="-30" max="-5" value="-28">
+    </label>
+  </div>
+  <canvas id="lbCanvas" width="700" height="90"></canvas>
+  <div class="readout" id="lbOut"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- Panel 1: dispersion animation ---------- */
+  var dispCanvas = document.getElementById("dispCanvas");
+  var dctx = dispCanvas.getContext("2d");
+  var SIGMA0 = 15; // ps, input pulse half-width
+
+  function dispSpread(regime, L, dl) {
+    if (regime === "modal") return 213 * L;   // ps, from OM4 4700 MHz·km
+    return 17 * dl * L;                       // ps, D = 17 ps/(nm·km)
+  }
+
+  function drawDispersion(t) {
+    var regime = document.getElementById("dispRegime").value;
+    var L = +document.getElementById("dispL").value;
+    var dl = document.getElementById("dispDL").value / 100;
+    document.getElementById("dispLval").textContent = L;
+    document.getElementById("dispDLval").textContent = dl.toFixed(2);
+    var spread = dispSpread(regime, L, dl);
+    var W = dispCanvas.width, H = dispCanvas.height;
+    var twin = Math.max(300, 5 * (SIGMA0 + spread)); // ps across canvas
+    var pxPerPs = W / twin;
+    var base = H - 25;
+
+    dctx.clearRect(0, 0, W, H);
+    dctx.strokeStyle = "#445"; dctx.beginPath();
+    dctx.moveTo(0, base); dctx.lineTo(W, base); dctx.stroke();
+    dctx.fillStyle = "#8899aa"; dctx.font = "11px sans-serif";
+    dctx.fillText("time →  (window " + Math.round(twin) + " ps)", 8, H - 8);
+
+    function pulse(cx, sigma, color, alpha) {
+      dctx.beginPath();
+      dctx.moveTo(0, base);
+      for (var x = 0; x <= W; x += 2) {
+        var dt = (x - cx) / pxPerPs;
+        var y = base - (base - 20) * Math.exp(-(dt * dt) / (2 * sigma * sigma));
+        dctx.lineTo(x, y);
+      }
+      dctx.closePath();
+      dctx.fillStyle = color;
+      dctx.globalAlpha = alpha;
+      dctx.fill();
+      dctx.globalAlpha = 1;
+    }
+
+    pulse(40, SIGMA0, "#3fa34d", 0.35);
+    pulse(W - 40, Math.sqrt(SIGMA0 * SIGMA0 + spread * spread), "#e0a030", 0.35);
+    var frac = (t % 3600) / 3600;
+    var cx = 40 + frac * (W - 80);
+    var dNow = frac * L;
+    var sNow = Math.sqrt(SIGMA0 * SIGMA0 + Math.pow(dispSpread(regime, dNow, dl), 2));
+    pulse(cx, sNow, "#4da3ff", 0.85);
+
+    document.getElementById("dispOut").textContent =
+      regime === "modal"
+        ? "Modal dispersion: output spread ≈ " + Math.round(spread) + " ps after " + L +
+          " km of OM4 (≈213 ps/km). Green = input, orange = output, blue = travelling pulse."
+        : "Chromatic dispersion: ΔT = D·Δλ·L = 17 ps/(nm·km) × " + dl.toFixed(2) + " nm × " + L +
+          " km ≈ " + Math.round(spread) + " ps. Green = input, orange = output, blue = travelling pulse.";
+  }
+
+  /* ---------- Panel 2: WDM visualizer ---------- */
+  var wdmActive = {};
+  var C = 299792.458; // nm·THz
+
+  function wdmChannels() {
+    var band = document.getElementById("wdmBand").value;
+    var spacing = +document.getElementById("wdmSpacing").value / 1000; // THz
+    var range = band === "C" ? [1530, 1565] : band === "CE" ? [1525, 1568] : [1530, 1625];
+    var minNm = range[0], maxNm = range[1];
+    var chans = [];
+    for (var k = -600; k <= 600; k++) {
+      var f = 193.1 + k * spacing;
+      var lam = C / f;
+      if (lam >= minNm && lam <= maxNm) chans.push({ k: k, f: f, lam: lam });
+    }
+    chans.sort(function (a, b) { return a.lam - b.lam; });
+    return chans;
+  }
+
+  function drawWdm() {
+    var chans = wdmChannels();
+    var rate = +document.getElementById("wdmRate").value;
+    var band = document.getElementById("wdmBand").value;
+    var W = 700, H = 130, x0 = 40, x1 = W - 15;
+    var minNm = band === "CE" ? 1523 : 1528;
+    var maxNm = band === "C" ? 1567 : band === "CE" ? 1570 : 1627;
+    function xOf(nm) { return x0 + (nm - minNm) / (maxNm - minNm) * (x1 - x0); }
+
+    var s = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg" style="background:#101418;border-radius:6px;display:block">';
+    s += '<line x1="' + x0 + '" y1="' + (H - 25) + '" x2="' + x1 + '" y2="' + (H - 25) + '" stroke="#445"/>';
+    for (var nm = 1530; nm <= maxNm - 2; nm += 10) {
+      s += '<line x1="' + xOf(nm) + '" y1="' + (H - 25) + '" x2="' + xOf(nm) + '" y2="' + (H - 21) + '" stroke="#667"/>';
+      s += '<text x="' + (xOf(nm) - 12) + '" y="' + (H - 8) + '" fill="#8899aa" font-size="10">' + nm + '</text>';
+    }
+    var slotW = Math.max(3, (x1 - x0) / chans.length - 1);
+    chans.forEach(function (ch, i) {
+      var x = xOf(ch.lam);
+      var on = !!wdmActive[ch.k];
+      var hue = (i * 47) % 360;
+      s += '<rect class="slot" data-k="' + ch.k + '" x="' + (x - slotW / 2) + '" y="15" width="' + slotW +
+        '" height="' + (H - 45) + '" fill="' + (on ? "hsl(" + hue + ",80%,55%)" : "#2a3038") +
+        '" stroke="#556" stroke-width="0.5"><title>' + ch.lam.toFixed(2) + ' nm / ' + ch.f.toFixed(2) +
+        ' THz — click to toggle</title></rect>';
+    });
+    s += '<text x="' + x0 + '" y="12" fill="#8899aa" font-size="11">Click a slot to add/remove a channel</text>';
+    s += '</svg>';
+    document.getElementById("wdmSvg").innerHTML = s;
+
+    var n = chans.filter(function (c) { return wdmActive[c.k]; }).length;
+    document.getElementById("wdmOut").textContent =
+      n + " channels × " + rate + " Gb/s = " + (n * rate / 1000).toFixed(1) + " Tb/s on one fibre pair" +
+      (n === chans.length ? " (band full: " + chans.length + " slots)" : ", " + chans.length + " slots available)");
+  }
+
+  document.getElementById("wdmSvg").addEventListener("click", function (e) {
+    var k = e.target.getAttribute && e.target.getAttribute("data-k");
+    if (k === null || k === undefined) return;
+    wdmActive[k] = !wdmActive[k];
+    drawWdm();
+  });
+  document.getElementById("wdmFill").onclick = function () {
+    wdmChannels().forEach(function (c) { wdmActive[c.k] = true; });
+    drawWdm();
+  };
+  document.getElementById("wdmClear").onclick = function () { wdmActive = {}; drawWdm(); };
+  ["wdmBand", "wdmSpacing", "wdmRate"].forEach(function (id) {
+    document.getElementById(id).onchange = drawWdm;
+  });
+
+  /* ---------- Panel 3: link budget ---------- */
+  var lbCanvas = document.getElementById("lbCanvas");
+  var lctx = lbCanvas.getContext("2d");
+
+  function drawLinkBudget() {
+    var alpha = +document.getElementById("lbFibre").value;
+    var L = +document.getElementById("lbL").value;
+    var ptx = +document.getElementById("lbP").value;
+    var psens = +document.getElementById("lbS").value;
+    document.getElementById("lbLval").textContent = L;
+    document.getElementById("lbPval").textContent = ptx;
+    document.getElementById("lbSval").textContent = psens;
+
+    var loss = alpha * L + 0.6; // + two connectors at 0.3 dB
+    var prx = ptx - loss;
+    var margin = prx - psens;
+
+    var W = lbCanvas.width, H = lbCanvas.height;
+    var minDb = -45, maxDb = 10;
+    function xOf(db) { return 60 + (db - minDb) / (maxDb - minDb) * (W - 80); }
+    lctx.clearRect(0, 0, W, H);
+    lctx.fillStyle = "#101418"; lctx.fillRect(0, 0, W, H);
+    lctx.strokeStyle = "#445";
+    lctx.beginPath(); lctx.moveTo(60, H - 25); lctx.lineTo(W - 20, H - 25); lctx.stroke();
+    lctx.fillStyle = "#8899aa"; lctx.font = "11px sans-serif";
+    for (var db = -40; db <= 10; db += 10) {
+      lctx.fillText(db + " dBm", xOf(db) - 14, H - 8);
+      lctx.beginPath(); lctx.moveTo(xOf(db), H - 25); lctx.lineTo(xOf(db), H - 21); lctx.stroke();
+    }
+    lctx.fillStyle = margin >= 3 ? "#3fa34d" : margin >= 0 ? "#e0a030" : "#c0392b";
+    lctx.fillRect(60, 20, Math.max(0, xOf(prx) - 60), 22);
+    lctx.strokeStyle = "#ffffff";
+    lctx.beginPath(); lctx.moveTo(xOf(psens), 12); lctx.lineTo(xOf(psens), 50); lctx.stroke();
+    lctx.fillStyle = "#ffffff";
+    lctx.fillText("sensitivity", xOf(psens) - 30, 10);
+
+    document.getElementById("lbOut").textContent =
+      "Fibre loss = " + alpha + " dB/km × " + L + " km + 0.6 dB connectors = " + loss.toFixed(1) +
+      " dB. Received power = " + prx.toFixed(1) + " dBm. Margin = " + margin.toFixed(1) + " dB. " +
+      (margin >= 3 ? "Comfortable margin — no amplification needed."
+        : margin >= 0 ? "Tight margin — consider a lower-loss wavelength or better receivers."
+        : "Link fails — add an EDFA (or repeaters) or move to 1550 nm SMF.");
+  }
+
+  ["lbFibre", "lbL", "lbP", "lbS"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", drawLinkBudget);
+  });
+  ["dispRegime", "dispL", "dispDL"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", function () { drawDispersion(0); });
+  });
+
+  function loop(t) { drawDispersion(t); requestAnimationFrame(loop); }
+  drawWdm();
+  drawLinkBudget();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

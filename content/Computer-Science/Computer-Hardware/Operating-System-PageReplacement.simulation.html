@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Page Replacement Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.2em; margin-bottom: 12px; color: #fff; }
+.controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s; }
+button.lru { background: #4a90d9; color: #fff; }
+button.clock { background: #50b86c; color: #fff; }
+button.fifo { background: #e8853d; color: #fff; }
+button.active { box-shadow: 0 0 0 3px #fff; transform: scale(1.05); }
+button.step { background: #c44dff; color: #fff; }
+button.reset { background: #555; color: #fff; }
+select { padding: 6px 10px; border-radius: 6px; background: #2a2a4a; color: #e0e0e0; border: 1px solid #444; font-size: 0.9em; }
+.frames { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.frame { width: 56px; height: 56px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.3em; font-weight: 700; border: 2px solid #444; background: #16213e; transition: all 0.3s; position: relative; }
+.frame.hit { border-color: #50b86c; background: #1a3a2a; }
+.frame.miss { border-color: #ff6b6b; background: #3a1a1a; }
+.frame .use-bit { position: absolute; top: 2px; right: 4px; font-size: 0.5em; color: #888; }
+.reference-seq { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.ref-item { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85em; font-weight: 700; background: #2a2a4a; border: 2px solid #444; transition: all 0.3s; }
+.ref-item.current { border-color: #fff; background: #4a4a6a; transform: scale(1.2); }
+.ref-item.done { opacity: 0.4; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.stat-card { background: #16213e; border-radius: 8px; padding: 12px; text-align: center; }
+.stat-value { font-size: 1.4em; font-weight: 700; color: #fff; }
+.stat-label { font-size: 0.75em; color: #888; margin-top: 4px; }
+.log { background: #16213e; border-radius: 8px; padding: 12px; font-size: 0.8em; max-height: 120px; overflow-y: auto; line-height: 1.6; }
+.log .hit { color: #50b86c; }
+.log .miss { color: #ff6b6b; }
+.info { font-size: 0.8em; color: #888; margin-top: 12px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>Page Replacement — LRU vs Clock vs FIFO</h1>
+<div class="controls">
+  <button class="lru active" onclick="setAlgo('lru')">LRU</button>
+  <button class="clock" onclick="setAlgo('clock')">Clock</button>
+  <button class="fifo" onclick="setAlgo('fifo')">FIFO</button>
+  <select id="frames" onchange="reset()">
+    <option value="2">2 frames</option>
+    <option value="3" selected>3 frames</option>
+    <option value="4">4 frames</option>
+    <option value="5">5 frames</option>
+  </select>
+  <button class="step" onclick="step()">Step</button>
+  <button class="reset" onclick="reset()">Reset</button>
+</div>
+<div class="reference-seq" id="refSeq"></div>
+<div class="frames" id="frames"></div>
+<div class="stats" id="stats"></div>
+<div class="log" id="log"></div>
+<div class="info" id="info"></div>
+<script>
+let algo = 'lru';
+let refSeq = [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1];
+let frames = [];
+let useBits = [];
+let clockHand = 0;
+let stepIdx = 0;
+let hits = 0;
+let misses = 0;
+
+function setAlgo(a) {
+  algo = a;
+  document.querySelectorAll('.lru,.clock,.fifo').forEach(b => b.classList.remove('active'));
+  document.querySelector('.' + a).classList.add('active');
+  reset();
+}
+
+function reset() {
+  const n = parseInt(document.getElementById('frames').value);
+  frames = new Array(n).fill(null);
+  useBits = new Array(n).fill(0);
+  clockHand = 0;
+  stepIdx = 0;
+  hits = 0;
+  misses = 0;
+  document.getElementById('log').innerHTML = '';
+  render();
+}
+
+function step() {
+  if (stepIdx >= refSeq.length) return;
+  const page = refSeq[stepIdx];
+  const idx = frames.indexOf(page);
+  let msg = '';
+  if (idx !== -1) {
+    hits++;
+    useBits[idx] = 1;
+    msg = `<span class="hit">HIT</span> page ${page} (frame ${idx})`;
+  } else {
+    misses++;
+    let evictIdx;
+    if (algo === 'lru') {
+      // Find the frame with the oldest last-use (lowest use bit, or scan for least recent)
+      // Simplified: find first frame with use bit 0, else clear all and pick first
+      evictIdx = useBits.indexOf(0);
+      if (evictIdx === -1) {
+        useBits.fill(0);
+        evictIdx = 0;
+      }
+      // For true LRU, track order
+      // We'll use a simpler approach: track last-access order
+      evictIdx = lruEvict(page);
+    } else if (algo === 'clock') {
+      while (useBits[clockHand] === 1) {
+        useBits[clockHand] = 0;
+        clockHand = (clockHand + 1) % frames.length;
+      }
+      evictIdx = clockHand;
+      clockHand = (clockHand + 1) % frames.length;
+    } else {
+      // FIFO: evict the oldest (first non-null in insertion order)
+      evictIdx = frames.findIndex(f => f !== null);
+      if (evictIdx === -1) evictIdx = 0;
+    }
+    const evicted = frames[evictIdx];
+    frames[evictIdx] = page;
+    useBits[evictIdx] = 1;
+    msg = `<span class="miss">MISS</span> page ${page} → frame ${evictIdx} (evicted ${evicted})`;
+  }
+  stepIdx++;
+  document.getElementById('log').innerHTML += `<div>${msg}</div>`;
+  document.getElementById('log').scrollTop = 9999;
+  render();
+}
+
+// Track LRU order
+let lruOrder = [];
+function lruEvict(page) {
+  // Remove page from order if present (shouldn't be since it's a miss)
+  // The oldest is at the front of lruOrder
+  if (lruOrder.length === 0) return 0;
+  const oldest = lruOrder.shift();
+  return frames.indexOf(oldest);
+}
+
+// Override step to track LRU order properly
+const _origStep = step;
+step = function() {
+  if (stepIdx >= refSeq.length) return;
+  const page = refSeq[stepIdx];
+  const idx = frames.indexOf(page);
+  let msg = '';
+  if (idx !== -1) {
+    hits++;
+    useBits[idx] = 1;
+    // Update LRU order: move to back
+    lruOrder = lruOrder.filter(p => p !== page);
+    lruOrder.push(page);
+    msg = `<span class="hit">HIT</span> page ${page} (frame ${idx})`;
+  } else {
+    misses++;
+    let evictIdx;
+    if (algo === 'lru') {
+      if (lruOrder.length === 0) {
+        evictIdx = 0;
+      } else {
+        const oldest = lruOrder.shift();
+        evictIdx = frames.indexOf(oldest);
+        if (evictIdx === -1) evictIdx = 0;
+      }
+      lruOrder.push(page);
+    } else if (algo === 'clock') {
+      while (useBits[clockHand] === 1) {
+        useBits[clockHand] = 0;
+        clockHand = (clockHand + 1) % frames.length;
+      }
+      evictIdx = clockHand;
+      clockHand = (clockHand + 1) % frames.length;
+      useBits[evictIdx] = 1;
+    } else {
+      evictIdx = frames.findIndex(f => f !== null);
+      if (evictIdx === -1) evictIdx = 0;
+      useBits[evictIdx] = 1;
+    }
+    const evicted = frames[evictIdx];
+    frames[evictIdx] = page;
+    if (algo !== 'clock') useBits[evictIdx] = 1;
+    msg = `<span class="miss">MISS</span> page ${page} → frame ${evictIdx} (evicted ${evicted})`;
+  }
+  stepIdx++;
+  document.getElementById('log').innerHTML += `<div>${msg}</div>`;
+  document.getElementById('log').scrollTop = 9999;
+  render();
+};
+
+function render() {
+  // Reference sequence
+  const seq = document.getElementById('refSeq');
+  seq.innerHTML = refSeq.map((p, i) => {
+    let cls = 'ref-item';
+    if (i === stepIdx) cls += ' current';
+    else if (i < stepIdx) cls += ' done';
+    return `<div class="${cls}">${p}</div>`;
+  }).join('');
+
+  // Frames
+  const fr = document.getElementById('frames');
+  fr.innerHTML = frames.map((f, i) => {
+    let cls = 'frame';
+    if (stepIdx > 0) {
+      const lastPage = refSeq[stepIdx - 1];
+      if (f === lastPage) cls += ' hit';
+    }
+    const bit = algo === 'clock' ? `<span class="use-bit">${useBits[i] ? '●' : '○'}</span>` : '';
+    return `<div class="${cls}">${f !== null ? f : '—'}${bit}</div>`;
+  }).join('');
+
+  // Stats
+  const total = stepIdx;
+  const rate = total > 0 ? (misses / total * 100).toFixed(1) : '0.0';
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${hits}</div><div class="stat-label">Hits</div></div>
+    <div class="stat-card"><div class="stat-value">${misses}</div><div class="stat-label">Misses</div></div>
+    <div class="stat-card"><div class="stat-value">${rate}%</div><div class="stat-label">Miss Rate</div></div>
+    <div class="stat-card"><div class="stat-value">${stepIdx}/${refSeq.length}</div><div class="stat-label">Steps</div></div>
+  `;
+
+  const algoNames = { lru: 'LRU (Least Recently Used)', clock: 'Clock / Second-Chance', fifo: 'FIFO (First-In, First-Out)' };
+  document.getElementById('info').innerHTML = `Algorithm: <strong>${algoNames[algo]}</strong> — ${frames.length} frames. LRU evicts the least recently referenced page. Clock uses a circular hand with use bits. FIFO evicts the oldest page in memory.`;
+}
+
+// Fix reset to also clear lruOrder
+const _origReset = reset;
+reset = function() {
+  const n = parseInt(document.getElementById('frames').value);
+  frames = new Array(n).fill(null);
+  useBits = new Array(n).fill(0);
+  clockHand = 0;
+  stepIdx = 0;
+  hits = 0;
+  misses = 0;
+  lruOrder = [];
+  document.getElementById('log').innerHTML = '';
+  render();
+};
+
+reset();
+</script>
+</body>
+</html>

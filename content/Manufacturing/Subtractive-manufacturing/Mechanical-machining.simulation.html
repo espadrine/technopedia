@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mechanical Machining Simulation</title>
+<style>
+body { margin: 0; background: #1a1a2e; color: #eee; font-family: monospace; display: flex; flex-direction: column; align-items: center; }
+canvas { border: 1px solid #444; margin-top: 10px; }
+.controls { margin: 10px; display: flex; gap: 15px; align-items: center; }
+label { font-size: 13px; }
+input[type=range] { width: 120px; }
+.info { font-size: 12px; color: #aaa; margin: 5px; text-align: center; }
+</style>
+</head>
+<body>
+<h3 style="margin:10px">Milling Cut – Chip Formation</h3>
+<canvas id="c" width="700" height="400"></canvas>
+<div class="controls">
+<label>Cutting speed: <input type="range" id="speed" min="1" max="10" value="4"></label>
+<label>Feed: <input type="range" id="feed" min="1" max="10" value="3"></label>
+<label>Depth: <input type="range" id="depth" min="1" max="10" value="4"></label>
+</div>
+<div class="info" id="info">v_c = 200 m/min | f_z = 0.15 mm/tooth | a_p = 1.0 mm</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+let angle = 0;
+let feedPos = 0;
+
+function draw() {
+  const speed = document.getElementById('speed').value;
+  const feed = document.getElementById('feed').value;
+  const depth = document.getElementById('depth').value;
+  
+  const vc = 100 + speed * 20;
+  const fz = 0.05 + feed * 0.02;
+  const ap = 0.2 + depth * 0.15;
+  document.getElementById('info').textContent = `v_c = ${vc} m/min | f_z = ${fz.toFixed(2)} mm/tooth | a_p = ${ap.toFixed(1)} mm`;
+  
+  angle += speed * 0.03;
+  feedPos += feed * 0.3;
+  if (feedPos > W) feedPos = 0;
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  // Workpiece
+  const wpTop = 200;
+  const wpBottom = 350;
+  ctx.fillStyle = '#5a7a9a';
+  ctx.fillRect(0, wpTop, W, wpBottom - wpTop);
+  // Workpiece hatching
+  ctx.strokeStyle = '#4a6a8a';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 15) {
+    ctx.beginPath();
+    ctx.moveTo(i, wpTop);
+    ctx.lineTo(i + 20, wpBottom);
+    ctx.stroke();
+  }
+  
+  // Cutter
+  const cx = 350;
+  const cy = 120;
+  const R = 80;
+  const depthPx = ap * 30;
+  
+  // Cutter body
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = '#8a8a8a';
+  ctx.fill();
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // Flutes (4 teeth)
+  const numTeeth = 4;
+  for (let i = 0; i < numTeeth; i++) {
+    const a = angle + (i * 2 * Math.PI) / numTeeth;
+    const tx = cx + R * Math.cos(a);
+    const ty = cy + R * Math.sin(a);
+    // Tooth tip
+    ctx.beginPath();
+    ctx.arc(tx, ty, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ddd';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Flute line
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tx, ty);
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  
+  // Center
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff0';
+  ctx.fill();
+  
+  // Chip formation (at the contact point)
+  const contactAngle = angle + Math.PI * 0.75;
+  const chipX = cx + R * Math.cos(contactAngle);
+  const chipY = cy + R * Math.sin(contactAngle);
+  
+  // Chip (curved sliver)
+  ctx.beginPath();
+  ctx.moveTo(chipX, chipY);
+  const chipLen = 30 + feed * 5;
+  const chipCurve = 15 + depth * 3;
+  ctx.quadraticCurveTo(
+    chipX + chipLen * 0.5, chipY - chipCurve,
+    chipX + chipLen, chipY - chipCurve * 0.3
+  );
+  ctx.quadraticCurveTo(
+    chipX + chipLen * 0.5, chipY + 5,
+    chipX, chipY
+  );
+  ctx.fillStyle = 'rgba(255, 180, 50, 0.8)';
+  ctx.fill();
+  ctx.strokeStyle = '#ffa500';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  // Heat glow at interface
+  const grad = ctx.createRadialGradient(chipX, chipY, 0, chipX, chipY, 20);
+  grad.addColorStop(0, 'rgba(255, 100, 0, 0.6)');
+  grad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+  ctx.beginPath();
+  ctx.arc(chipX, chipY, 20, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  
+  // Cut depth indicator
+  const cutBottom = wpTop + depthPx;
+  ctx.setLineDash([5, 3]);
+  ctx.beginPath();
+  ctx.moveTo(cx - 100, cutBottom);
+  ctx.lineTo(cx + 100, cutBottom);
+  ctx.strokeStyle = '#0f0';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // Labels
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px monospace';
+  ctx.fillText('Cutter (R=' + R + 'px)', cx - 60, cy - R - 10);
+  ctx.fillText('Workpiece', 10, wpTop + 20);
+  ctx.fillText('Chip', chipX + 35, chipY - 20);
+  ctx.fillText('a_p', cx + 105, cutBottom + 4);
+  
+  // Force arrows
+  // Tangential force
+  const ftx = cx + (R + 20) * Math.cos(contactAngle);
+  const fty = cy + (R + 20) * Math.sin(contactAngle);
+  ctx.beginPath();
+  ctx.moveTo(ftx, fty);
+  const fa = contactAngle + Math.PI / 2;
+  ctx.lineTo(ftx + 30 * Math.cos(fa), fty + 30 * Math.sin(fa));
+  ctx.strokeStyle = '#f44';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#f44';
+  ctx.fillText('F_t', ftx + 32 * Math.cos(fa), fty + 32 * Math.sin(fa));
+  
+  // Feed direction arrow
+  ctx.beginPath();
+  ctx.moveTo(50, 180);
+  ctx.lineTo(120, 180);
+  ctx.strokeStyle = '#0ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Arrowhead
+  ctx.beginPath();
+  ctx.moveTo(120, 180);
+  ctx.lineTo(112, 175);
+  ctx.lineTo(112, 185);
+  ctx.closePath();
+  ctx.fillStyle = '#0ff';
+  ctx.fill();
+  ctx.fillStyle = '#0ff';
+  ctx.fillText('Feed →', 50, 170);
+  
+  // Rotation arrow
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + 15, -0.5, 1.5);
+  ctx.strokeStyle = '#ff0';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  const arrA = 1.5;
+  const ax = cx + (R + 15) * Math.cos(arrA);
+  const ay = cy + (R + 15) * Math.sin(arrA);
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax - 8, ay - 5);
+  ctx.lineTo(ax + 3, ay - 8);
+  ctx.closePath();
+  ctx.fillStyle = '#ff0';
+  ctx.fill();
+  
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

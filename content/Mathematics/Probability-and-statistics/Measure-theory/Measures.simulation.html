@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Measures Simulation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 12px; color: #fff; }
+.tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.tab { padding: 10px 18px; background: #16213e; border: 1px solid #0f3460; border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 0.9em; color: #a0a0c0; transition: all 0.2s; }
+.tab.active { background: #0f3460; color: #fff; border-color: #e94560; }
+.panel { display: none; background: #16213e; border: 1px solid #0f3460; border-radius: 0 8px 8px 8px; padding: 20px; min-height: 380px; }
+.panel.active { display: block; }
+canvas { display: block; margin: 10px auto; border-radius: 4px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+button { padding: 8px 16px; background: #e94560; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+button:hover { background: #c73650; }
+button.secondary { background: #0f3460; }
+button.secondary:hover { background: #1a4a7a; }
+label { font-size: 0.85em; color: #a0a0c0; }
+input[type=range] { width: 120px; accent-color: #e94560; }
+.info { font-size: 0.82em; color: #8888aa; margin-top: 10px; line-height: 1.5; }
+.formula { font-size: 0.9em; color: #ffd700; margin: 8px 0; font-family: 'Courier New', monospace; }
+</style>
+</head>
+<body>
+<h1>Interactive Measures</h1>
+<div class="tabs">
+<div class="tab active" onclick="switchTab(0)">Countable Additivity</div>
+<div class="tab" onclick="switchTab(1)">Radon–Nikodym Density</div>
+<div class="tab" onclick="switchTab(2)">Outer Measure Covers</div>
+</div>
+
+<div class="panel active" id="panel0">
+<canvas id="cv0" width="600" height="300"></canvas>
+<div class="controls">
+<button onclick="addSet()">Add disjoint set</button>
+<button class="secondary" onclick="resetAdd()">Reset</button>
+<label>Number of sets: <span id="nSets">3</span></label>
+</div>
+<div class="formula" id="addFormula">μ(A₁ ∪ A₂ ∪ A₃) = μ(A₁) + μ(A₂) + μ(A₃) = 0.30 + 0.25 + 0.20 = 0.75</div>
+<div class="info">Each colored bar is a disjoint measurable set. The total measure (blue bar) equals the sum of individual measures — this is countable additivity. Add more sets to see the sum grow.</div>
+</div>
+
+<div class="panel" id="panel1">
+<canvas id="cv1" width="600" height="300"></canvas>
+<div class="controls">
+<label>Density shape:</label>
+<button onclick="setDensity(0)">Gaussian</button>
+<button onclick="setDensity(1)">Exponential</button>
+<button onclick="setDensity(2)">Uniform</button>
+<label>Scale: <input type="range" id="scaleSlider" min="0.5" max="3" step="0.1" value="1" oninput="drawRN()"></label>
+</div>
+<div class="formula" id="rnFormula">ν(A) = ∫_A f(x) dμ(x),  f(x) = e^{-(x-1)²/0.5}</div>
+<div class="info">The red curve is the Radon–Nikodym derivative dν/dμ. The shaded area under the curve over [a,b] gives ν([a,b]). The base measure μ is Lebesgue measure (uniform). Adjust the scale to see how the density reshapes the measure.</div>
+</div>
+
+<div class="panel" id="panel2">
+<canvas id="cv2" width="600" height="300"></canvas>
+<div class="controls">
+<button onclick="addInterval()">Add interval</button>
+<button class="secondary" onclick="resetCovers()">Reset</button>
+<label>Target set: [0.2, 0.7]</label>
+</div>
+<div class="formula" id="coverFormula">λ*([0.2, 0.7]) = inf Σ(bᵢ−aᵢ) = 0.50</div>
+<div class="info">The green region is the target set. Blue intervals form a countable cover. The outer measure is the infimum of total lengths of all such covers. Add intervals to cover the target; the total length (shown) is an upper bound on λ*.</div>
+</div>
+
+<script>
+// Tab switching
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', j===i));
+  if(i===0) drawAdd();
+  if(i===1) drawRN();
+  if(i===2) drawCovers();
+}
+
+// Panel 0: Countable Additivity
+var sets = [{start:0, len:0.30, color:'#e94560'},{start:0.30, len:0.25, color:'#4ecdc4'},{start:0.55, len:0.20, color:'#ffd700'}];
+var colors = ['#e94560','#4ecdc4','#ffd700','#9b59b6','#3498db','#e67e22','#1abc9c','#f39c12'];
+function addSet() {
+  if(sets.length >= 8) return;
+  var total = sets.reduce((s,x) => s+x.len, 0);
+  if(total >= 0.95) return;
+  var len = 0.08 + Math.random()*0.12;
+  sets.push({start: total, len: len, color: colors[sets.length % colors.length]});
+  drawAdd();
+}
+function resetAdd() {
+  sets = [{start:0, len:0.30, color:'#e94560'},{start:0.30, len:0.25, color:'#4ecdc4'},{start:0.55, len:0.20, color:'#ffd700'}];
+  drawAdd();
+}
+function drawAdd() {
+  var cv = document.getElementById('cv0'); var ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,600,300);
+  var W=560, H=200, ox=20, oy=30;
+  // Axis
+  ctx.strokeStyle='#444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(ox, oy+H); ctx.lineTo(ox+W, oy+H); ctx.stroke();
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif';
+  for(var i=0;i<=10;i++){var x=ox+W*i/10; ctx.beginPath(); ctx.moveTo(x,oy+H); ctx.lineTo(x,oy+H+5); ctx.stroke(); ctx.fillText(i/10, x-5, oy+H+18);}
+  // Sets
+  var total=0;
+  sets.forEach(function(s,i){
+    var x=ox+W*s.start, w=W*s.len;
+    ctx.fillStyle=s.color; ctx.globalAlpha=0.7;
+    ctx.fillRect(x, oy+H-60, w, 50);
+    ctx.globalAlpha=1;
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(x, oy+H-60, w, 50);
+    ctx.fillStyle='#fff'; ctx.font='10px sans-serif';
+    ctx.fillText('A'+(i+1), x+w/2-8, oy+H-32);
+    total+=s.len;
+  });
+  // Total bar
+  ctx.fillStyle='#3498db'; ctx.globalAlpha=0.5;
+  ctx.fillRect(ox, oy+H-100, W*total, 30);
+  ctx.globalAlpha=1;
+  ctx.strokeStyle='#3498db'; ctx.strokeRect(ox, oy+H-100, W*total, 30);
+  ctx.fillStyle='#3498db'; ctx.font='12px sans-serif';
+  ctx.fillText('μ(∪ Aᵢ) = '+total.toFixed(2), ox+5, oy+H-82);
+  // Formula
+  var parts = sets.map((s,i) => 'μ(A'+(i+1)+')='+s.len.toFixed(2));
+  var sumStr = sets.map((s,i) => s.len.toFixed(2)).join(' + ');
+  document.getElementById('addFormula').textContent = 'μ(A₁ ∪ ... ∪ A'+sets.length+') = '+sumStr+' = '+total.toFixed(2);
+  document.getElementById('nSets').textContent = sets.length;
+}
+
+// Panel 1: Radon-Nikodym
+var densityType = 0;
+function setDensity(t) { densityType=t; drawRN(); }
+function getDensity(x, scale) {
+  if(densityType===0) return Math.exp(-Math.pow(x-1,2)/(0.5*scale));
+  if(densityType===1) return Math.exp(-x/scale);
+  return 1/scale;
+}
+function drawRN() {
+  var cv = document.getElementById('cv1'); var ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,600,300);
+  var W=560, H=220, ox=20, oy=20;
+  var scale = parseFloat(document.getElementById('scaleSlider').value);
+  // Axes
+  ctx.strokeStyle='#444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(ox, oy+H); ctx.lineTo(ox+W, oy+H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy+H); ctx.stroke();
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif';
+  for(var i=0;i<=10;i++){var x=ox+W*i/10; ctx.fillText(i/10, x-5, oy+H+15);}
+  // Find max density
+  var maxD=0; for(var i=0;i<=200;i++){var d=getDensity(i/200*2, scale); if(d>maxD)maxD=d;}
+  maxD*=1.1;
+  // Shade area (ν over [0,2])
+  ctx.beginPath(); ctx.moveTo(ox, oy+H);
+  for(var i=0;i<=200;i++){var x=i/200*2; var d=getDensity(x,scale); ctx.lineTo(ox+W*x/2, oy+H-H*d/maxD);}
+  ctx.lineTo(ox+W, oy+H); ctx.closePath();
+  ctx.fillStyle='rgba(233,69,96,0.25)'; ctx.fill();
+  // Density curve
+  ctx.beginPath();
+  for(var i=0;i<=200;i++){var x=i/200*2; var d=getDensity(x,scale); var px=ox+W*x/2, py=oy+H-H*d/maxD; if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}
+  ctx.strokeStyle='#e94560'; ctx.lineWidth=2; ctx.stroke();
+  // Base measure (uniform) as dashed line
+  ctx.setLineDash([5,5]); ctx.strokeStyle='#4ecdc4'; ctx.lineWidth=1;
+  var baseH = 0.5/maxD*H;
+  ctx.beginPath(); ctx.moveTo(ox, oy+H-baseH); ctx.lineTo(ox+W, oy+H-baseH); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#4ecdc4'; ctx.font='10px sans-serif';
+  ctx.fillText('μ (Lebesgue)', ox+W-100, oy+H-baseH-5);
+  // Labels
+  ctx.fillStyle='#e94560'; ctx.font='11px sans-serif';
+  var names=['f(x)=e^{-(x-1)²/(0.5·s)}','f(x)=e^{-x/s}','f(x)=1/s'];
+  document.getElementById('rnFormula').textContent='ν(A) = ∫_A f(x) dμ(x),  '+names[densityType].replace('s',scale.toFixed(1));
+}
+
+// Panel 2: Outer Measure Covers
+var target = {start:0.2, end:0.7};
+var intervals = [{start:0.15, end:0.55},{start:0.5, end:0.75}];
+function addInterval() {
+  if(intervals.length>=8) return;
+  var s = Math.random()*0.8, l = 0.15+Math.random()*0.3;
+  intervals.push({start:s, end:s+l});
+  drawCovers();
+}
+function resetCovers() {
+  intervals = [{start:0.15, end:0.55},{start:0.5, end:0.75}];
+  drawCovers();
+}
+function drawCovers() {
+  var cv = document.getElementById('cv2'); var ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,600,300);
+  var W=560, H=180, ox=20, oy=40;
+  // Axis
+  ctx.strokeStyle='#444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(ox, oy+H); ctx.lineTo(ox+W, oy+H); ctx.stroke();
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif';
+  for(var i=0;i<=10;i++){var x=ox+W*i/10; ctx.fillText(i/10, x-5, oy+H+15);}
+  // Target set (green)
+  var tx=ox+W*target.start, tw=W*(target.end-target.start);
+  ctx.fillStyle='rgba(76,217,100,0.4)';
+  ctx.fillRect(tx, oy+H-50, tw, 40);
+  ctx.strokeStyle='#4cd964'; ctx.lineWidth=2; ctx.strokeRect(tx, oy+H-50, tw, 40);
+  ctx.fillStyle='#4cd964'; ctx.font='11px sans-serif';
+  ctx.fillText('Target [0.2, 0.7]', tx, oy+H-55);
+  // Intervals (blue)
+  var totalLen=0;
+  intervals.forEach(function(iv,i){
+    var x=ox+W*iv.start, w=W*(iv.end-iv.start);
+    ctx.fillStyle='rgba(52,152,219,0.3)';
+    ctx.fillRect(x, oy+H-90, w, 30);
+    ctx.strokeStyle='#3498db'; ctx.lineWidth=1; ctx.strokeRect(x, oy+H-90, w, 30);
+    totalLen += (iv.end-iv.start);
+  });
+  // Check if target is covered
+  var covered = true;
+  for(var t=target.start; t<=target.end; t+=0.001){
+    var c=false; intervals.forEach(function(iv){if(t>=iv.start&&t<=iv.end)c=true;});
+    if(!c) covered=false;
+  }
+  // Formula
+  var status = covered ? '✓ covers target' : '✗ does not fully cover target';
+  document.getElementById('coverFormula').textContent = 'Σ(bᵢ−aᵢ) = '+totalLen.toFixed(2)+'  (λ* = 0.50)  '+status;
+}
+
+// Initial draws
+drawAdd(); drawRN(); drawCovers();
+</script>
+</body>
+</html>

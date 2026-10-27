@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Statistical Inference: MLE and Hypothesis Testing</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h2 { color: #64ffda; margin-bottom: 4px; }
+.controls { margin: 10px 0; }
+button { background: #0f3460; color: #eee; border: 1px solid #64ffda; padding: 6px 14px; margin: 4px; cursor: pointer; border-radius: 4px; }
+button:hover { background: #16213e; }
+input[type=range] { vertical-align: middle; }
+label { font-size: 14px; }
+canvas { border: 1px solid #333; border-radius: 4px; margin-top: 10px; }
+.info { font-size: 13px; color: #aaa; margin-top: 6px; }
+.tabs { display: flex; gap: 0; margin-bottom: 0; }
+.tab { padding: 8px 16px; background: #16213e; cursor: pointer; border: 1px solid #333; border-bottom: none; border-radius: 6px 6px 0 0; }
+.tab.active { background: #0f3460; color: #64ffda; }
+.panel { display: none; border: 1px solid #333; border-radius: 0 6px 6px 6px; padding: 16px; }
+.panel.active { display: block; }
+</style>
+</head>
+<body>
+<h2>Statistical Inference: Interactive Demo</h2>
+<div class="tabs">
+<div class="tab active" onclick="switchTab(0)">MLE Convergence</div>
+<div class="tab" onclick="switchTab(1)">Hypothesis Testing</div>
+</div>
+
+<div id="panel0" class="panel active">
+<p>Draw samples from a Normal(μ, σ²) and watch the MLE of μ converge to the true value.</p>
+<div class="controls">
+<button onclick="drawBatch()">Draw 10</button>
+<button onclick="drawBatch100()">Draw 100</button>
+<button onclick="resetMLE()">Reset</button>
+<label>True μ: <input type="range" id="muSlider" min="-50" max="50" value="20"> <span id="muVal">2.0</span></label>
+<label>σ: <input type="range" id="sigmaSlider" min="5" max="50" value="10"> <span id="sigmaVal">1.0</span></label>
+</div>
+<canvas id="mleChart" width="700" height="280"></canvas>
+<p class="info" id="mleInfo">n = 0 | MLE = — | 95% CI = —</p>
+</div>
+
+<div id="panel1" class="panel">
+<p>Test H₀: μ = 0 vs H₁: μ ≠ 0. Adjust the true μ and sample size to see how power changes.</p>
+<div class="controls">
+<label>True μ: <input type="range" id="testMu" min="-50" max="50" value="15"> <span id="testMuVal">1.5</span></label><br>
+<label>Sample size n: <input type="range" id="testN" min="10" max="500" value="50"> <span id="testNVal">50</span></label><br>
+<label>α: <input type="range" id="testAlpha" min="1" max="20" value="5"> <span id="testAlphaVal">0.05</span></label>
+<button onclick="runTest()">Run test</button>
+<button onclick="runPower()">Run 1000 tests (power)</button>
+</div>
+<canvas id="testChart" width="700" height="280"></canvas>
+<p class="info" id="testInfo">Click "Run test" to see a single test, or "Run 1000 tests" to estimate power.</p>
+</div>
+
+<script>
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j) => t.classList.toggle('active', j===i));
+  document.querySelectorAll('.panel').forEach((p,j) => p.classList.toggle('active', j===i));
+}
+
+// MLE simulation
+let mleData = [], mleN = 0;
+function getMu() { return document.getElementById('muSlider').value / 10; }
+function getSigma() { return document.getElementById('sigmaSlider').value / 10; }
+function randn() { let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function drawBatch() { for(let i=0;i<10;i++) doMLEDraw(); }
+function drawBatch100() { for(let i=0;i<100;i++) doMLEDraw(); }
+function doMLEDraw() {
+  mleN++;
+  const x = getMu() + getSigma()*randn();
+  mleData.push(x);
+  if(mleData.length > 500) mleData.shift();
+  drawMLE();
+}
+function resetMLE() { mleData=[]; mleN=0; drawMLE(); }
+
+document.getElementById('muSlider').oninput = function() { document.getElementById('muVal').textContent = (this.value/10).toFixed(1); };
+document.getElementById('sigmaSlider').oninput = function() { document.getElementById('sigmaVal').textContent = (this.value/10).toFixed(1); };
+
+function drawMLE() {
+  const c = document.getElementById('mleChart');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  const mu = getMu(), sigma = getSigma();
+  // axes
+  ctx.strokeStyle='#444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(50,10); ctx.lineTo(50,c.height-30); ctx.lineTo(c.width-10,c.height-30); ctx.stroke();
+  // y range
+  const yMin = mu - 4*sigma, yMax = mu + 4*sigma;
+  const yRange = yMax - yMin;
+  const toY = v => c.height-30 - (v-yMin)/yRange*(c.height-50);
+  // grid
+  ctx.fillStyle='#aaa'; ctx.font='11px sans-serif';
+  for(let v=Math.ceil(yMin); v<=Math.floor(yMax); v+=Math.max(1,Math.round(yRange/8))) {
+    const y = toY(v);
+    ctx.strokeStyle='#333'; ctx.beginPath(); ctx.moveTo(50,y); ctx.lineTo(c.width-10,y); ctx.stroke();
+    ctx.fillText(v.toFixed(0), 15, y+4);
+  }
+  // true mu line
+  ctx.strokeStyle='#64ffda'; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(50,toY(mu)); ctx.lineTo(c.width-10,toY(mu)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#64ffda'; ctx.fillText('true μ='+mu.toFixed(1), c.width-120, toY(mu)-5);
+  // plot MLE
+  if(mleData.length > 1) {
+    ctx.strokeStyle='#ff6b6b'; ctx.lineWidth=1.5; ctx.beginPath();
+    const step = (c.width-60)/Math.max(mleData.length-1,1);
+    for(let i=0;i<mleData.length;i++) {
+      const x = 50 + i*step;
+      const y = toY(mleData.slice(0,i+1).reduce((a,b)=>a+b,0)/(i+1));
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  // CI band
+  if(mleData.length >= 2) {
+    const n = mleData.length;
+    const mean = mleData.reduce((a,b)=>a+b,0)/n;
+    const se = sigma/Math.sqrt(n);
+    const ciLo = mean - 1.96*se, ciHi = mean + 1.96*se;
+    ctx.fillStyle='rgba(255,107,107,0.15)';
+    const xStart = 50 + (n-2)*((c.width-60)/Math.max(n-1,1));
+    ctx.fillRect(xStart, toY(ciHi), c.width-60-xStart, toY(ciLo)-toY(ciHi));
+  }
+  const n = mleData.length;
+  const mean = n>0 ? mleData.reduce((a,b)=>a+b,0)/n : 0;
+  const se = n>0 ? sigma/Math.sqrt(n) : 0;
+  document.getElementById('mleInfo').textContent = 'n = '+n+' | MLE = '+(n>0?mean.toFixed(3):'—')+' | 95% CI = '+(n>0?'['+(mean-1.96*se).toFixed(2)+', '+(mean+1.96*se).toFixed(2)+']':'—');
+}
+
+// Hypothesis testing simulation
+document.getElementById('testMu').oninput = function() { document.getElementById('testMuVal').textContent = (this.value/10).toFixed(1); };
+document.getElementById('testN').oninput = function() { document.getElementById('testNVal').textContent = this.value; };
+document.getElementById('testAlpha').oninput = function() { document.getElementById('testAlphaVal').textContent = (this.value/100).toFixed(2); };
+
+function runTest() {
+  const mu = document.getElementById('testMu').value/10;
+  const n = parseInt(document.getElementById('testN').value);
+  const alpha = document.getElementById('testAlpha').value/100;
+  const sigma = 1;
+  const xbar = mu + sigma*randn()/Math.sqrt(n);
+  const z = xbar/(sigma/Math.sqrt(n));
+  const zCrit = 1.96; // for alpha=0.05 two-sided; approximate
+  const pVal = 2*(1-normCdf(Math.abs(z)));
+  const reject = pVal < alpha;
+  drawTest(z, zCrit, reject, pVal, mu, n, alpha);
+}
+
+function runPower() {
+  const mu = document.getElementById('testMu').value/10;
+  const n = parseInt(document.getElementById('testN').value);
+  const alpha = document.getElementById('testAlpha').value/100;
+  const sigma = 1;
+  const zCrit = normInv(1-alpha/2);
+  let rejections = 0;
+  const N = 1000;
+  for(let i=0;i<N;i++) {
+    const xbar = mu + sigma*randn()/Math.sqrt(n);
+    const z = xbar/(sigma/Math.sqrt(n));
+    if(Math.abs(z) > zCrit) rejections++;
+  }
+  const power = rejections/N;
+  drawPower(mu, n, alpha, power, zCrit);
+}
+
+function normCdf(x) {
+  const t = 1/(1+0.2316419*Math.abs(x));
+  const d = 0.3989423*Math.exp(-x*x/2);
+  let p = d*t*(0.3193815+t*t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));
+  return x>0 ? 1-p : p;
+}
+function normInv(p) {
+  if(p<=0) return -10; if(p>=1) return 10;
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  let q,r;
+  if(p<0.02425){q=Math.sqrt(-2*Math.log(p));return(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}else if(p<=0.97575){q=p-0.5;r=q*q;return(((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}else{q=Math.sqrt(-2*Math.log(1-p));return-(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+}
+
+function drawTest(z, zCrit, reject, pVal, mu, n, alpha) {
+  const c = document.getElementById('testChart');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  // draw standard normal curve
+  ctx.strokeStyle='#444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(50,10); ctx.lineTo(50,c.height-30); ctx.lineTo(c.width-10,c.height-30); ctx.stroke();
+  const xMin=-4, xMax=4;
+  const toX = v => 50 + (v-xMin)/(xMax-xMin)*(c.width-60);
+  const toY = v => c.height-30 - v*(c.height-50);
+  // curve
+  ctx.strokeStyle='#64ffda'; ctx.lineWidth=2; ctx.beginPath();
+  for(let i=0;i<=200;i++) {
+    const x = xMin + i*(xMax-xMin)/200;
+    const y = Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);
+    if(i===0) ctx.moveTo(toX(x),toY(y)); else ctx.lineTo(toX(x),toY(y));
+  }
+  ctx.stroke();
+  // rejection regions
+  ctx.fillStyle='rgba(255,107,107,0.3)';
+  for(let i=0;i<=200;i++) {
+    const x = xMin + i*(xMax-xMin)/200;
+    if(Math.abs(x)>zCrit) {
+      const y = Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);
+      ctx.fillRect(toX(x)-1, toY(y), 2, toY(0)-toY(y));
+    }
+  }
+  // z marker
+  const zClamped = Math.max(xMin, Math.min(xMax, z));
+  ctx.strokeStyle=reject?'#ff6b6b':'#ffd93d'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(toX(zClamped),10); ctx.lineTo(toX(zClamped),c.height-30); ctx.stroke();
+  ctx.fillStyle=reject?'#ff6b6b':'#ffd93d';
+  ctx.fillText('z = '+z.toFixed(2), toX(zClamped)+5, 25);
+  // critical values
+  ctx.strokeStyle='#ffd93d'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(toX(zCrit),10); ctx.lineTo(toX(zCrit),c.height-30); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(toX(-zCrit),10); ctx.lineTo(toX(-zCrit),c.height-30); ctx.stroke();
+  ctx.setLineDash([]);
+  document.getElementById('testInfo').textContent = 'z = '+z.toFixed(3)+' | p = '+pVal.toFixed(4)+' | '+(reject?'REJECT H₀':'Fail to reject H₀')+' (α='+alpha.toFixed(2)+', n='+n+', true μ='+mu.toFixed(1)+')';
+}
+
+function drawPower(mu, n, alpha, power, zCrit) {
+  const c = document.getElementById('testChart');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  // bar chart: Type I, Power, Type II
+  const bars = [
+    {label:'Type I error (α)', val:alpha, color:'#ff6b6b'},
+    {label:'Power (1-β)', val:power, color:'#64ffda'},
+    {label:'Type II error (β)', val:1-power, color:'#ffd93d'}
+  ];
+  const bw=150, gap=60, startX=80;
+  const maxH=c.height-80;
+  bars.forEach((b,i) => {
+    const x = startX + i*(bw+gap);
+    const h = Math.max(b.val*maxH, 2);
+    ctx.fillStyle=b.color; ctx.fillRect(x, c.height-40-h, bw, h);
+    ctx.fillStyle='#eee'; ctx.font='12px sans-serif';
+    ctx.fillText(b.label, x, c.height-20);
+    ctx.fillText((b.val*100).toFixed(1)+'%', x+bw/2-15, c.height-45-h);
+  });
+  document.getElementById('testInfo').textContent = 'Power = '+(power*100).toFixed(1)+'% (estimated from 1000 simulations) | μ='+mu.toFixed(1)+', n='+n+', α='+alpha.toFixed(2);
+}
+
+// Initialize
+drawMLE();
+</script>
+</body>
+</html>

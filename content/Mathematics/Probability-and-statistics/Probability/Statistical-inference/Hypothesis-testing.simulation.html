@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hypothesis testing: rejection region, p-value, and power</title>
+<style>
+  body { font-family: Georgia, serif; margin: 12px; background: #fdfdf8; color: #222; }
+  h4 { margin: 4px 0 8px 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 8px; }
+  .ctrl { display: flex; flex-direction: column; font-size: 13px; }
+  .ctrl label { margin-bottom: 2px; }
+  canvas { background: #fff; border: 1px solid #ccc; display: block; }
+  .readout { font-size: 13px; margin-top: 6px; line-height: 1.5; }
+  .rej { color: #b33; font-weight: bold; }
+  .acc { color: #2a2; font-weight: bold; }
+</style>
+</head>
+<body>
+<h4>One-sided z-test of H&#8320;: &mu; = 0 vs H&#8321;: &mu; &gt; 0 (observed x&#772; = 0.6, &sigma; = 2)</h4>
+<div class="controls">
+  <div class="ctrl"><label>True &mu; = <span id="muV">1.0</span></label>
+    <input type="range" id="mu" min="-0.5" max="2" step="0.05" value="1"></div>
+  <div class="ctrl"><label>Sample size n = <span id="nV">100</span></label>
+    <input type="range" id="n" min="4" max="400" step="1" value="100"></div>
+  <div class="ctrl"><label>Significance &alpha; = <span id="aV">0.05</span></label>
+    <input type="range" id="a" min="0.005" max="0.2" step="0.005" value="0.05"></div>
+</div>
+<canvas id="cv" width="640" height="360"></canvas>
+<div class="readout" id="out"></div>
+<script>
+(function(){
+  var SIGMA = 2, XBAR = 0.6;
+  // Acklam-style inverse normal CDF (rational approximation)
+  function qnorm(p){
+    var a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+    var b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+    var c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+    var d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+    var pl=0.02425,ph=1-pl,q,r;
+    if(p<pl){q=Math.sqrt(-2*Math.log(p));return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+    if(p>ph){q=Math.sqrt(-2*Math.log(1-p));return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+    q=p-0.5;r=q*q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+  }
+  function Phi(z){ return 0.5*(1+erf(z/Math.SQRT2)); }
+  function erf(x){
+    var s=x<0?-1:1; x=Math.abs(x);
+    var t=1/(1+0.3275911*x);
+    var y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+    return s*y;
+  }
+  function dens(x,m,s){ return Math.exp(-0.5*((x-m)/s)*((x-m)/s))/(s*Math.sqrt(2*Math.PI)); }
+
+  var cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+  function draw(){
+    var mu=parseFloat(document.getElementById('mu').value);
+    var n=parseInt(document.getElementById('n').value,10);
+    var al=parseFloat(document.getElementById('a').value);
+    document.getElementById('muV').textContent=mu.toFixed(2);
+    document.getElementById('nV').textContent=n;
+    document.getElementById('aV').textContent=al.toFixed(3);
+
+    var se=SIGMA/Math.sqrt(n);
+    var zc=qnorm(1-al), c=zc*se;               // critical value on the xbar scale
+    var zobs=XBAR/se, p=1-Phi(zobs);           // observed statistic and p-value
+    var power=1-Phi((c-mu)/se);                // power at true mu
+
+    ctx.clearRect(0,0,cv.width,cv.height);
+    // ---------- Panel 1: null distribution, rejection region, p-value ----------
+    var x0=-1.2, x1=2.6, W=cv.width, H1=170, pad=40;
+    function X(x){return pad+(x-x0)/(x1-x0)*(W-2*pad);}
+    function Y1(y){return H1-10-y*H1*2.2;}
+    var ymax=dens(0,0,se);
+    // rejection region (xbar > c)
+    ctx.fillStyle='rgba(200,60,60,0.35)';
+    ctx.beginPath(); ctx.moveTo(X(c),Y1(0));
+    for(var x=c;x<=x1;x+=0.005){ ctx.lineTo(X(x),Y1(dens(x,0,se))); }
+    ctx.lineTo(X(x1),Y1(0)); ctx.closePath(); ctx.fill();
+    // p-value tail (xbar > observed)
+    ctx.fillStyle='rgba(60,90,200,0.35)';
+    ctx.beginPath(); ctx.moveTo(X(XBAR),Y1(0));
+    for(x=XBAR;x<=x1;x+=0.005){ ctx.lineTo(X(x),Y1(dens(x,0,se))); }
+    ctx.lineTo(X(x1),Y1(0)); ctx.closePath(); ctx.fill();
+    // null density curve
+    ctx.strokeStyle='#333'; ctx.lineWidth=1.5; ctx.beginPath();
+    for(x=x0;x<=x1;x+=0.01){ var px=X(x),py=Y1(dens(x,0,se)); x<=x0+0.01?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+    ctx.stroke();
+    // axis
+    ctx.strokeStyle='#999'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(X(x0),Y1(0)); ctx.lineTo(X(x1),Y1(0)); ctx.stroke();
+    // critical value
+    ctx.strokeStyle='#b33'; ctx.beginPath(); ctx.moveTo(X(c),Y1(0)); ctx.lineTo(X(c),Y1(ymax*1.05)); ctx.stroke();
+    ctx.fillStyle='#b33'; ctx.font='12px Georgia';
+    ctx.fillText('critical c = '+c.toFixed(3), X(c)-40, Y1(ymax*1.05)-6);
+    // observed statistic
+    ctx.strokeStyle='#34c'; ctx.beginPath(); ctx.moveTo(X(XBAR),Y1(0)); ctx.lineTo(X(XBAR),Y1(dens(XBAR,0,se)+0.05)); ctx.stroke();
+    ctx.fillStyle='#34c'; ctx.fillText('observed x\u0304 = 0.6 (z = '+zobs.toFixed(2)+')', X(XBAR)-60, Y1(dens(XBAR,0,se))-8);
+    ctx.fillStyle='#555'; ctx.fillText('H\u2080 distribution of x\u0304: N(0, '+(se).toFixed(3)+'\u00B2) \u2014 red: rejection region, blue: p-value tail', pad, 16);
+
+    // ---------- Panel 2: power curve ----------
+    var y2=H1+40, H2=cv.height-y2-30;
+    function Y2(y){return y2+H2-y*H2;}
+    ctx.strokeStyle='#999'; ctx.beginPath(); ctx.moveTo(X(x0),Y2(0)); ctx.lineTo(X(x1),Y2(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(x0),y2); ctx.lineTo(X(x0),Y2(1)); ctx.stroke();
+    // power curve
+    ctx.strokeStyle='#2a2'; ctx.lineWidth=2; ctx.beginPath();
+    for(x=x0;x<=x1;x+=0.01){ var pw=1-Phi((c-x)/se); var px2=X(x),py2=Y2(pw); x<=x0+0.01?ctx.moveTo(px2,py2):ctx.lineTo(px2,py2); }
+    ctx.stroke();
+    // alpha line
+    ctx.strokeStyle='#b33'; ctx.setLineDash([4,4]); ctx.beginPath();
+    ctx.moveTo(X(x0),Y2(al)); ctx.lineTo(X(x1),Y2(al)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#b33'; ctx.fillText('size \u03B1 = '+al.toFixed(3), X(x0)+4, Y2(al)-4);
+    // current mu
+    ctx.strokeStyle='#222'; ctx.beginPath(); ctx.moveTo(X(mu),Y2(0)); ctx.lineTo(X(mu),Y2(1)); ctx.stroke();
+    ctx.fillStyle='#222'; ctx.fillText('\u03BC = '+mu.toFixed(2)+' \u2192 power = '+power.toFixed(3), X(mu)+6, y2+14);
+    ctx.fillStyle='#555'; ctx.fillText('Power function 1\u2212\u03B2(\u03BC) = P\u2093(reject H\u2080 | true \u03BC)', pad, y2-6);
+
+    var verdict = p<al ? '<span class="rej">Reject H&#8320;</span>' : '<span class="acc">Fail to reject H&#8320;</span>';
+    document.getElementById('out').innerHTML =
+      'z = x\u0304/(σ/√n) = <b>'+zobs.toFixed(3)+'</b> &nbsp;|&nbsp; one-sided p-value = <b>'+p.toFixed(5)+'</b> &nbsp;|&nbsp; '+verdict+
+      ' at α = '+al.toFixed(3)+' &nbsp;|&nbsp; power at μ = '+mu.toFixed(2)+': <b>'+power.toFixed(4)+'</b>';
+  }
+  ['mu','n','a'].forEach(function(id){ document.getElementById(id).addEventListener('input',draw); });
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Map of logic and foundations</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; background: #fafafa; }
+  #wrap { max-width: 900px; margin: 0 auto; padding: 10px; }
+  #info { min-height: 64px; font-size: 15px; color: #333; border: 1px solid #ddd;
+          border-radius: 6px; padding: 10px 14px; background: #fff; margin-top: 8px; }
+  #info b { color: #1a4d8f; }
+  svg { display: block; margin: 0 auto; }
+  .node { cursor: pointer; }
+  .node rect { fill: #eef4fb; stroke: #1a4d8f; stroke-width: 2; rx: 10; }
+  .node text { font-size: 14px; fill: #123; text-anchor: middle; pointer-events: none; }
+  .edge { stroke: #9db4d0; stroke-width: 2; fill: none; }
+  .edge-label { font-size: 11px; fill: #667; text-anchor: middle; }
+  .dim { opacity: 0.18; }
+  .hot rect { fill: #ffe9c9; stroke: #b36b00; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <svg id="map" viewBox="0 0 900 560" width="100%"></svg>
+  <div id="info">Hover or tap a class to see how it relates to the others. The three
+  <b>foundational languages</b> (Set theory, Category theory, Type theory) are rivals —
+  each can serve as the language in which mathematics is written. The two
+  <b>meta-disciplines</b> (Mathematical logic, Computability) study formal systems and
+  mechanical procedures from the outside.</div>
+</div>
+<script>
+var nodes = [
+  { id: "logic",  x: 450, y: 80,  w: 190, h: 46, label: "Mathematical logic",
+    desc: "<b>Mathematical logic</b> studies formal systems themselves: syntax, semantics, model theory, proof theory. It is the meta-discipline that asks what a valid inference and a formal proof are." },
+  { id: "comp",   x: 450, y: 470, w: 210, h: 46, label: "Computability and decidability",
+    desc: "<b>Computability and decidability</b> asks what can be mechanically decided: Turing machines, the halting problem, the arithmetical hierarchy. Its diagonal arguments power the incompleteness theorems." },
+  { id: "set",    x: 160, y: 275, w: 150, h: 46, label: "Set theory",
+    desc: "<b>Set theory</b> is the standard foundational language: every object is a set, coded in ZFC. It underpins measure theory and hence probability." },
+  { id: "cat",    x: 450, y: 275, w: 160, h: 46, label: "Category theory",
+    desc: "<b>Category theory</b> is the language of structure and morphism: objects are known only by their arrows. It unifies algebra, topology, and logic, and via topos theory is a rival foundation to sets." },
+  { id: "type",   x: 740, y: 275, w: 150, h: 46, label: "Type theory",
+    desc: "<b>Type theory</b> identifies propositions with types and proofs with programs (Curry–Howard). It is the substrate of proof assistants like Coq, Agda, and Lean." }
+];
+var edges = [
+  { a: "logic", b: "set",   label: "completeness, models" },
+  { a: "logic", b: "cat",   label: "internal language" },
+  { a: "logic", b: "type",  label: "Curry\u2013Howard" },
+  { a: "logic", b: "comp",  label: "diagonalization" },
+  { a: "comp",  b: "type",  label: "lambda calculus" },
+  { a: "set",   b: "cat",   label: "sets \u2194 morphisms", dashed: true },
+  { a: "cat",   b: "type",  label: "toposes, judgments", dashed: true },
+  { a: "set",   b: "type",  label: "rival foundations", dashed: true }
+];
+var svg = document.getElementById("map");
+var NS = "http://www.w3.org/2000/svg";
+var byId = {};
+function center(n) { return { x: n.x, y: n.y }; }
+// draw edges first (under nodes)
+edges.forEach(function (e) {
+  var na = byId[e.a] || nodes.filter(function(n){return n.id===e.a;})[0];
+  var nb = byId[e.b] || nodes.filter(function(n){return n.id===e.b;})[0];
+});
+// build node lookup
+nodes.forEach(function (n) { byId[n.id] = n; });
+edges.forEach(function (e) {
+  var g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "edge-g");
+  g.setAttribute("data-a", e.a); g.setAttribute("data-b", e.b);
+  var line = document.createElementNS(NS, "line");
+  line.setAttribute("x1", byId[e.a].x); line.setAttribute("y1", byId[e.a].y);
+  line.setAttribute("x2", byId[e.b].x); line.setAttribute("y2", byId[e.b].y);
+  line.setAttribute("class", "edge");
+  if (e.dashed) line.setAttribute("stroke-dasharray", "6 5");
+  g.appendChild(line);
+  var mx = (byId[e.a].x + byId[e.b].x) / 2, my = (byId[e.a].y + byId[e.b].y) / 2;
+  var t = document.createElementNS(NS, "text");
+  t.setAttribute("x", mx); t.setAttribute("y", my - 4);
+  t.setAttribute("class", "edge-label");
+  t.textContent = e.label;
+  g.appendChild(t);
+  svg.appendChild(g);
+  e.g = g;
+});
+// draw nodes on top
+nodes.forEach(function (n) {
+  var g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "node");
+  var r = document.createElementNS(NS, "rect");
+  r.setAttribute("x", n.x - n.w / 2); r.setAttribute("y", n.y - n.h / 2);
+  r.setAttribute("width", n.w); r.setAttribute("height", n.h);
+  r.setAttribute("rx", 10);
+  g.appendChild(r);
+  var t = document.createElementNS(NS, "text");
+  t.setAttribute("x", n.x); t.setAttribute("y", n.y + 5);
+  t.textContent = n.label;
+  g.appendChild(t);
+  svg.appendChild(g);
+  n.g = g;
+  g.addEventListener("mouseenter", function () { highlight(n); });
+  g.addEventListener("mouseleave", clear);
+  g.addEventListener("click", function () { highlight(n); });
+});
+function highlight(n) {
+  nodes.forEach(function (m) {
+    m.g.classList.toggle("dim", m !== n && !connected(n, m));
+  });
+  edges.forEach(function (e) {
+    var on = e.a === n.id || e.b === n.id;
+    e.g.classList.toggle("dim", !on);
+    if (on) { e.g.querySelector(".edge").setAttribute("stroke", "#b36b00");
+              e.g.querySelector(".edge").setAttribute("stroke-width", "3.5"); }
+  });
+  document.getElementById("info").innerHTML = "<b>" + n.label + "</b> — " + n.desc;
+}
+function connected(a, b) {
+  return edges.some(function (e) {
+    return (e.a === a.id && e.b === b.id) || (e.a === b.id && e.b === a.id);
+  });
+}
+function clear() {
+  nodes.forEach(function (m) { m.g.classList.remove("dim"); });
+  edges.forEach(function (e) {
+    e.g.classList.remove("dim");
+    var l = e.g.querySelector(".edge");
+    l.removeAttribute("stroke"); l.setAttribute("stroke-width", "2");
+    l.setAttribute("class", "edge");
+  });
+}
+</script>
+</body>
+</html>

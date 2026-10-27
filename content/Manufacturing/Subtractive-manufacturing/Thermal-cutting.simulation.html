@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thermal Cutting Processes</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; }
+h1 { font-size: 1.2em; text-align: center; margin-bottom: 12px; }
+.controls { text-align: center; margin-bottom: 12px; }
+.controls label { margin: 0 8px; font-size: 0.9em; }
+.controls input[type=range] { vertical-align: middle; width: 120px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 900px; margin: 0 auto; }
+.panel { background: #16213e; border-radius: 8px; padding: 10px; position: relative; }
+.panel h2 { font-size: 0.95em; text-align: center; margin-bottom: 6px; color: #a8d8ea; }
+.panel canvas { display: block; margin: 0 auto; }
+.info { font-size: 0.75em; text-align: center; margin-top: 6px; color: #aaa; }
+.legend { display: flex; justify-content: center; gap: 12px; margin-top: 10px; font-size: 0.75em; flex-wrap: wrap; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<h1>Thermal Cutting — Four Processes Side-by-Side</h1>
+<div class="controls">
+<label>Thickness: <input type="range" id="thick" min="2" max="100" value="12"> <span id="thickVal">12</span> mm</label>
+<label>Cut speed: <input type="range" id="speed" min="1" max="10" value="5"> <span id="speedVal">5</span> m/min</label>
+</div>
+<div class="grid">
+<div class="panel"><h2>Laser (Fibre)</h2><canvas id="c1" width="200" height="220"></canvas><div class="info" id="i1"></div></div>
+<div class="panel"><h2>Plasma (HD)</h2><canvas id="c2" width="200" height="220"></canvas><div class="info" id="i2"></div></div>
+<div class="panel"><h2>Oxy-Fuel</h2><canvas id="c3" width="200" height="220"></canvas><div class="info" id="i3"></div></div>
+<div class="panel"><h2>Electron Beam</h2><canvas id="c4" width="200" height="220"></canvas><div class="info" id="i4"></div></div>
+</div>
+<div class="legend">
+<span><span class="dot" style="background:#ff4444"></span>Energy source</span>
+<span><span class="dot" style="background:#ffaa00"></span>Melt pool</span>
+<span><span class="dot" style="background:#cc6600"></span>HAZ</span>
+<span><span class="dot" style="background:#4488cc"></span>Assist gas</span>
+<span><span class="dot" style="background:#8899aa"></span>Workpiece</span>
+</div>
+<script>
+const thickSlider = document.getElementById('thick');
+const speedSlider = document.getElementById('speed');
+const thickVal = document.getElementById('thickVal');
+const speedVal = document.getElementById('speedVal');
+let t = 0;
+
+function draw(ctx, id, thick, speed) {
+  const W = 200, H = 220;
+  ctx.clearRect(0, 0, W, H);
+  const scale = Math.min(1, 80 / thick);
+  const wpH = Math.max(20, thick * scale);
+  const wpY = 60;
+  const wpX = 30;
+  const wpW = 140;
+  const cx = W / 2;
+
+  // Workpiece
+  ctx.fillStyle = '#8899aa';
+  ctx.fillRect(wpX, wpY, wpW, wpH);
+  ctx.strokeStyle = '#556';
+  ctx.strokeRect(wpX, wpY, wpW, wpH);
+
+  // Kerf (cut channel)
+  const kerfW = getKerf(id, thick);
+  const kerfPx = Math.max(2, kerfW * 3);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(cx - kerfPx/2, wpY, kerfPx, wpH);
+
+  // HAZ
+  const hazW = getHAZ(id, thick);
+  const hazPx = Math.max(4, hazW * 3);
+  ctx.strokeStyle = '#cc6600';
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath();
+  ctx.ellipse(cx, wpY + wpH/2, hazPx, wpH/2 + 5, 0, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Melt pool
+  const mpY = wpY + wpH * 0.3;
+  ctx.fillStyle = '#ffaa00';
+  ctx.beginPath();
+  ctx.ellipse(cx, mpY, kerfPx + 4, 6, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Energy source (animated)
+  const pulse = Math.sin(t * 0.1 * speed) * 2;
+  drawSource(ctx, id, cx, wpY, pulse, thick, speed);
+
+  // Gas flow arrows
+  drawGas(ctx, id, cx, wpY, wpH, speed);
+
+  // Ejected material particles
+  drawEject(ctx, id, cx, wpY + wpH, t, speed);
+
+  // Labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '9px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Kerf: ' + kerfW.toFixed(1) + ' mm', cx, wpY + wpH + 20);
+  ctx.fillText('HAZ: ' + hazW.toFixed(1) + ' mm', cx, wpY + wpH + 32);
+}
+
+function getKerf(id, thick) {
+  switch(id) {
+    case 'c1': return Math.min(0.5, 0.1 + thick * 0.01); // laser
+    case 'c2': return Math.min(3, 1 + thick * 0.02); // plasma
+    case 'c3': return Math.min(15, 5 + thick * 0.08); // oxy-fuel
+    case 'c4': return Math.min(0.5, 0.1 + thick * 0.005); // EB
+  }
+}
+
+function getHAZ(id, thick) {
+  switch(id) {
+    case 'c1': return Math.min(0.5, 0.1 + thick * 0.015); // laser
+    case 'c2': return Math.min(2, 0.5 + thick * 0.02); // plasma
+    case 'c3': return Math.min(5, 2 + thick * 0.03); // oxy-fuel
+    case 'c4': return Math.min(0.1, 0.05 + thick * 0.001); // EB
+  }
+}
+
+function drawSource(ctx, id, cx, wpY, pulse, thick, speed) {
+  ctx.save();
+  switch(id) {
+    case 'c1': // Laser beam
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 2 + pulse * 0.3;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(cx, 10);
+      ctx.lineTo(cx, wpY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Keyhole glow
+      ctx.fillStyle = 'rgba(255,100,0,0.6)';
+      ctx.beginPath();
+      ctx.ellipse(cx, wpY + 5, 4 + pulse, 8, 0, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    case 'c2': // Plasma jet
+      ctx.fillStyle = '#ffcc00';
+      ctx.beginPath();
+      ctx.moveTo(cx - 6, 15);
+      ctx.lineTo(cx - 3, wpY);
+      ctx.lineTo(cx + 3, wpY);
+      ctx.lineTo(cx + 6, 15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,200,0,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(cx, wpY + 3, 5 + pulse, 6, 0, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    case 'c3': // Oxy-fuel flame
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, 15);
+      ctx.quadraticCurveTo(cx - 12, wpY - 20, cx - 5, wpY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + 8, 15);
+      ctx.quadraticCurveTo(cx + 12, wpY - 20, cx + 5, wpY);
+      ctx.stroke();
+      ctx.strokeStyle = '#4488ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, 15);
+      ctx.lineTo(cx, wpY);
+      ctx.stroke();
+      // Reaction glow
+      ctx.fillStyle = 'rgba(255,255,0,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(cx, wpY + 3, 6 + pulse, 5, 0, 0, Math.PI*2);
+      ctx.fill();
+      break;
+    case 'c4': // EB column
+      ctx.strokeStyle = '#00ccff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, 10);
+      ctx.lineTo(cx, wpY);
+      ctx.stroke();
+      // Focusing lens
+      ctx.strokeStyle = '#336699';
+      ctx.beginPath();
+      ctx.ellipse(cx, 35, 10, 5, 0, 0, Math.PI*2);
+      ctx.stroke();
+      // Vaporisation glow
+      ctx.fillStyle = 'rgba(0,200,255,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(cx, wpY + 3, 3 + pulse * 0.5, 4, 0, 0, Math.PI*2);
+      ctx.fill();
+      break;
+  }
+  ctx.restore();
+}
+
+function drawGas(ctx, id, cx, wpY, wpH, speed) {
+  ctx.save();
+  ctx.strokeStyle = '#4488cc';
+  ctx.lineWidth = 1;
+  const offset = (t * speed * 0.5) % 20;
+  for (let i = 0; i < 3; i++) {
+    const y = wpY + wpH + 5 + i * 8 + offset;
+    if (y < wpY + wpH + 30) {
+      ctx.beginPath();
+      ctx.moveTo(cx - 15, y);
+      ctx.lineTo(cx - 10, y - 3);
+      ctx.moveTo(cx + 15, y);
+      ctx.lineTo(cx + 10, y - 3);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawEject(ctx, id, cx, bottomY, t, speed) {
+  ctx.save();
+  ctx.fillStyle = '#ff6600';
+  const n = 5;
+  for (let i = 0; i < n; i++) {
+    const phase = ((t * speed * 0.3 + i * 7) % 30);
+    const x = cx + (i - n/2) * 6;
+    const y = bottomY + 5 + phase;
+    if (y < bottomY + 35) {
+      ctx.globalAlpha = 1 - phase / 30;
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function update() {
+  t++;
+  const thick = parseInt(thickSlider.value);
+  const speed = parseInt(speedSlider.value);
+  thickVal.textContent = thick;
+  speedVal.textContent = speed;
+
+  const ids = ['c1','c2','c3','c4'];
+  const infos = ['i1','i2','i3','i4'];
+  const names = ['Laser','Plasma','Oxy-fuel','EB'];
+
+  ids.forEach((id, idx) => {
+    const canvas = document.getElementById(id);
+    const ctx = canvas.getContext('2d');
+    draw(ctx, id, thick, speed);
+    const kerf = getKerf(id, thick);
+    const haz = getHAZ(id, thick);
+    const feasible = isFeasible(id, thick);
+    document.getElementById(infos[idx]).textContent = feasible
+      ? 'Kerf ' + kerf.toFixed(1) + ' mm | HAZ ' + haz.toFixed(1) + ' mm'
+      : '⚠ Not feasible at ' + thick + ' mm';
+    document.getElementById(infos[idx]).style.color = feasible ? '#aaa' : '#ff6666';
+  });
+
+  requestAnimationFrame(update);
+}
+
+function isFeasible(id, thick) {
+  switch(id) {
+    case 'c1': return thick <= 25;
+    case 'c2': return thick <= 100;
+    case 'c3': return thick >= 5 && thick <= 300;
+    case 'c4': return thick <= 50;
+  }
+}
+
+thickSlider.addEventListener('input', () => {});
+speedSlider.addEventListener('input', () => {});
+update();
+</script>
+</body>
+</html>

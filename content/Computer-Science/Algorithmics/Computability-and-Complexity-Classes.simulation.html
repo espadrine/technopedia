@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Turing machine: even number of 1s</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; padding: 12px; background: #fafafa; color: #222; }
+  h1 { font-size: 16px; margin: 0 0 8px 0; }
+  .tape { display: flex; gap: 2px; margin: 12px 0; overflow-x: auto; padding: 4px 2px; }
+  .cell { min-width: 34px; height: 34px; border: 1px solid #bbb; border-radius: 4px;
+          display: flex; align-items: center; justify-content: center;
+          font-family: monospace; font-size: 16px; background: #fff; flex: 0 0 auto; }
+  .cell.head { border: 2px solid #e07050; background: #fdeee8; font-weight: bold; }
+  .cell.blank { color: #aaa; }
+  .controls { margin: 10px 0; }
+  button { font-family: inherit; font-size: 14px; padding: 5px 12px; margin-right: 6px;
+           border: 1px solid #999; border-radius: 4px; background: #fff; cursor: pointer; }
+  button:hover { background: #eee; }
+  input { font-family: monospace; font-size: 14px; padding: 4px 6px; width: 180px; }
+  .status { font-size: 14px; margin: 8px 0; min-height: 20px; }
+  .status b { color: #1a4060; }
+  .verdict { font-weight: bold; }
+  .verdict.accept { color: #2e7d32; }
+  .verdict.reject { color: #c62828; }
+  .desc { font-size: 13px; color: #555; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Turing machine deciding L = { w : w has an even number of 1s }</h1>
+<div class="controls">
+  <label>Input: <input id="input" value="1011" maxlength="24"></label>
+  <button id="load">Load</button>
+  <button id="step">Step</button>
+  <button id="run">Run</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="tape" id="tape"></div>
+<div class="status" id="status"></div>
+<div class="desc">
+  States: <b>q<sub>even</sub></b> (parity of 1s seen is even) and <b>q<sub>odd</sub></b> (odd).
+  On reading <b>1</b> the machine toggles its state; on <b>0</b> it stays. On the blank
+  symbol <b>&#9633;</b> it accepts from q<sub>even</sub> and rejects from q<sub>odd</sub>.
+  This is exactly the two-state decider for even parity described on the page.
+</div>
+<script>
+(function () {
+  var START = 'q_even';
+  var delta = {
+    'q_even|0': ['q_even', '0', +1],
+    'q_even|1': ['q_odd',  '1', +1],
+    'q_odd|0':  ['q_odd',  '0', +1],
+    'q_odd|1':  ['q_even', '1', +1],
+    'q_even|\u25A1': 'ACCEPT',
+    'q_odd|\u25A1':  'REJECT'
+  };
+  var tape, head, state, halted, verdict, timer;
+
+  function render(msg) {
+    var t = document.getElementById('tape');
+    t.innerHTML = '';
+    for (var i = 0; i < tape.length; i++) {
+      var c = document.createElement('div');
+      c.className = 'cell' + (i === head ? ' head' : '');
+      c.textContent = tape[i] === '\u25A1' ? '\u25A1' : tape[i];
+      t.appendChild(c);
+    }
+    var s = document.getElementById('status');
+    var base = 'State: <b>' + state + '</b> &nbsp; Head: cell ' + head +
+               ' &nbsp; Steps: ' + steps;
+    if (msg) base += ' &nbsp; <span class="verdict ' + verdict + '">' + msg + '</span>';
+    s.innerHTML = base;
+  }
+
+  var steps = 0;
+  function reset() {
+    var raw = document.getElementById('input').value.replace(/[^01]/g, '');
+    if (raw.length === 0) raw = '1011';
+    tape = raw.split('');
+    for (var i = 0; i < 6; i++) tape.push('\u25A1');
+    head = 0; state = START; halted = false; steps = 0; verdict = '';
+    if (timer) { clearInterval(timer); timer = null; }
+    render('machine ready');
+  }
+
+  function step() {
+    if (halted) { render('machine halted: ' + verdict); return; }
+    var sym = (head < tape.length) ? tape[head] : '\u25A1';
+    var move = delta[state + '|' + sym];
+    if (!move) { halted = true; verdict = 'reject'; render('no transition — reject'); return; }
+    var next = move[0], write = move[1], dir = move[2];
+    if (head >= tape.length) tape.push('\u25A1');
+    tape[head] = write;
+    state = next;
+    head += dir;
+    if (head < 0) head = 0;
+    steps++;
+    if (state === 'ACCEPT') { halted = true; verdict = 'accept'; render('ACCEPT — even number of 1s'); }
+    else if (state === 'REJECT') { halted = true; verdict = 'reject'; render('REJECT — odd number of 1s'); }
+    else render();
+  }
+
+  document.getElementById('load').onclick = reset;
+  document.getElementById('reset').onclick = reset;
+  document.getElementById('step').onclick = function () { step(); };
+  document.getElementById('run').onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; return; }
+    timer = setInterval(function () {
+      if (halted) { clearInterval(timer); timer = null; return; }
+      step();
+    }, 350);
+  };
+  reset();
+})();
+</script>
+</body>
+</html>

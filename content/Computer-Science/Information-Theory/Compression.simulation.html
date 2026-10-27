@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LZ77 sliding-window matcher</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #14141e; color: #eee; margin: 16px; }
+  h1 { font-size: 1.15em; margin: 0 0 4px; }
+  .sub { color: #aaa; font-size: 0.85em; margin-top: 0; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+  label { font-size: 0.85em; color: #bbb; }
+  input { background: #2a2a4a; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 5px 7px; }
+  input[type=text] { width: 170px; font-family: ui-monospace, monospace; }
+  input[type=number] { width: 48px; }
+  button { padding: 7px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.88em; }
+  #stepBtn { background: #4a9eff; color: #fff; }
+  #autoBtn { background: #2d6a4f; color: #fff; }
+  #resetBtn { background: #666; color: #fff; }
+  .row { font-family: ui-monospace, monospace; font-size: 20px; margin: 12px 0; letter-spacing: 1px; }
+  .row span { display: inline-block; width: 24px; text-align: center; padding: 3px 0; border-radius: 4px; margin-right: 1px; }
+  .past { color: #4a4a5a; }
+  .win { background: #23406e; color: #cfe3ff; }
+  .match { background: #2d6a4f; color: #fff; }
+  .look { background: #3a3a55; }
+  .cur { outline: 2px solid #4a9eff; }
+  .status { min-height: 3.4em; font-size: 0.9em; color: #ccc; margin: 8px 0; }
+  .stats { color: #9cf; font-size: 0.88em; margin-bottom: 6px; }
+  .tokens { font-family: ui-monospace, monospace; font-size: 14px; line-height: 2.1; }
+  .tok { display: inline-block; padding: 2px 8px; margin: 2px; border-radius: 4px; background: #2a2a4a; }
+  .tok.back { background: #2d6a4a; }
+  .legend { font-size: 0.8em; color: #888; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>LZ77 sliding-window matcher</h1>
+<p class="sub">At each position the encoder searches the <b style="color:#9cf">window</b> (blue) for the longest match with the lookahead (gray). Matches of 3+ symbols become an (offset, length) backreference; shorter ones stay literals.</p>
+<div class="controls">
+  <label>Text <input type="text" id="text" value="ABRACADABRA" maxlength="40"></label>
+  <label>Window W <input type="number" id="win" value="12" min="2" max="40"></label>
+  <label>Max match L <input type="number" id="maxlen" value="4" min="3" max="20"></label>
+  <button id="stepBtn" onclick="step()">Step</button>
+  <button id="autoBtn" onclick="toggleAuto()">▶ Auto</button>
+  <button id="resetBtn" onclick="reset()">Reset</button>
+</div>
+<div class="row" id="row"></div>
+<div class="status" id="status"></div>
+<div class="stats" id="stats"></div>
+<div class="tokens" id="tokens"></div>
+<div class="legend">Blue = sliding window (already emitted, still searchable) · green = last match · gray = lookahead · blue outline = current position.</div>
+<script>
+let text, W, Lmax, pos, tokens, lastMatch, timer = null;
+const MIN_MATCH = 3;
+
+function stopAuto() {
+  if (timer) { clearInterval(timer); timer = null; }
+  const b = document.getElementById('autoBtn');
+  if (b) b.textContent = '▶ Auto';
+}
+
+function reset() {
+  stopAuto();
+  text = document.getElementById('text').value || 'A';
+  W = Math.max(2, parseInt(document.getElementById('win').value, 10) || 12);
+  Lmax = Math.max(3, parseInt(document.getElementById('maxlen').value, 10) || 4);
+  pos = 0; tokens = []; lastMatch = null;
+  document.getElementById('status').innerHTML = 'Press <b>Step</b> to begin.';
+  render();
+}
+
+function findMatch() {
+  const start = Math.max(0, pos - W);
+  let best = { len: 0, off: 0 };
+  for (let s = start; s < pos; s++) {
+    let l = 0;
+    while (l < Lmax && pos + l < text.length && text[s + l] === text[pos + l]) l++;
+    if (l > best.len) best = { len: l, off: pos - s };
+  }
+  return best;
+}
+
+function step() {
+  if (pos >= text.length) {
+    document.getElementById('status').textContent = 'Done — the whole input is encoded.';
+    stopAuto();
+    return;
+  }
+  const m = findMatch();
+  if (m.len >= MIN_MATCH) {
+    tokens.push({ off: m.off, len: m.len });
+    lastMatch = { start: pos, len: m.len };
+    document.getElementById('status').innerHTML =
+      'Position ' + pos + ': longest match in the window has length <b>' + m.len +
+      '</b> at offset <b>' + m.off + '</b> (source index ' + (pos - m.off) +
+      '). Emit backreference <b>(' + m.off + ', ' + m.len + ')</b> and advance ' + m.len + ' symbols.';
+    pos += m.len;
+  } else {
+    tokens.push({ lit: text[pos] });
+    lastMatch = null;
+    document.getElementById('status').innerHTML =
+      'Position ' + pos + ': no match of length ≥ ' + MIN_MATCH +
+      ' in the window — emit the literal <b>' + text[pos] + '</b> and advance 1.';
+    pos++;
+  }
+  render();
+}
+
+function render() {
+  const row = document.getElementById('row');
+  let html = '';
+  for (let i = 0; i < text.length; i++) {
+    let cls = 'past';
+    if (i >= pos) cls = 'look';
+    else if (i >= pos - W) cls = 'win';
+    if (lastMatch && i >= lastMatch.start && i < lastMatch.start + lastMatch.len) cls = 'match';
+    if (i === pos) cls += ' cur';
+    html += '<span class="' + cls + '">' + text[i] + '</span>';
+  }
+  row.innerHTML = html;
+  const lits = tokens.filter(t => t.lit !== undefined).length;
+  const backs = tokens.length - lits;
+  const offsetBits = Math.ceil(Math.log2(Math.max(2, W)));
+  const lenBits = Math.ceil(Math.log2(Math.max(2, Lmax)));
+  const bits = lits * 8 + backs * (offsetBits + lenBits);
+  document.getElementById('stats').textContent =
+    tokens.length + ' tokens (' + lits + ' literals, ' + backs + ' backreferences) · estimate ≈ ' +
+    bits + ' bits vs ' + (8 * text.length) + ' bits raw';
+  document.getElementById('tokens').innerHTML = tokens.map(t =>
+    t.lit !== undefined ? '<span class="tok">' + t.lit + '</span>'
+                        : '<span class="tok back">(' + t.off + ', ' + t.len + ')</span>'
+  ).join(' ');
+}
+
+function toggleAuto() {
+  if (timer) stopAuto();
+  else {
+    timer = setInterval(step, 900);
+    document.getElementById('autoBtn').textContent = '⏸ Pause';
+  }
+}
+
+reset();
+</script>
+</body>
+</html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Huffman Coding Tree Builder</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
+h1 { font-size: 1.3em; margin-bottom: 4px; }
+.subtitle { color: #aaa; font-size: 0.9em; margin-bottom: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.symbol-input { display: flex; align-items: center; gap: 4px; }
+.symbol-input label { font-weight: bold; width: 20px; }
+.symbol-input input { width: 50px; padding: 4px; border: 1px solid #444; border-radius: 4px; background: #2a2a4a; color: #eee; text-align: center; }
+button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+#buildBtn { background: #4a9eff; color: #fff; }
+#resetBtn { background: #666; color: #fff; }
+#canvas { border: 1px solid #333; border-radius: 8px; background: #0f0f23; display: block; margin: 0 auto; }
+.stats { margin-top: 12px; font-size: 0.9em; color: #ccc; line-height: 1.6; }
+.stats span { color: #4a9eff; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Huffman Coding Tree Builder</h1>
+<p class="subtitle">Enter symbol probabilities, then build the optimal prefix-free code.</p>
+<div class="controls" id="inputs"></div>
+<div style="margin-bottom:12px; display:flex; gap:8px;">
+<button id="buildBtn" onclick="buildTree()">Build Tree</button>
+<button id="resetBtn" onclick="resetAll()">Reset</button>
+</div>
+<canvas id="canvas" width="700" height="420"></canvas>
+<div class="stats" id="stats">Enter probabilities and click "Build Tree".</div>
+<script>
+const MAX_SYMBOLS = 8;
+let symbols = [];
+let tree = null;
+let animStep = 0;
+let animTimer = null;
+
+function initInputs() {
+  const container = document.getElementById('inputs');
+  container.innerHTML = '';
+  for (let i = 0; i < MAX_SYMBOLS; i++) {
+    const div = document.createElement('div');
+    div.className = 'symbol-input';
+    div.innerHTML = `<label>${String.fromCharCode(65+i)}</label><input type="number" step="0.01" min="0" max="1" value="${[0.4,0.25,0.15,0.1,0.05,0.03,0.01,0.01][i]}" id="sym${i}">`;
+    container.appendChild(div);
+  }
+}
+
+function getSymbols() {
+  const syms = [];
+  for (let i = 0; i < MAX_SYMBOLS; i++) {
+    const v = parseFloat(document.getElementById('sym'+i).value);
+    if (v > 0) syms.push({ char: String.fromCharCode(65+i), prob: v });
+  }
+  return syms;
+}
+
+function buildTree() {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  symbols = getSymbols();
+  if (symbols.length < 2) { document.getElementById('stats').textContent = 'Need at least 2 symbols with positive probability.'; return; }
+  const total = symbols.reduce((s,x)=>s+x.prob,0);
+  if (Math.abs(total - 1) > 0.01) { document.getElementById('stats').textContent = `Probabilities sum to ${total.toFixed(2)}, not 1.0. Please adjust.`; return; }
+  // Build Huffman tree
+  let nodes = symbols.map(s => ({ char: s.char, prob: s.prob, left: null, right: null, depth: 0 }));
+  const steps = [];
+  while (nodes.length > 1) {
+    nodes.sort((a,b) => a.prob - b.prob);
+    const a = nodes.shift();
+    const b = nodes.shift();
+    const parent = { char: null, prob: a.prob + b.prob, left: a, right: b, depth: 0 };
+    steps.push({ a, b, parent });
+    nodes.push(parent);
+  }
+  tree = nodes[0];
+  // Assign depths
+  function assignDepth(node, d) {
+    node.depth = d;
+    if (node.left) assignDepth(node.left, d+1);
+    if (node.right) assignDepth(node.right, d+1);
+  }
+  assignDepth(tree, 0);
+  // Animate
+  animStep = 0;
+  drawStep();
+  animTimer = setInterval(drawStep, 600);
+}
+
+function drawStep() {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!tree) return;
+  // Draw current tree state
+  drawNode(ctx, tree, canvas.width/2, 40, 280, 36);
+  // Update stats
+  const leaves = [];
+  function collectLeaves(node, code) {
+    if (!node.left && !node.right) { leaves.push({ char: node.char, prob: node.prob, code: code, len: code.length }); return; }
+    if (node.left) collectLeaves(node.left, code + '0');
+    if (node.right) collectLeaves(node.right, code + '1');
+  }
+  collectLeaves(tree, '');
+  const H = -symbols.reduce((s,x) => s + x.prob * Math.log2(x.prob), 0);
+  const L = leaves.reduce((s,l) => s + l.prob * l.len, 0);
+  document.getElementById('stats').innerHTML =
+    `Entropy H = <span>${H.toFixed(3)}</span> bits/symbol &nbsp;|&nbsp; ` +
+    `Expected code length L = <span>${L.toFixed(3)}</span> bits/symbol &nbsp;|&nbsp; ` +
+    `Gap L − H = <span>${(L-H).toFixed(3)}</span> bits < 1 ✓` +
+    `<br>` + leaves.map(l => `${l.char}: "${l.code}" (${l.prob.toFixed(2)})`).join(' &nbsp; ');
+}
+
+function drawNode(ctx, node, x, y, maxW, h) {
+  if (!node) return;
+  const isLeaf = !node.left && !node.right;
+  // Draw circle
+  ctx.beginPath();
+  ctx.arc(x, y, isLeaf ? 16 : 18, 0, Math.PI*2);
+  ctx.fillStyle = isLeaf ? '#2d6a4f' : '#4a4a8a';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // Label
+  ctx.fillStyle = '#fff';
+  ctx.font = isLeaf ? 'bold 13px system-ui' : '11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(isLeaf ? node.char : node.prob.toFixed(2), x, y);
+  if (!isLeaf) {
+    const leftX = x - maxW/4;
+    const rightX = x + maxW/4;
+    const childY = y + h;
+    // Edges
+    ctx.beginPath();
+    ctx.moveTo(x, y+18);
+    ctx.lineTo(leftX, childY-16);
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y+18);
+    ctx.lineTo(rightX, childY-16);
+    ctx.stroke();
+    // Edge labels
+    ctx.fillStyle = '#aaa';
+    ctx.font = '10px system-ui';
+    ctx.fillText('0', (x+leftX)/2 - 8, (y+childY)/2);
+    ctx.fillText('1', (x+rightX)/2 + 8, (y+childY)/2);
+    drawNode(ctx, node.left, leftX, childY, maxW/2, h);
+    drawNode(ctx, node.right, rightX, childY, maxW/2, h);
+  }
+}
+
+function resetAll() {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  tree = null;
+  symbols = [];
+  const canvas = document.getElementById('canvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('stats').textContent = 'Enter probabilities and click "Build Tree".';
+  initInputs();
+}
+
+initInputs();
+</script>
+</body>
+</html>

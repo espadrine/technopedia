@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PCB Trace Signal Propagation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+h1 { font-size: 16px; margin-bottom: 8px; color: #fff; }
+.controls { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+.control-group { display: flex; flex-direction: column; gap: 4px; }
+.control-group label { font-size: 11px; color: #aaa; }
+.control-group input[type="range"] { width: 140px; }
+.control-group .val { font-size: 11px; color: #4fc3f7; }
+button { background: #4fc3f7; color: #1a1a2e; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+button:hover { background: #81d4fa; }
+canvas { display: block; margin-top: 8px; border-radius: 6px; }
+.info { font-size: 11px; color: #888; margin-top: 8px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>PCB Trace Signal Propagation &amp; Reflection</h1>
+<div class="controls">
+  <div class="control-group">
+    <label>Trace impedance (Z₀): <span class="val" id="z0val">50 Ω</span></label>
+    <input type="range" id="z0" min="25" max="100" value="50" step="1">
+  </div>
+  <div class="control-group">
+    <label>Discontinuity impedance (Z₁): <span class="val" id="z1val">75 Ω</span></label>
+    <input type="range" id="z1" min="25" max="150" value="75" step="1">
+  </div>
+  <div class="control-group">
+    <label>Termination (Z_L): <span class="val" id="zlval">50 Ω</span></label>
+    <input type="range" id="zl" min="0" max="200" value="50" step="1">
+  </div>
+  <button id="playBtn">▶ Play</button>
+  <button id="resetBtn">↺ Reset</button>
+</div>
+<canvas id="canvas" width="720" height="340"></canvas>
+<div class="info">
+  A step signal launches from the driver (left) along a PCB trace. At the impedance discontinuity (via, connector, or stub), part of the signal reflects back with coefficient Γ = (Z₁ − Z₀)/(Z₁ + Z₀). The remaining signal continues to the load. Adjust impedances to see how reflections corrupt the waveform.
+</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let z0 = 50, z1 = 75, zl = 50;
+let playing = false;
+let t = 0;
+const dt = 0.02;
+const traceLen = 1.0;
+const discPos = 0.6;
+const speed = 1.0;
+
+const z0Slider = document.getElementById('z0');
+const z1Slider = document.getElementById('z1');
+const zlSlider = document.getElementById('zl');
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+z0Slider.oninput = () => { z0 = +z0Slider.value; document.getElementById('z0val').textContent = z0 + ' Ω'; };
+z1Slider.oninput = () => { z1 = +z1Slider.value; document.getElementById('z1val').textContent = z1 + ' Ω'; };
+zlSlider.oninput = () => { zl = +zlSlider.value; document.getElementById('zlval').textContent = zl + ' Ω'; };
+
+playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? '⏸ Pause' : '▶ Play'; };
+resetBtn.onclick = () => { t = 0; playing = false; playBtn.textContent = '▶ Play'; };
+
+function gamma(z_from, z_to) {
+  if (z_from + z_to === 0) return 0;
+  return (z_to - z_from) / (z_to + z_from);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const margin = 60;
+  const traceY = 80;
+  const traceX0 = margin;
+  const traceX1 = W - margin;
+  const traceW = traceX1 - traceX0;
+
+  // Draw trace
+  ctx.strokeStyle = '#4a90d9';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(traceX0, traceY);
+  ctx.lineTo(traceX1, traceY);
+  ctx.stroke();
+
+  // Draw discontinuity
+  const discX = traceX0 + discPos * traceW;
+  ctx.strokeStyle = '#ff6b6b';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(discX, traceY - 12);
+  ctx.lineTo(discX, traceY + 12);
+  ctx.stroke();
+  ctx.fillStyle = '#ff6b6b';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Discontinuity (Z₁=' + z1 + 'Ω)', discX, traceY - 20);
+
+  // Draw driver
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fillRect(traceX0 - 20, traceY - 15, 20, 30);
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('Driver', traceX0 - 10, traceY + 30);
+
+  // Draw load
+  ctx.fillStyle = '#66bb6a';
+  ctx.fillRect(traceX1, traceY - 15, 20, 30);
+  ctx.fillStyle = '#fff';
+  ctx.fillText('Load', traceX1 + 10, traceY + 30);
+
+  // Compute reflection coefficients
+  const g_disc = gamma(z0, z1);
+  const g_load = (zl === 0) ? -1 : gamma(z1, zl);
+
+  // Simulate signal at receiver (load end)
+  const waveY0 = 160;
+  const waveH = 140;
+  const waveX0 = margin;
+  const waveX1 = W - margin;
+  const waveW = waveX1 - waveX0;
+
+  // Draw waveform area
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(waveX0, waveY0, waveW, waveH);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(waveX0, waveY0, waveW, waveH);
+
+  // Center line
+  ctx.strokeStyle = '#444';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(waveX0, waveY0 + waveH / 2);
+  ctx.lineTo(waveX1, waveY0 + waveH / 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Receiver waveform (at load)', waveX0, waveY0 - 6);
+  ctx.fillText('Time →', waveX1 - 50, waveY0 + waveH + 14);
+
+  // Compute the step response at the load
+  // Signal arrives at load after time = traceLen/speed
+  // First arrival: amplitude 1 * (1 + g_disc) * (1 + g_load) ... simplified
+  // Actually let's do a proper bounce diagram simulation
+
+  const maxT = 4.0;
+  const nPoints = 400;
+
+  // Bounce diagram: track voltage at load
+  // Forward wave from driver: V_f0 = 1 (normalized)
+  // At discontinuity: reflected = g_disc * V_f, transmitted = (1+g_disc) * V_f
+  // At load: reflected = g_load * V_arriving
+
+  let loadVoltage = 0;
+  const times = [];
+  const voltages = [];
+
+  for (let i = 0; i < nPoints; i++) {
+    const ti = (i / nPoints) * maxT;
+    // Simplified: step arrives at load at t=1 (normalized trace length)
+    // First arrival: V = 1 * (1 + g_disc) * (1 + g_load) ... no, let's do it properly
+    // Forward wave 1: amplitude 1, arrives at disc at t=discPos, at load at t=1
+    // Reflected at disc: g_disc, travels back, arrives at driver at t=1+discPos
+    // (assume driver is matched, so no re-reflection from driver)
+    // Transmitted at disc: (1+g_disc), arrives at load at t=1
+    // At load: reflected = g_load * (1+g_disc), travels back to disc
+    // At disc: reflected again = g_disc * g_load * (1+g_disc), etc.
+
+    let v = 0;
+    const t_arrive_load = 1.0;
+    const t_disc_to_load = 1.0 - discPos;
+    const t_load_to_disc = discPos;
+    const t_disc_to_load2 = t_disc_to_load;
+
+    if (ti >= t_arrive_load) {
+      // First arrival
+      v += (1 + g_disc) * (1 + g_load);
+    }
+    // Subsequent bounces
+    // After first reflection at load, wave travels back to disc (time = discPos)
+    // Then reflects at disc (factor g_disc), travels to load (time = 1-discPos)
+    // Total round trip from load: discPos + (1-discPos) = 1
+    // So each subsequent bounce arrives at load at t = 1 + n*1
+    for (let n = 1; n <= 5; n++) {
+      const t_n = t_arrive_load + n * 1.0;
+      if (ti >= t_n) {
+        v += (1 + g_disc) * g_load * Math.pow(g_disc * g_load, n - 1) * (1 + g_load);
+      }
+    }
+    times.push(ti);
+    voltages.push(v);
+  }
+
+  // Draw waveform
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < nPoints; i++) {
+    const x = waveX0 + (i / nPoints) * waveW;
+    const y = waveY0 + waveH / 2 - voltages[i] * (waveH * 0.35);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Draw current time indicator
+  if (t > 0 && t < maxT) {
+    const cx = waveX0 + (t / maxT) * waveW;
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(cx, waveY0);
+    ctx.lineTo(cx, waveY0 + waveH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw signal pulse on trace
+  if (t > 0 && t < traceLen) {
+    const pulseX = traceX0 + (t / traceLen) * traceW;
+    ctx.fillStyle = '#ffeb3b';
+    ctx.beginPath();
+    ctx.arc(pulseX, traceY, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Reflection coefficient display
+  ctx.fillStyle = '#aaa';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Γ (discontinuity) = ' + g_disc.toFixed(3), waveX0, waveY0 + waveH + 30);
+  ctx.fillText('Γ (load) = ' + g_load.toFixed(3), waveX0 + 200, waveY0 + waveH + 30);
+
+  // Animate
+  if (playing) {
+    t += dt;
+    if (t > maxT) t = 0;
+  }
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>2D Ising model: spontaneous ordering at a phase transition</title>
+<style>
+  body { font-family: Georgia, serif; margin: 0; padding: 10px; background: #fdfcf8; color: #222; }
+  h1 { font-size: 17px; margin: 0 0 8px 0; }
+  .row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  canvas#lattice { width: 384px; height: 384px; image-rendering: pixelated; border: 1px solid #999; background: #000; }
+  .panel { max-width: 300px; font-size: 13px; }
+  .panel label { display: block; margin: 6px 0 2px 0; }
+  input[type=range] { width: 280px; }
+  button { font-size: 13px; padding: 3px 10px; margin-right: 6px; cursor: pointer; }
+  .readout { font-family: monospace; font-size: 13px; margin-top: 6px; }
+  .tc { color: #a33; font-weight: bold; }
+  canvas#hist { width: 300px; height: 70px; border: 1px solid #bbb; background: #fff; margin-top: 6px; }
+  .note { font-size: 12px; color: #555; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h1>2D Ising model — watch spins order as <i>T</i> crosses <i>T<sub>c</sub></i></h1>
+<div class="row">
+  <canvas id="lattice" width="128" height="128"></canvas>
+  <div class="panel">
+    <label>Temperature <i>T</i> (units of <i>J</i>/<i>k</i><sub>B</sub>): <span id="tval">3.50</span></label>
+    <input id="tslider" type="range" min="0.5" max="4" step="0.01" value="3.5">
+    <div class="note">Critical temperature <span class="tc">T<sub>c</sub> = 2.269</span>. Cool below it and domains of aligned spins grow; the correlation length &xi; diverges as &xi; &sim; |<i>T</i>&minus;<i>T<sub>c</sub></i>|<sup>&minus;1</sup>.</div>
+    <div style="margin-top:8px;">
+      <button id="toggle">Pause</button>
+      <button id="randomize">Randomize</button>
+    </div>
+    <div class="readout">|m| = <span id="mval">0.00</span></div>
+    <div class="readout">&xi; &asymp; <span id="xival">&mdash;</span> lattice spacings</div>
+    <label style="margin-top:8px;">|m| history (last 300 samples)</label>
+    <canvas id="hist" width="300" height="70"></canvas>
+  </div>
+</div>
+<script>
+(function () {
+  var N = 128, J = 1, TC = 2.269;
+  var lat = new Int8Array(N * N);
+  var T = 3.5, running = true;
+  var canvas = document.getElementById('lattice');
+  var ctx = canvas.getContext('2d');
+  var img = ctx.createImageData(N, N);
+  var hist = document.getElementById('hist');
+  var hctx = hist.getContext('2d');
+  var mHist = [];
+
+  function randomize() {
+    for (var i = 0; i < lat.length; i++) lat[i] = Math.random() < 0.5 ? -1 : 1;
+    mHist = [];
+  }
+  randomize();
+
+  function sweep() {
+    for (var k = 0; k < N * N; k++) {
+      var i = (Math.random() * N) | 0, j = (Math.random() * N) | 0;
+      var idx = i * N + j, s = lat[idx];
+      var up = ((i + 1) % N) * N + j, dn = ((i - 1 + N) % N) * N + j;
+      var rt = i * N + (j + 1) % N, lf = i * N + (j - 1 + N) % N;
+      var dE = 2 * J * s * (lat[up] + lat[dn] + lat[rt] + lat[lf]);
+      if (dE <= 0 || Math.random() < Math.exp(-dE / T)) lat[idx] = -s;
+    }
+  }
+
+  function draw() {
+    var d = img.data, m = 0;
+    for (var i = 0; i < N * N; i++) {
+      var s = lat[i]; m += s;
+      var p = 4 * i;
+      if (s > 0) { d[p] = 232; d[p + 1] = 130; d[p + 2] = 40; }
+      else       { d[p] = 40;  d[p + 1] = 90;  d[p + 2] = 190; }
+      d[p + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+    return Math.abs(m) / (N * N);
+  }
+
+  function drawHist() {
+    hctx.clearRect(0, 0, 300, 70);
+    hctx.strokeStyle = '#a33';
+    hctx.beginPath();
+    for (var k = 0; k < mHist.length; k++) {
+      var x = 300 * k / 300, y = 66 - 62 * mHist[k];
+      if (k === 0) hctx.moveTo(x, y); else hctx.lineTo(x, y);
+    }
+    hctx.stroke();
+  }
+
+  function xiEstimate() {
+    var dt = Math.abs(T - TC);
+    if (dt < 1 / N) return '&ge; ' + N + ' (system size)';
+    var xi = Math.round(1 / dt);
+    if (xi > N) return '&ge; ' + N + ' (system size)';
+    return String(xi);
+  }
+
+  function frame() {
+    if (running) {
+      for (var s = 0; s < 6; s++) sweep();
+      var m = draw();
+      mHist.push(m);
+      if (mHist.length > 300) mHist.shift();
+      drawHist();
+      document.getElementById('mval').textContent = m.toFixed(2);
+      document.getElementById('xival').innerHTML = xiEstimate();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  document.getElementById('tslider').addEventListener('input', function (e) {
+    T = parseFloat(e.target.value);
+    document.getElementById('tval').textContent = T.toFixed(2);
+  });
+  document.getElementById('toggle').addEventListener('click', function () {
+    running = !running;
+    this.textContent = running ? 'Pause' : 'Run';
+  });
+  document.getElementById('randomize').addEventListener('click', randomize);
+
+  draw();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

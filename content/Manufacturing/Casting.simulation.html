@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Casting Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 16px; }
+h1 { font-size: 1.2em; margin-bottom: 8px; color: #f4a460; }
+.controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; background: #4682b4; color: #fff; }
+button:hover { background: #5a9fd4; }
+button.active { background: #f4a460; color: #1a1a2e; }
+select { padding: 6px 10px; border-radius: 4px; background: #2a2a4a; color: #eee; border: 1px solid #555; }
+canvas { border: 1px solid #333; border-radius: 4px; background: #0f0f23; display: block; }
+.info { margin-top: 10px; font-size: 0.85em; color: #aaa; max-width: 700px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.tab { padding: 8px 14px; border-radius: 4px 4px 0 0; cursor: pointer; background: #2a2a4a; font-size: 0.85em; }
+.tab.active { background: #4682b4; color: #fff; }
+</style>
+</head>
+<body>
+<h1>Casting Process Simulation</h1>
+<div class="tabs">
+  <div class="tab active" data-tab="fill">Mold Filling</div>
+  <div class="tab" data-tab="micro">Solidification</div>
+  <div class="tab" data-tab="select">Process Selection</div>
+</div>
+<div class="controls" id="ctrl-fill">
+  <button id="btn-play" class="active">▶ Play</button>
+  <button id="btn-reset">↺ Reset</button>
+  <label>Mold: <select id="mold-type"><option value="sand">Sand</option><option value="investment">Investment</option><option value="die">Die (HPDC)</option><option value="centrifugal">Centrifugal</option></select></label>
+  <label>Speed: <input type="range" id="speed" min="1" max="10" value="4"></label>
+</div>
+<div class="controls" id="ctrl-micro" style="display:none">
+  <button id="btn-play2" class="active">▶ Play</button>
+  <button id="btn-reset2">↺ Reset</button>
+  <label>Cooling rate: <select id="cool-rate"><option value="slow">Slow (sand)</option><option value="med">Medium (investment)</option><option value="fast">Fast (die)</option></select></label>
+</div>
+<div class="controls" id="ctrl-select" style="display:none">
+  <label>Part complexity: <select id="complexity"><option value="low">Low</option><option value="med">Medium</option><option value="high">High</option></select></label>
+  <label>Batch size: <select id="batch"><option value="1">1</option><option value="100">100</option><option value="10000">10 000+</option></select></label>
+  <label>Material: <select id="material"><option value="al">Aluminum</option><option value="steel">Steel</option><option value="ni">Ni superalloy</option><option value="zn">Zinc</option></select></label>
+</div>
+<canvas id="canvas" width="700" height="400"></canvas>
+<div class="info" id="info">Press Play to start the mold-filling animation. The liquid metal fills the cavity from the gate; the color gradient shows temperature. Select "Centrifugal" to see a rotating mold: the metal is pressed to the wall by 60–100 g and the bore forms without a core.</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let mode = 'fill';
+let playing = false;
+let frame = 0;
+let animId = null;
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    mode = t.dataset.tab;
+    document.getElementById('ctrl-fill').style.display = mode === 'fill' ? 'flex' : 'none';
+    document.getElementById('ctrl-micro').style.display = mode === 'micro' ? 'flex' : 'none';
+    document.getElementById('ctrl-select').style.display = mode === 'select' ? 'flex' : 'none';
+    resetAll();
+  });
+});
+
+// Fill animation
+let fillLevel = 0;
+const moldShapes = {
+  sand: { wall: 30, color: '#c4a265', label: 'Sand mold' },
+  investment: { wall: 20, color: '#e8e0d0', label: 'Ceramic shell' },
+  die: { wall: 25, color: '#7788aa', label: 'Steel die' }
+};
+
+function drawFill() {
+  const type = document.getElementById('mold-type').value;
+  if (type === 'centrifugal') { drawCentrifugal(); return; }
+  const mold = moldShapes[type];
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Mold outline
+  const mx = 150, my = 60, mw = 400, mh = 280;
+  ctx.fillStyle = mold.color;
+  ctx.fillRect(mx - mold.wall, my - mold.wall, mw + 2*mold.wall, mh + 2*mold.wall);
+  ctx.fillStyle = '#0f0f23';
+  ctx.fillRect(mx, my, mw, mh);
+
+  // Gate (top center)
+  const gw = 60, gh = 30;
+  ctx.fillStyle = mold.color;
+  ctx.fillRect(mx + mw/2 - gw/2, my - mold.wall - gh, gw, gh);
+
+  // Liquid fill
+  const fillH = (fillLevel / 100) * mh;
+  if (fillH > 0) {
+    const grad = ctx.createLinearGradient(0, my + mh - fillH, 0, my + mh);
+    grad.addColorStop(0, '#ff4500');
+    grad.addColorStop(0.5, '#ff8c00');
+    grad.addColorStop(1, '#ffd700');
+    ctx.fillStyle = grad;
+    ctx.fillRect(mx, my + mh - fillH, mw, fillH);
+
+    // Bubbles for die casting
+    if (document.getElementById('mold-type').value === 'die' && fillLevel > 20) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      for (let i = 0; i < 8; i++) {
+        const bx = mx + 30 + (i * 47) % (mw - 60);
+        const by = my + mh - fillH + 10 + (i * 23) % Math.max(1, fillH - 20);
+        ctx.beginPath();
+        ctx.arc(bx, by, 3 + (i % 3), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '13px sans-serif';
+  ctx.fillText(mold.label, mx, my - mold.wall - 10);
+  ctx.fillText('Gate', mx + mw/2 - 15, my - mold.wall - gh - 5);
+  ctx.fillText('Fill: ' + Math.round(fillLevel) + '%', mx + mw + 20, my + 20);
+
+  // Speed indicator
+  const speed = parseInt(document.getElementById('speed').value);
+  if (playing && fillLevel < 100) {
+    fillLevel += speed * 0.3;
+    if (fillLevel > 100) fillLevel = 100;
+  }
+}
+
+// Centrifugal casting animation (cross-section of a rotating mold)
+let centFrame = 0;
+function drawCentrifugal() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const cx = 280, cy = 210, Rmold = 150;
+  const speed = parseInt(document.getElementById('speed').value);
+  if (playing && fillLevel < 100) {
+    fillLevel += speed * 0.3;
+    if (fillLevel > 100) fillLevel = 100;
+  }
+  if (playing) centFrame++;
+  const rot = centFrame * 0.12 * speed;
+  const metalR = Rmold - 25 - (fillLevel / 100) * 55;
+
+  // Rotating mold
+  ctx.fillStyle = '#7788aa';
+  ctx.beginPath(); ctx.arc(cx, cy, Rmold + 18, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#0f0f23';
+  ctx.beginPath(); ctx.arc(cx, cy, Rmold, 0, Math.PI * 2); ctx.fill();
+
+  // Rotation tick marks
+  ctx.strokeStyle = '#aab';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 12; i++) {
+    const a = rot + i * Math.PI / 6;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * (Rmold + 2), cy + Math.sin(a) * (Rmold + 2));
+    ctx.lineTo(cx + Math.cos(a) * (Rmold + 16), cy + Math.sin(a) * (Rmold + 16));
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+
+  // Metal annulus (grows inward as metal is poured)
+  if (fillLevel > 0) {
+    const grad = ctx.createRadialGradient(cx, cy, metalR, cx, cy, Rmold);
+    grad.addColorStop(0, '#ffd700');
+    grad.addColorStop(0.6, '#ff8c00');
+    grad.addColorStop(1, '#ff4500');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, Rmold, 0, Math.PI * 2);
+    ctx.arc(cx, cy, metalR, 0, Math.PI * 2, true);
+    ctx.fill();
+    // Less-dense inclusions drift toward the bore
+    ctx.fillStyle = 'rgba(80,60,40,0.85)';
+    for (let i = 0; i < 6; i++) {
+      const a = i * Math.PI / 3 + rot * 0.5;
+      const r = metalR + 8 + (i % 3) * 6;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '13px sans-serif';
+  ctx.fillText('Rotating mold (500–1500 rpm)', cx - 115, 40);
+  ctx.fillStyle = '#ccc';
+  ctx.fillText('Bore: no core needed', cx - 70, cy + 4);
+  ctx.fillStyle = '#aaa';
+  ctx.fillText('Metal pressed to wall by 60–100 g', 490, 120);
+  ctx.fillText('Inclusions & shrinkage collect', 490, 150);
+  ctx.fillText('at the bore (machined off)', 490, 168);
+  ctx.fillText('Fill: ' + Math.round(fillLevel) + '%', 490, 200);
+}
+
+// Microstructure animation
+
+// Microstructure animation
+let microFrame = 0;
+function drawMicro() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const coolRate = document.getElementById('cool-rate').value;
+  const rate = coolRate === 'fast' ? 3 : coolRate === 'med' ? 1.5 : 0.7;
+  const progress = Math.min(1, microFrame * 0.005 * rate);
+
+  // Mold wall
+  ctx.fillStyle = '#555';
+  ctx.fillRect(20, 20, 30, H - 40);
+  ctx.fillStyle = '#aaa';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('Mold wall', 15, H - 10);
+
+  // Chill zone (fine grains) - appears first
+  const chillW = 80;
+  if (progress > 0.1) {
+    const chillAlpha = Math.min(1, (progress - 0.1) / 0.2);
+    ctx.fillStyle = `rgba(65,105,225,${chillAlpha * 0.5})`;
+    ctx.fillRect(50, 20, chillW, H - 40);
+    // Fine grains
+    ctx.strokeStyle = `rgba(255,255,255,${chillAlpha * 0.7})`;
+    for (let i = 0; i < 40; i++) {
+      const gx = 55 + (i * 7) % (chillW - 10);
+      const gy = 25 + (i * 17) % (H - 50);
+      ctx.beginPath();
+      ctx.arc(gx, gy, 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(255,255,255,${chillAlpha})`;
+    ctx.fillText('Chill (fine)', 60, H - 10);
+  }
+
+  // Columnar zone - appears second
+  const colW = 150;
+  if (progress > 0.3) {
+    const colAlpha = Math.min(1, (progress - 0.3) / 0.3);
+    ctx.fillStyle = `rgba(218,165,32,${colAlpha * 0.4})`;
+    ctx.fillRect(130, 20, colW, H - 40);
+    // Columnar grains (vertical lines)
+    ctx.strokeStyle = `rgba(255,255,255,${colAlpha * 0.6})`;
+    for (let i = 0; i < 12; i++) {
+      const lx = 140 + i * 12;
+      ctx.beginPath();
+      ctx.moveTo(lx, 20);
+      ctx.lineTo(lx, 20 + (H - 40) * Math.min(1, (progress - 0.3) / 0.4));
+      ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(255,255,255,${colAlpha})`;
+    ctx.fillText('Columnar', 170, H - 10);
+  }
+
+  // Equiaxed zone - appears last
+  const eqW = 200;
+  if (progress > 0.6) {
+    const eqAlpha = Math.min(1, (progress - 0.6) / 0.4);
+    ctx.fillStyle = `rgba(46,139,87,${eqAlpha * 0.35})`;
+    ctx.fillRect(280, 20, eqW, H - 40);
+    // Equiaxed grains (polygons)
+    ctx.strokeStyle = `rgba(255,255,255,${eqAlpha * 0.6})`;
+    for (let i = 0; i < 30; i++) {
+      const ex = 290 + (i * 13) % (eqW - 20);
+      const ey = 30 + (i * 23) % (H - 60);
+      const r = 8 + (i % 4) * 3;
+      ctx.beginPath();
+      for (let j = 0; j < 6; j++) {
+        const a = j * Math.PI / 3 + i * 0.3;
+        const px = ex + r * Math.cos(a);
+        const py = ey + r * Math.sin(a);
+        j === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(255,255,255,${eqAlpha})`;
+    ctx.fillText('Equiaxed', 340, H - 10);
+  }
+
+  // Progress bar
+  ctx.fillStyle = '#333';
+  ctx.fillRect(500, 30, 180, 20);
+  ctx.fillStyle = '#f4a460';
+  ctx.fillRect(500, 30, 180 * progress, 20);
+  ctx.fillStyle = '#fff';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Solidification: ' + Math.round(progress * 100) + '%', 500, 65);
+
+  // Temperature gradient bar
+  const tGrad = ctx.createLinearGradient(500, 80, 680, 80);
+  tGrad.addColorStop(0, '#4169e1');
+  tGrad.addColorStop(0.5, '#ff8c00');
+  tGrad.addColorStop(1, '#ff0000');
+  ctx.fillStyle = tGrad;
+  ctx.fillRect(500, 80, 180, 15);
+  ctx.fillStyle = '#aaa';
+  ctx.fillText('Cold', 500, 110);
+  ctx.fillText('Hot', 660, 110);
+
+  if (playing && microFrame < 300) microFrame++;
+}
+
+// Process selection
+function drawSelect() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const complexity = document.getElementById('complexity').value;
+  const batch = document.getElementById('batch').value;
+  const material = document.getElementById('material').value;
+
+  // Decision tree
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#fff';
+
+  // Root
+  drawBox(280, 20, 140, 35, '#4682b4', 'Start');
+  drawArrow(350, 55, 350, 80);
+
+  // Q1: Material
+  drawBox(250, 80, 200, 35, '#daa520', 'Material?');
+
+  // Branches
+  if (material === 'ni') {
+    drawArrow(350, 115, 350, 140);
+    drawBox(220, 140, 260, 35, '#2e8b57', 'Investment casting (only option)');
+    ctx.fillStyle = '#90ee90';
+    ctx.fillText('Ni superalloys require investment casting', 200, 195);
+    return;
+  }
+
+  drawArrow(350, 115, 350, 140);
+  drawBox(250, 140, 200, 35, '#daa520', 'Complexity?');
+
+  if (complexity === 'high') {
+    drawArrow(350, 175, 350, 200);
+    if (batch === '10000') {
+      drawBox(220, 200, 260, 35, '#2e8b57', 'Die casting (HPDC)');
+      ctx.fillStyle = '#90ee90';
+      ctx.fillText('High complexity + high volume → HPDC', 200, 255);
+    } else {
+      drawBox(220, 200, 260, 35, '#2e8b57', 'Investment casting');
+      ctx.fillStyle = '#90ee90';
+      ctx.fillText('High complexity + low/med volume → Investment', 180, 255);
+    }
+  } else if (complexity === 'med') {
+    drawArrow(350, 175, 350, 200);
+    if (batch === '10000') {
+      drawBox(220, 200, 260, 35, '#2e8b57', 'Die casting / Perm. mold');
+      ctx.fillStyle = '#90ee90';
+      ctx.fillText('Medium complexity + high volume → Die/Perm mold', 170, 255);
+    } else {
+      drawBox(220, 200, 260, 35, '#2e8b57', 'Shell molding / Perm. mold');
+      ctx.fillStyle = '#90ee90';
+      ctx.fillText('Medium complexity + low/med volume → Shell/Perm', 170, 255);
+    }
+  } else {
+    drawArrow(350, 175, 350, 200);
+    if (batch === '1') {
+      drawBox(220, 200, 260, 35, '#2e8b57', 'Sand casting / Lost-foam');
+      ctx.fillStyle = '#90ee90';
+      ctx.fillText('Low complexity + single part → Sand / Lost-foam', 170, 255);
+    } else {
+      drawBox(220, 200, 260, 35, '#2e8b57', 'Sand casting / Perm. mold');
+      ctx.fillStyle = '#90ee90';
+      ctx.fillText('Low complexity + volume → Sand / Perm. mold', 170, 255);
+    }
+  }
+
+  // Legend
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Adjust parameters to see the recommended process.', 200, 320);
+}
+
+function drawBox(x, y, w, h, color, text) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 6);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, x + w/2, y + h/2 + 4);
+  ctx.textAlign = 'left';
+}
+
+function drawArrow(x1, y1, x2, y2) {
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.fillStyle = '#888';
+  ctx.beginPath();
+  ctx.moveTo(x2, y2 + 5);
+  ctx.lineTo(x2 - 5, y2 - 3);
+  ctx.lineTo(x2 + 5, y2 - 3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function animate() {
+  if (mode === 'fill') drawFill();
+  else if (mode === 'micro') drawMicro();
+  else drawSelect();
+  if (playing || mode === 'select') animId = requestAnimationFrame(animate);
+}
+
+function resetAll() {
+  playing = false;
+  fillLevel = 0;
+  microFrame = 0;
+  frame = 0;
+  centFrame = 0;
+  if (animId) cancelAnimationFrame(animId);
+  animate();
+}
+}
+
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (mode !== 'fill') return;
+  playing = !playing;
+  document.getElementById('btn-play').textContent = playing ? '⏸ Pause' : '▶ Play';
+  if (playing) animate();
+});
+document.getElementById('btn-reset').addEventListener('click', () => { if (mode === 'fill') { fillLevel = 0; playing = false; document.getElementById('btn-play').textContent = '▶ Play'; animate(); } });
+
+document.getElementById('btn-play2').addEventListener('click', () => {
+  if (mode !== 'micro') return;
+  playing = !playing;
+  document.getElementById('btn-play2').textContent = playing ? '⏸ Pause' : '▶ Play';
+  if (playing) animate();
+});
+document.getElementById('btn-reset2').addEventListener('click', () => { if (mode === 'micro') { microFrame = 0; playing = false; document.getElementById('btn-play2').textContent = '▶ Play'; animate(); } });
+
+// Re-render on select change
+document.getElementById('complexity').addEventListener('change', () => { if (mode === 'select') animate(); });
+document.getElementById('batch').addEventListener('change', () => { if (mode === 'select') animate(); });
+document.getElementById('material').addEventListener('change', () => { if (mode === 'select') animate(); });
+
+// Initial draw
+animate();
+</script>
+</body>
+</html>

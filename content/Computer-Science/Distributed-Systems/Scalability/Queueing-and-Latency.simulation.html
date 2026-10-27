@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>M/M/1 queue simulation with N servers</title>
+<style>
+  html,body{margin:0;padding:0;background:#fbfcfe;font-family:Georgia,'Times New Roman',serif;color:#223;}
+  .wrap{padding:10px 14px;}
+  h1{font-size:17px;margin:4px 0 8px;}
+  .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:8px;font-size:13px;}
+  .ctl{display:flex;flex-direction:column;min-width:170px;}
+  .ctl label{font-size:12px;margin-bottom:2px;}
+  .ctl label b{float:right;font-family:Menlo,Consolas,monospace;}
+  input[type=range]{width:100%;}
+  button{font-family:inherit;font-size:13px;padding:4px 12px;border:1px solid #8899bb;background:#eef3fb;border-radius:4px;cursor:pointer;}
+  button:hover{background:#dfe8f7;}
+  canvas{display:block;background:#fff;border:1px solid #ccd;border-radius:4px;margin-bottom:8px;}
+  #stats{font-size:13px;line-height:1.5;}
+  #stats .warn{color:#c0392b;font-weight:bold;}
+  #stats code{font-family:Menlo,Consolas,monospace;background:#eef2f8;padding:1px 4px;border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>M/M/1 queues: load split across N servers</h1>
+  <div class="controls">
+    <div class="ctl"><label>arrival rate λ <b id="lamV">800 /s</b></label><input id="lam" type="range" min="10" max="1900" step="10" value="800"></div>
+    <div class="ctl"><label>service rate μ (per server) <b id="muV">1000 /s</b></label><input id="mu" type="range" min="100" max="2000" step="10" value="1000"></div>
+    <div class="ctl"><label>servers N <b id="nV">1</b></label><input id="n" type="range" min="1" max="16" step="1" value="1"></div>
+    <button id="pause">Pause</button>
+    <button id="reset">Reset</button>
+  </div>
+  <canvas id="viz" width="860" height="170"></canvas>
+  <canvas id="chart" width="860" height="210"></canvas>
+  <div id="stats"></div>
+</div>
+<script>
+(function(){
+  var lamEl=document.getElementById('lam'), muEl=document.getElementById('mu'), nEl=document.getElementById('n');
+  var lamV=document.getElementById('lamV'), muV=document.getElementById('muV'), nV=document.getElementById('nV');
+  var viz=document.getElementById('viz'), chart=document.getElementById('chart');
+  var vctx=viz.getContext('2d'), cctx=chart.getContext('2d');
+  var stats=document.getElementById('stats');
+  var SPEED=25;            // simulated seconds per real second
+  var WINDOW=40;           // rolling stats window (sim seconds)
+  var CHART_SPAN=120;      // chart time span (sim seconds)
+
+  var lambda, mu, N, servers, rr, simTime, nextArrival, currentTime, paused, samples, completions, hist;
+
+  function expRand(rate){ return -Math.log(1-Math.random())/rate; }
+
+  function reset(){
+    lambda=+lamEl.value; mu=+muEl.value; N=+nEl.value;
+    lamV.textContent=lambda+' /s'; muV.textContent=mu+' /s'; nV.textContent=N;
+    servers=[]; for(var i=0;i<N;i++) servers.push({queue:[],busy:false,cur:null,done:0,svc:1});
+    rr=0; simTime=0; currentTime=0; paused=false;
+    nextArrival=expRand(lambda);
+    samples=[]; completions=[]; hist=[];
+  }
+  function advanceTo(t){
+    for(;;){
+      var s=null, best=Infinity;
+      for(var i=0;i<servers.length;i++){ var q=servers[i]; if(q.busy && q.done<best){best=q.done; s=q;} }
+      if(!s || best>t) break;
+      currentTime=best;
+      var job=s.cur;
+      completions.push({t:best, w:best-job.arrived});
+      if(s.queue.length){ s.cur=s.queue.shift(); s.svc=expRand(mu); s.done=best+s.svc; }
+      else { s.busy=false; s.cur=null; }
+    }
+    currentTime=t;
+  }
+
+  function step(dt){
+    var target=simTime+dt;
+    while(nextArrival<=target){
+      advanceTo(nextArrival);
+      var s=servers[Math.floor(Math.random()*N)]; // uniform split: thinned Poisson streams stay Poisson
+      var job={arrived:nextArrival};
+      if(!s.busy){ s.busy=true; s.cur=job; s.svc=expRand(mu); s.done=nextArrival+s.svc; }
+      else s.queue.push(job);
+      nextArrival+=expRand(lambda);
+    }
+    advanceTo(target);
+    simTime=target;
+    // prune + sample
+    while(completions.length && completions[0].t<simTime-WINDOW) completions.shift();
+    var last=hist.length?hist[hist.length-1]:null;
+    if(!last || simTime-last.t>0.25){
+      var w=0; for(var i=0;i<completions.length;i++) w+=completions[i].w;
+      w=completions.length? w/completions.length : 0;
+      hist.push({t:simTime,w:w});
+      while(hist.length && hist[0].t<simTime-CHART_SPAN) hist.shift();
+    }
+  }
+
+  function theory(){
+    var lp=lambda/N;
+    if(lp>=mu) return {rho:1, W:Infinity, sat:true};
+    return {rho:lp/mu, W:1/(mu-lp), sat:false};
+  }
+
+  function drawViz(){
+    var w=viz.width, h=viz.height;
+    vctx.clearRect(0,0,w,h);
+    vctx.font='12px Georgia'; 
+    var colW=Math.min(52,(w-40)/N), gap=Math.min(10,(w-40)/N*0.2);
+    var total=N*colW+(N-1)*gap, x0=(w-total)/2;
+    var maxQ=14;
+    for(var i=0;i<N;i++){
+      var x=x0+i*(colW+gap);
+      var q=servers[i].queue;
+      // queue slots
+      var shown=Math.min(q.length,maxQ);
+      for(var j=0;j<shown;j++){
+        var y=18+j*9;
+        vctx.fillStyle='#7f9cc4';
+        vctx.fillRect(x+colW/2-14,y,28,7);
+      }
+      if(q.length>maxQ){
+        vctx.fillStyle='#4a6fa5';
+        vctx.fillText('+'+(q.length-maxQ), x+colW/2+16, 18+maxQ*9);
+      }
+      // server box
+      var by=18+maxQ*9+14;
+      vctx.strokeStyle='#3d8b57'; vctx.lineWidth=2;
+      vctx.strokeRect(x,by,colW,34);
+      vctx.fillStyle='#1d5c38';
+      vctx.fillText('S'+(i+1), x+4, by+13);
+      if(servers[i].busy){
+        var prog=1-Math.max(0,(servers[i].done-currentTime)/servers[i].svc);
+        vctx.fillStyle='#a8d5b5';
+        vctx.fillRect(x+2,by+18,(colW-4)*Math.min(1,prog),12);
+        vctx.strokeStyle='#3d8b57'; vctx.lineWidth=1;
+        vctx.strokeRect(x+2,by+18,colW-4,12);
+      }
+      // utilization bar under server
+      var lp=lambda/N, rho=Math.min(1,lp/mu);
+      vctx.fillStyle=rho>0.85?'#c0392b':(rho>0.7?'#e67e22':'#3d8b57');
+      vctx.fillRect(x,by+40,colW*rho,4);
+      vctx.strokeStyle='#aab'; vctx.lineWidth=1; vctx.strokeRect(x,by+40,colW,4);
+    }
+    vctx.fillStyle='#334';
+    vctx.fillText('green bar = per-server utilization ρ = λ/(Nμ)   ·   squares = queued jobs', 8, h-6);
+  }
+
+  function drawChart(){
+    var w=chart.width, h=chart.height, padL=52, padB=24, padT=12;
+    cctx.clearRect(0,0,w,h);
+    var th=theory();
+    var wMax=th.sat?20:Math.max(2.5, th.W*1.15);
+    // also consider measured max
+    for(var i=0;i<hist.length;i++) if(hist[i].w>wMax && isFinite(hist[i].w)) wMax=hist[i].w*1.1;
+    function X(t){ return padL+(t-(simTime-CHART_SPAN))/CHART_SPAN*(w-padL-10); }
+    function Y(v){ return h-padB-(Math.min(v,wMax)/wMax)*(h-padB-padT); }
+    // gridlines
+    cctx.strokeStyle='#dde'; cctx.lineWidth=1; cctx.fillStyle='#556'; cctx.font='11px Georgia';
+    for(var g=0;g<=4;g++){
+      var v=wMax*g/4, y=Y(v);
+      cctx.beginPath(); cctx.moveTo(padL,y); cctx.lineTo(w-10,y); cctx.stroke();
+      cctx.fillText(v.toFixed(v<10?1:0)+' ms', 4, y+4);
+    }
+    // axes
+    cctx.strokeStyle='#334'; cctx.lineWidth=1.5;
+    cctx.beginPath(); cctx.moveTo(padL,padT); cctx.lineTo(padL,h-padB); cctx.lineTo(w-10,h-padB); cctx.stroke();
+    cctx.fillText('time →', w-60, h-8);
+    // theoretical line
+    if(!th.sat){
+      cctx.strokeStyle='#4a6fa5'; cctx.lineWidth=1.5; cctx.setLineDash([5,4]);
+      cctx.beginPath(); cctx.moveTo(padL,Y(th.W)); cctx.lineTo(w-10,Y(th.W)); cctx.stroke();
+      cctx.setLineDash([]);
+      cctx.fillStyle='#4a6fa5';
+      cctx.fillText('theory W = 1/(μ − λ/N) = '+(th.W*1000).toFixed(1)+' ms', padL+8, Y(th.W)-5);
+    } else {
+      cctx.fillStyle='#c0392b';
+      cctx.fillText('saturated: λ/N ≥ μ — queue grows without bound', padL+8, padT+14);
+    }
+    // measured trace
+    cctx.strokeStyle='#c0392b'; cctx.lineWidth=2;
+    cctx.beginPath();
+    var started=false;
+    for(var i=0;i<hist.length;i++){
+      var p=hist[i];
+      if(!isFinite(p.w)) continue;
+      var x=X(p.t), y=Y(p.w);
+      if(!started){ cctx.moveTo(x,y); started=true; } else cctx.lineTo(x,y);
+    }
+    cctx.stroke();
+    cctx.fillStyle='#c0392b';
+    cctx.fillText('measured avg time in system', padL+8, padT+14);
+  }
+
+  function drawStats(){
+    var th=theory();
+    var w=0; for(var i=0;i<completions.length;i++) w+=completions[i].w;
+    w=completions.length? w/completions.length : NaN;
+    var served=0; // rough total via completions rate
+    var html='per-server load λ/N = <code>'+(lambda/N).toFixed(0)+' /s</code> · '+
+      'ρ = λ/(Nμ) = <code>'+th.rho.toFixed(3)+'</code> · '+
+      (th.sat
+        ? '<span class="warn">SATURATED — increase N or μ, or rate-limit λ</span>'
+        : 'theory W = <code>'+(th.W*1000).toFixed(1)+' ms</code>');
+    if(!isNaN(w)) html+=' · measured W (last '+WINDOW+' s) = <code>'+(w*1000).toFixed(1)+' ms</code>';
+    html+=' · throughput ≈ <code>'+Math.min(lambda, N*mu).toFixed(0)+' /s</code>';
+    stats.innerHTML=html;
+  }
+
+  var lastNow=null;
+  function frame(now){
+    if(lastNow===null) lastNow=now;
+    var dt=Math.min((now-lastNow)/1000,0.1); lastNow=now;
+    if(!paused) step(dt*SPEED);
+    drawViz(); drawChart(); drawStats();
+    requestAnimationFrame(frame);
+  }
+
+  lamEl.addEventListener('input',function(){ lambda=+lamEl.value; lamV.textContent=lambda+' /s'; });
+  muEl.addEventListener('input',function(){ mu=+muEl.value; muV.textContent=mu+' /s'; });
+  nEl.addEventListener('input',function(){ var old=servers; N=+nEl.value; nV.textContent=N;
+    var ns=[]; for(var i=0;i<N;i++) ns.push(i<old.length?old[i]:{queue:[],busy:false,cur:null,done:0,svc:1});
+    servers=ns; });
+  document.getElementById('pause').addEventListener('click',function(){ paused=!paused; this.textContent=paused?'Resume':'Pause'; });
+  document.getElementById('reset').addEventListener('click',reset);
+
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brownian motion — interactive demo</title>
+<style>
+  :root { --ink:#22303c; --line:#c9d3dc; --blue:#2c5f8a; --red:#c0392b; --green:#1e7d4f; --bg:#fafafa; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:var(--ink); background:#fff; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 14px 16px 26px; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  p.sub { margin: 0 0 14px; font-size: 13px; color:#5a6b78; }
+  .panel { border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:16px; background:var(--bg); }
+  .panel h2 { font-size:14px; margin:0 0 4px; }
+  .panel .desc { font-size:12.5px; color:#5a6b78; margin:0 0 10px; line-height:1.45; }
+  canvas { display:block; width:100%; height:auto; background:#fff; border:1px solid #e6ebf0; border-radius:6px; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:center; margin-top:10px; font-size:13px; }
+  .row label { display:flex; align-items:center; gap:6px; }
+  button { font:inherit; font-size:13px; padding:5px 12px; border:1px solid var(--blue); background:var(--blue); color:#fff; border-radius:6px; cursor:pointer; }
+  button:hover { filter:brightness(1.08); }
+  input[type=range] { width:150px; }
+  .val { font-variant-numeric: tabular-nums; min-width:52px; display:inline-block; }
+  .legend { font-size:12px; color:#5a6b78; margin-top:8px; }
+  .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin-right:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Brownian motion (Wiener process)</h1>
+  <p class="sub">Three views of the same object: a sample path, the random-walk scaling limit that builds it (Donsker), and the quadratic variation that makes It&ocirc; calculus different.</p>
+
+  <div class="panel">
+    <h2>1 &middot; Sample paths</h2>
+    <p class="desc">Each curve is one realization of $W_t$ on $[0,10]$. Increments are Gaussian with variance equal to the time gap, so the path wanders with standard deviation $\sqrt{t}$. Press <em>New paths</em> to resample.</p>
+    <canvas id="c1" width="860" height="300"></canvas>
+    <div class="row">
+      <button id="b1">New paths</button>
+      <label>Number of paths <input type="range" id="n1" min="1" max="12" value="4"><span class="val" id="v1">4</span></label>
+    </div>
+    <div class="legend"><span class="swatch" style="background:var(--blue)"></span>sample path &nbsp; <span class="swatch" style="background:#e0a93b"></span>band $\pm\sqrt{t}$ (typical spread)</div>
+  </div>
+
+  <div class="panel">
+    <h2>2 &middot; Random-walk scaling limit (Donsker)</h2>
+    <p class="desc">A simple symmetric random walk $S_i$ ($\pm1$ steps) is rescaled to $S_{\lfloor nt\rfloor}/\sqrt{n}$ and plotted over $[0,1]$. As $n$ grows the staircase smooths into a continuous Brownian path.</p>
+    <canvas id="c2" width="860" height="300"></canvas>
+    <div class="row">
+      <button id="b2">New walk</button>
+      <label>Steps $n$ <input type="range" id="n2" min="0" max="100" value="20"><span class="val" id="v2">100</span></label>
+    </div>
+    <div class="legend"><span class="swatch" style="background:var(--red)"></span>rescaled random walk $S_{\lfloor nt\rfloor}/\sqrt{n}$</div>
+  </div>
+
+  <div class="panel">
+    <h2>3 &middot; Quadratic variation</h2>
+    <p class="desc">For one path on $[0,1]$, the sum of squared increments $\sum(\Delta W)^2$ over a partition of $m$ equal intervals. For a smooth curve this would collapse to $0$; for Brownian motion it converges to $t=1$.</p>
+    <canvas id="c3" width="860" height="300"></canvas>
+    <div class="row">
+      <button id="b3">New path</button>
+      <label>Intervals $m$ <input type="range" id="n3" min="0" max="100" value="10"><span class="val" id="v3">10</span></label>
+      <span>Current sum: <span class="val" id="qv">–</span></span>
+    </div>
+    <div class="legend"><span class="swatch" style="background:var(--green)"></span>sum of squared increments &nbsp; <span class="swatch" style="background:var(--red)"></span>limit $t=1$</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // Box-Muller standard normal
+  function gauss(){
+    var u=0,v=0;
+    while(u===0) u=Math.random();
+    while(v===0) v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+  function setup(cv){
+    var ctx=cv.getContext("2d");
+    var dpr=window.devicePixelRatio||1;
+    var w=cv.width, h=cv.height;
+    cv.style.width="100%";
+    return {ctx:ctx,w:w,h:h};
+  }
+  function axes(ctx,w,h,pad){
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle="#e6ebf0"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad, h-pad); ctx.lineTo(w-pad, h-pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, h-pad); ctx.stroke();
+  }
+  function label(ctx,txt,x,y,anchor){
+    ctx.fillStyle="#667"; ctx.font="12px system-ui, sans-serif";
+    ctx.textAlign=anchor||"middle"; ctx.fillText(txt,x,y);
+  }
+
+  /* ---------- Panel 1: sample paths ---------- */
+  var c1=document.getElementById("c1"), s1=setup(c1);
+  function drawPaths(){
+    var ctx=s1.ctx, w=s1.w, h=s1.h, pad=40;
+    var N=+document.getElementById("n1").value;
+    document.getElementById("v1").textContent=N;
+    var T=10, x0=pad, x1=w-pad, y0=pad, y1=h-pad;
+    var yMid=(y0+y1)/2, yScale=(y1-y0)/2/3.2; // 3.2 sigma full height
+    axes(ctx,w,h,pad);
+    // zero line
+    ctx.strokeStyle="#ddd"; ctx.beginPath(); ctx.moveTo(x0,yMid); ctx.lineTo(x1,yMid); ctx.stroke();
+    // band +-sqrt(t)
+    ctx.fillStyle="rgba(224,169,59,0.18)";
+    ctx.beginPath();
+    var steps=120;
+    for(var i=0;i<=steps;i++){ var t=T*i/steps; var x=x0+(x1-x0)*i/steps; var y=yMid-Math.sqrt(t)*yScale; if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    for(var i=steps;i>=0;i--){ var t=T*i/steps; var x=x0+(x1-x0)*i/steps; var y=yMid+Math.sqrt(t)*yScale; ctx.lineTo(x,y); }
+    ctx.closePath(); ctx.fill();
+    // paths
+    var cols=["#2c5f8a","#3a7ca5","#5b93bd","#7aa7cc","#2c5f8a","#3a7ca5","#5b93bd","#7aa7cc","#2c5f8a","#3a7ca5","#5b93bd","#7aa7cc"];
+    for(var p=0;p<N;p++){
+      ctx.strokeStyle=cols[p%cols.length]; ctx.lineWidth=1.4; ctx.beginPath();
+      var M=400, W=0;
+      ctx.moveTo(x0,yMid);
+      for(var i=1;i<=M;i++){
+        var t=T*i/M;
+        W+=gauss()*Math.sqrt(T/M);
+        var x=x0+(x1-x0)*i/M;
+        var y=yMid-W*yScale;
+        y=Math.max(y0,Math.min(y1,y));
+        ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+    label(ctx,"t",x1,h-14,"end");
+    label(ctx,"W_t",x0-24,y0+4,"start");
+    label(ctx,"one realization per curve, t \u2208 [0,10]",(x0+x1)/2,h-14);
+  }
+  document.getElementById("b1").onclick=drawPaths;
+  document.getElementById("n1").oninput=drawPaths;
+
+  /* ---------- Panel 2: random walk scaling limit ---------- */
+  var c2=document.getElementById("c2"), s2=setup(c2);
+  var walkSteps=20000; // fine walk to resample
+  var fineWalk=[0];
+  function genWalk(){
+    fineWalk=[0];
+    for(var i=1;i<=walkSteps;i++){ fineWalk.push(fineWalk[i-1]+(Math.random()<0.5?1:-1)); }
+  }
+  function drawWalk(){
+    var ctx=s2.ctx, w=s2.w, h=s2.h, pad=40;
+    var slider=+document.getElementById("n2").value;
+    var n=Math.round(Math.pow(2,slider)); // 1..1024
+    document.getElementById("v2").textContent=n;
+    var x0=pad, x1=w-pad, y0=pad, y1=h-pad;
+    var yMid=(y0+y1)/2, yScale=(y1-y0)/2/3.2;
+    axes(ctx,w,h,pad);
+    ctx.strokeStyle="#ddd"; ctx.beginPath(); ctx.moveTo(x0,yMid); ctx.lineTo(x1,yMid); ctx.stroke();
+    // resampled walk: at time t in [0,1], index = floor(n t)
+    ctx.strokeStyle="#c0392b"; ctx.lineWidth=1.5; ctx.beginPath();
+    var M=600;
+    for(var i=0;i<=M;i++){
+      var t=i/M;
+      var idx=Math.min(walkSteps, Math.floor(n*t));
+      var val=fineWalk[idx]/Math.sqrt(n);
+      var x=x0+(x1-x0)*t;
+      var y=yMid-val*yScale;
+      y=Math.max(y0,Math.min(y1,y));
+      if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    label(ctx,"t",x1,h-14,"end");
+    label(ctx,"S_\u2308nt\u2309/\u221An",x0-24,y0+4,"start");
+    label(ctx,"rescaled random walk \u2192 Brownian path as n grows",(x0+x1)/2,h-14);
+  }
+  document.getElementById("b2").onclick=function(){ genWalk(); drawWalk(); };
+  document.getElementById("n2").oninput=drawWalk;
+
+  /* ---------- Panel 3: quadratic variation ---------- */
+  var c3=document.getElementById("c3"), s3=setup(c3);
+  var qvPath=null;
+  function genQv(){
+    qvPath=[0];
+    var M=4000;
+    for(var i=1;i<=M;i++){ qvPath.push(qvPath[i-1]+gauss()*Math.sqrt(1/M)); }
+  }
+  function drawQv(){
+    var ctx=s3.ctx, w=s3.w, h=s3.h, pad=40;
+    var slider=+document.getElementById("n3").value;
+    var m=Math.round(Math.pow(2,slider)); // 1..1024
+    document.getElementById("v3").textContent=m;
+    var x0=pad, x1=w-pad, y0=pad, y1=h-pad;
+    // compute sum of squared increments over m equal intervals of [0,1]
+    var M=qvPath.length-1;
+    var sum=0;
+    for(var i=0;i<m;i++){
+      var a=Math.round(M*i/m), b=Math.round(M*(i+1)/m);
+      var d=qvPath[b]-qvPath[a];
+      sum+=d*d;
+    }
+    document.getElementById("qv").textContent=sum.toFixed(3);
+    // y range: 0..2
+    var yMax=2, yAt=function(v){ return y1-(y1-y0)*v/yMax; };
+    axes(ctx,w,h,pad);
+    // limit line at 1
+    ctx.strokeStyle="#c0392b"; ctx.lineWidth=1.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(x0,yAt(1)); ctx.lineTo(x1,yAt(1)); ctx.stroke();
+    ctx.setLineDash([]);
+    label(ctx,"t = 1",x1,yAt(1)-6,"end");
+    // bars for m = 1,2,4,...,1024 (log scale)
+    var bars=[];
+    for(var k=0;k<=10;k++){ var mm=Math.pow(2,k); var s=0; for(var i=0;i<mm;i++){ var a=Math.round(M*i/mm), b=Math.round(M*(i+1)/mm); var d=qvPath[b]-qvPath[a]; s+=d*d; } bars.push({m:mm,s:s}); }
+    var bw=(x1-x0)/bars.length*0.6;
+    for(var i=0;i<bars.length;i++){
+      var cx=x0+(x1-x0)*(i+0.5)/bars.length;
+      var hgt=(y1-y0)*Math.min(bars[i].s,yMax)/yMax;
+      ctx.fillStyle=(bars[i].m===m)?"#1e7d4f":"#9ec9b3";
+      ctx.fillRect(cx-bw/2, y1-hgt, bw, hgt);
+      ctx.fillStyle="#667"; ctx.font="11px system-ui, sans-serif"; ctx.textAlign="center";
+      ctx.fillText(bars[i].m, cx, y1+14);
+    }
+    label(ctx,"number of intervals m (log scale)",(x0+x1)/2,h-14);
+    label(ctx,"\u03A3(\u0394W)\u00B2",x0-24,y0+4,"start");
+  }
+  document.getElementById("b3").onclick=function(){ genQv(); drawQv(); };
+  document.getElementById("n3").oninput=drawQv;
+
+  // init
+  drawPaths();
+  genWalk(); drawWalk();
+  genQv(); drawQv();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>X-bar and R Control Chart Simulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 16px; }
+h1 { font-size: 16px; margin-bottom: 8px; color: #fff; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: center; }
+.controls label { font-size: 12px; }
+.controls input[type=range] { width: 100px; }
+.controls button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+.btn-add { background: #4CAF50; color: #fff; }
+.btn-reset { background: #f44336; color: #fff; }
+.btn-auto { background: #2196F3; color: #fff; }
+.info { font-size: 11px; color: #aaa; margin-bottom: 8px; }
+.charts { display: flex; flex-wrap: wrap; gap: 12px; }
+.chart-box { flex: 1; min-width: 300px; background: #16213e; border-radius: 8px; padding: 12px; }
+.chart-box h2 { font-size: 13px; margin-bottom: 6px; color: #90caf9; }
+canvas { width: 100%; height: 180px; display: block; }
+.stats { margin-top: 10px; font-size: 11px; display: flex; gap: 16px; flex-wrap: wrap; }
+.stat { background: #0f3460; padding: 4px 10px; border-radius: 4px; }
+.stat.warn { background: #b71c1c; }
+.stat.ok { background: #1b5e20; }
+</style>
+</head>
+<body>
+<h1>Interactive X-bar and R Control Chart</h1>
+<div class="info">Simulates a bore-diameter process (target 25.000 mm, tolerance ±0.010 mm). Add points manually or run auto-mode. Adjust σ to see capability change.</div>
+<div class="controls">
+  <label>σ (mm): <input type="range" id="sigma" min="0.001" max="0.010" step="0.001" value="0.004"><span id="sigmaVal">0.004</span></label>
+  <label>Mean shift: <input type="range" id="shift" min="-0.010" max="0.010" step="0.001" value="0.002"><span id="shiftVal">+0.002</span></label>
+  <button class="btn-add" onclick="addPoint()">+ Add point</button>
+  <button class="btn-auto" id="autoBtn" onclick="toggleAuto()">▶ Auto</button>
+  <button class="btn-reset" onclick="reset()">Reset</button>
+</div>
+<div class="charts">
+  <div class="chart-box">
+    <h2>X-bar chart (subgroup size = 5)</h2>
+    <canvas id="xbarCanvas" width="480" height="180"></canvas>
+  </div>
+  <div class="chart-box">
+    <h2>R chart (range)</h2>
+    <canvas id="rCanvas" width="480" height="180"></canvas>
+  </div>
+</div>
+<div class="stats" id="stats"></div>
+<script>
+const TARGET = 25.000, TOL = 0.010, USL = TARGET + TOL, LSL = TARGET - TOL;
+const SUBGROUP = 5, MAX_POINTS = 50;
+let sigma = 0.004, shift = 0.002;
+let data = []; // array of subgroup means
+let ranges = [];
+let autoTimer = null;
+
+function randn() { let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+function generateSubgroup() {
+  let vals = [];
+  for (let i=0;i<SUBGROUP;i++) vals.push(TARGET + shift + sigma*randn());
+  let mean = vals.reduce((a,b)=>a+b,0)/SUBGROUP;
+  let range = Math.max(...vals) - Math.min(...vals);
+  return {mean, range};
+}
+
+function addPoint() {
+  if (data.length >= MAX_POINTS) return;
+  let sg = generateSubgroup();
+  data.push(sg.mean);
+  ranges.push(sg.range);
+  draw();
+}
+
+function toggleAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('autoBtn').textContent='▶ Auto'; }
+  else { autoTimer = setInterval(addPoint, 300); document.getElementById('autoBtn').textContent='⏸ Stop'; }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('autoBtn').textContent='▶ Auto'; }
+  data=[]; ranges=[]; draw();
+}
+
+document.getElementById('sigma').oninput = function(){ sigma=parseFloat(this.value); document.getElementById('sigmaVal').textContent=sigma.toFixed(3); };
+document.getElementById('shift').oninput = function(){ shift=parseFloat(this.value); document.getElementById('shiftVal').textContent=(shift>=0?'+':'')+shift.toFixed(3); };
+
+function draw() {
+  drawXbar();
+  drawR();
+  updateStats();
+}
+
+function drawXbar() {
+  let c = document.getElementById('xbarCanvas');
+  let ctx = c.getContext('2d');
+  let W=c.width, H=c.height, pad={l:50,r:10,t:10,b:20};
+  let pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  ctx.clearRect(0,0,W,H);
+  
+  // Determine y range
+  let yMin = LSL - 0.005, yMax = USL + 0.005;
+  if (data.length > 0) {
+    let dMin = Math.min(...data), dMax = Math.max(...data);
+    yMin = Math.min(yMin, dMin - 0.002);
+    yMax = Math.max(yMax, dMax + 0.002);
+  }
+  let yScale = ph/(yMax-yMin);
+  function y(v){ return pad.t + (yMax-v)*yScale; }
+  function x(i){ return pad.l + (i+0.5)*(pw/MAX_POINTS); }
+
+  // Grid
+  ctx.strokeStyle='#2a2a4a'; ctx.lineWidth=0.5;
+  for(let v=yMin; v<=yMax; v+=0.002){ ctx.beginPath(); ctx.moveTo(pad.l,y(v)); ctx.lineTo(W-pad.r,y(v)); ctx.stroke(); }
+
+  // USL/LSL
+  ctx.strokeStyle='#E91E63'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+  ctx.beginPath(); ctx.moveTo(pad.l,y(USL)); ctx.lineTo(W-pad.r,y(USL)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l,y(LSL)); ctx.lineTo(W-pad.r,y(LSL)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#E91E63'; ctx.font='9px sans-serif';
+  ctx.fillText('USL', W-pad.r+1, y(USL)+3);
+  ctx.fillText('LSL', W-pad.r+1, y(LSL)+3);
+
+  // Control limits
+  if (data.length >= 3) {
+    let mean = data.reduce((a,b)=>a+b,0)/data.length;
+    let s = Math.sqrt(data.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(data.length-1));
+    let ucl = mean + 3*s/Math.sqrt(SUBGROUP);
+    let lcl = mean - 3*s/Math.sqrt(SUBGROUP);
+    ctx.strokeStyle='#FF9800'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(pad.l,y(ucl)); ctx.lineTo(W-pad.r,y(ucl)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad.l,y(lcl)); ctx.lineTo(W-pad.r,y(lcl)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#FF9800';
+    ctx.fillText('UCL', W-pad.r+1, y(ucl)+3);
+    ctx.fillText('LCL', W-pad.r+1, y(lcl)+3);
+    // Center line
+    ctx.strokeStyle='#1565C0'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(pad.l,y(mean)); ctx.lineTo(W-pad.r,y(mean)); ctx.stroke();
+    ctx.fillStyle='#1565C0'; ctx.fillText('X̄', W-pad.r+1, y(mean)+3);
+  }
+
+  // Points
+  for (let i=0;i<data.length;i++) {
+    let v = data[i];
+    let out = v > USL || v < LSL;
+    ctx.beginPath();
+    ctx.arc(x(i), y(v), 4, 0, 2*Math.PI);
+    ctx.fillStyle = out ? '#f44336' : '#4CAF50';
+    ctx.fill();
+  }
+
+  // Axis labels
+  ctx.fillStyle='#888'; ctx.font='9px sans-serif';
+  ctx.fillText('1', pad.l, H-5);
+  ctx.fillText(String(MAX_POINTS), W-pad.r-15, H-5);
+  ctx.save(); ctx.translate(10, H/2); ctx.rotate(-Math.PI/2); ctx.fillText('Bore (mm)', 0, 0); ctx.restore();
+}
+
+function drawR() {
+  let c = document.getElementById('rCanvas');
+  let ctx = c.getContext('2d');
+  let W=c.width, H=c.height, pad={l:50,r:10,t:10,b:20};
+  let pw=W-pad.l-pad.r, ph=H-pad.t-pad.b;
+  ctx.clearRect(0,0,W,H);
+
+  let yMax = Math.max(0.02, ...ranges.map(r=>r*1.2));
+  let yScale = ph/yMax;
+  function y(v){ return pad.t + (yMax-v)*yScale; }
+  function x(i){ return pad.l + (i+0.5)*(pw/MAX_POINTS); }
+
+  // Grid
+  ctx.strokeStyle='#2a2a4a'; ctx.lineWidth=0.5;
+  for(let v=0; v<=yMax; v+=0.005){ ctx.beginPath(); ctx.moveTo(pad.l,y(v)); ctx.lineTo(W-pad.r,y(v)); ctx.stroke(); }
+
+  // UCL for R: D4 * Rbar (D4=2.114 for n=5)
+  if (ranges.length >= 3) {
+    let rbar = ranges.reduce((a,b)=>a+b,0)/ranges.length;
+    let uclR = 2.114 * rbar;
+    ctx.strokeStyle='#FF9800'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(pad.l,y(uclR)); ctx.lineTo(W-pad.r,y(uclR)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#FF9800'; ctx.font='9px sans-serif';
+    ctx.fillText('UCL', W-pad.r+1, y(uclR)+3);
+    // Center
+    ctx.strokeStyle='#1565C0'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(pad.l,y(rbar)); ctx.lineTo(W-pad.r,y(rbar)); ctx.stroke();
+    ctx.fillStyle='#1565C0'; ctx.fillText('R̄', W-pad.r+1, y(rbar)+3);
+  }
+
+  // Points
+  for (let i=0;i<ranges.length;i++) {
+    let v = ranges[i];
+    let out = ranges.length>=3 && v > 2.114*(ranges.reduce((a,b)=>a+b,0)/ranges.length);
+    ctx.beginPath();
+    ctx.arc(x(i), y(v), 4, 0, 2*Math.PI);
+    ctx.fillStyle = out ? '#f44336' : '#4CAF50';
+    ctx.fill();
+  }
+
+  ctx.fillStyle='#888'; ctx.font='9px sans-serif';
+  ctx.fillText('1', pad.l, H-5);
+  ctx.fillText(String(MAX_POINTS), W-pad.r-15, H-5);
+  ctx.save(); ctx.translate(10, H/2); ctx.rotate(-Math.PI/2); ctx.fillText('Range (mm)', 0, 0); ctx.restore();
+}
+
+function updateStats() {
+  let el = document.getElementById('stats');
+  if (data.length < 3) { el.innerHTML='<span class="stat">Add at least 3 subgroups for statistics</span>'; return; }
+  let mean = data.reduce((a,b)=>a+b,0)/data.length;
+  let s = Math.sqrt(data.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(data.length-1));
+  let cpkU = (USL - mean)/(3*s);
+  let cpkL = (mean - LSL)/(3*s);
+  let cpk = Math.min(cpkU, cpkL);
+  let rbar = ranges.reduce((a,b)=>a+b,0)/ranges.length;
+  let sigmaEst = rbar/1.128;
+  let cpkEst = Math.min((USL-mean)/(3*sigmaEst), (mean-LSL)/(3*sigmaEst));
+  let cls = cpk >= 1.33 ? 'ok' : (cpk >= 1.0 ? '' : 'warn');
+  el.innerHTML = `
+    <span class="stat">n = ${data.length}</span>
+    <span class="stat">X̄ = ${mean.toFixed(4)} mm</span>
+    <span class="stat">σ (overall) = ${s.toFixed(4)} mm</span>
+    <span class="stat">R̄ = ${rbar.toFixed(4)} mm</span>
+    <span class="stat ${cls}">Cpk = ${cpk.toFixed(2)}</span>
+    <span class="stat ${cpkEst>=1.33?'ok':(cpkEst>=1.0?'':'warn')}">Cpk (R̄/d₂) = ${cpkEst.toFixed(2)}</span>
+  `;
+}
+
+// Initialize with some data
+for(let i=0;i<10;i++) addPoint();
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lithography Resolution Calculator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { font-size: 1.3em; margin-bottom: 16px; color: #fff; }
+.container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 900px; margin: 0 auto; }
+.controls { flex: 1; min-width: 280px; background: #16213e; border-radius: 8px; padding: 20px; }
+.result { flex: 1; min-width: 280px; background: #16213e; border-radius: 8px; padding: 20px; text-align: center; }
+.slider-group { margin-bottom: 18px; }
+.slider-group label { display: block; font-size: 0.9em; margin-bottom: 6px; color: #aab; }
+.slider-group input[type=range] { width: 100%; accent-color: #4fc3f7; }
+.slider-group .value { float: right; color: #4fc3f7; font-weight: bold; }
+.result-value { font-size: 2.2em; font-weight: bold; color: #4fc3f7; margin: 10px 0; }
+.result-sub { font-size: 0.85em; color: #889; margin-top: 8px; }
+.presets { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; }
+.presets button { background: #0f3460; color: #4fc3f7; border: 1px solid #4fc3f7; border-radius: 4px; padding: 5px 10px; font-size: 0.75em; cursor: pointer; }
+.presets button:hover { background: #4fc3f7; color: #1a1a2e; }
+canvas { display: block; margin: 10px auto; border-radius: 4px; }
+.formula { font-size: 0.9em; color: #aab; margin-top: 12px; font-style: italic; }
+</style>
+</head>
+<body>
+<h1>Lithography Resolution Calculator</h1>
+<div class="container">
+<div class="controls">
+<div class="slider-group">
+<label>Wavelength λ <span class="value" id="lamVal">193 nm</span></label>
+<input type="range" id="lam" min="1" max="500" value="193" step="1">
+</div>
+<div class="slider-group">
+<label>Numerical Aperture NA <span class="value" id="naVal">1.35</span></label>
+<input type="range" id="na" min="0.1" max="1.4" value="1.35" step="0.01">
+</div>
+<div class="slider-group">
+<label>Process factor k₁ <span class="value" id="k1Val">0.25</span></label>
+<input type="range" id="k1" min="0.1" max="0.5" value="0.25" step="0.01">
+</div>
+<div class="presets">
+<button onclick="setPreset(436,0.6,0.35)">g-line</button>
+<button onclick="setPreset(365,0.6,0.35)">i-line</button>
+<button onclick="setPreset(248,0.6,0.30)">KrF</button>
+<button onclick="setPreset(193,0.75,0.28)">ArF dry</button>
+<button onclick="setPreset(193,1.35,0.25)">ArF imm.</button>
+<button onclick="setPreset(13.5,0.33,0.30)">EUV 0.33</button>
+<button onclick="setPreset(13.5,0.55,0.30)">EUV 0.55</button>
+</div>
+<p class="formula">R = k₁ · λ / NA</p>
+</div>
+<div class="result">
+<div>Minimum half-pitch</div>
+<div class="result-value" id="resultVal">35.7 nm</div>
+<div class="result-sub" id="doFVal">DOF ≈ 106 nm</div>
+<canvas id="airyCanvas" width="260" height="260"></canvas>
+<div class="result-sub" id="airyLabel">Airy disk pattern (two point sources)</div>
+</div>
+</div>
+<script>
+const lamSlider = document.getElementById('lam');
+const naSlider = document.getElementById('na');
+const k1Slider = document.getElementById('k1');
+const lamVal = document.getElementById('lamVal');
+const naVal = document.getElementById('naVal');
+const k1Val = document.getElementById('k1Val');
+const resultVal = document.getElementById('resultVal');
+const doFVal = document.getElementById('doFVal');
+const canvas = document.getElementById('airyCanvas');
+const ctx = canvas.getContext('2d');
+
+function update() {
+  const lam = parseFloat(lamSlider.value);
+  const na = parseFloat(naSlider.value);
+  const k1 = parseFloat(k1Slider.value);
+  const R = k1 * lam / na;
+  const DOF = 1.0 * lam / (na * na);
+  lamVal.textContent = lam + ' nm';
+  naVal.textContent = na.toFixed(2);
+  k1Val.textContent = k1.toFixed(2);
+  resultVal.textContent = R.toFixed(1) + ' nm';
+  doFVal.textContent = 'DOF ≈ ' + DOF.toFixed(1) + ' nm';
+  drawAiry(R, lam, na);
+}
+
+function drawAiry(R, lam, na) {
+  const w = canvas.width, h = canvas.height;
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, w, h);
+  // Airy disk radius (first zero) in pixels: scale so that R maps to a visible size
+  const airyRadius = 1.22 * lam / na;
+  // Scale: map airyRadius to pixels (log scale for visibility)
+  const scale = 80 / Math.max(airyRadius, 1);
+  const r0 = Math.min(airyRadius * scale, 100);
+  // Separation between two point sources: 2*R (in same scale)
+  const sep = Math.min(2 * R * scale, 200);
+  const cx = w / 2, cy = h / 2;
+  const x1 = cx - sep / 2, x2 = cx + sep / 2;
+  // Draw intensity pattern
+  const imgData = ctx.createImageData(w, h);
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      let intensity = 0;
+      // Airy pattern from source 1
+      const r1 = Math.sqrt((px - x1) * (px - x1) + (py - cy) * (py - cy));
+      const u1 = r1 / r0;
+      if (u1 < 0.01) intensity += 1.0;
+      else {
+        const j1 = besselJ1(3.8317 * u1) / (3.8317 * u1 / 2);
+        intensity += j1 * j1;
+      }
+      // Airy pattern from source 2
+      const r2 = Math.sqrt((px - x2) * (px - x2) + (py - cy) * (py - cy));
+      const u2 = r2 / r0;
+      if (u2 < 0.01) intensity += 1.0;
+      else {
+        const j2 = besselJ1(3.8317 * u2) / (3.8317 * u2 / 2);
+        intensity += j2 * j2;
+      }
+      // Map to color (blue-white)
+      const v = Math.min(intensity, 1.5) / 1.5;
+      const idx = (py * w + px) * 4;
+      imgData.data[idx] = Math.floor(v * 80);
+      imgData.data[idx + 1] = Math.floor(v * 150);
+      imgData.data[idx + 2] = Math.floor(v * 255);
+      imgData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  // Label
+  const resolvable = sep > 2 * r0;
+  ctx.fillStyle = resolvable ? '#4caf50' : '#f44336';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(resolvable ? 'Resolvable (separation > Airy radius)' : 'Not resolvable (overlapping)', w / 2, h - 8);
+}
+
+// Approximation of Bessel J1
+function besselJ1(x) {
+  if (x < 1e-10) return x / 2;
+  // Series for small x, asymptotic for large x
+  if (x < 8) {
+    let sum = 0, term = 1;
+    for (let n = 0; n < 20; n++) {
+      term *= -x * x / (4 * (n + 1) * (n + 2));
+      sum += term / (n + 1);
+    }
+    return x / 2 * sum;
+  } else {
+    return Math.sqrt(2 / (Math.PI * x)) * Math.cos(x - 3 * Math.PI / 4);
+  }
+}
+
+function setPreset(lam, na, k1) {
+  lamSlider.value = lam;
+  naSlider.value = na;
+  k1Slider.value = k1;
+  update();
+}
+
+lamSlider.addEventListener('input', update);
+naSlider.addEventListener('input', update);
+k1Slider.addEventListener('input', update);
+update();
+</script>
+</body>
+</html>

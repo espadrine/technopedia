@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Capillary Action in a Brazing Joint</title>
+<style>
+  body { margin: 0; padding: 12px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+  h2 { font-size: 14px; margin: 0 0 8px; }
+  canvas { display: block; margin: 0 auto; background: #0f0f1a; border-radius: 6px; }
+  .controls { text-align: center; margin-top: 10px; }
+  .controls label { font-size: 12px; margin-right: 6px; }
+  .controls input[type=range] { vertical-align: middle; }
+  button { font-size: 12px; padding: 4px 12px; margin: 4px; cursor: pointer; border-radius: 4px; border: none; background: #4a90d9; color: #fff; }
+  button:hover { background: #357abd; }
+  .info { font-size: 11px; color: #aaa; text-align: center; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h2>Capillary Action in a Brazing Joint</h2>
+<canvas id="c" width="500" height="220"></canvas>
+<div class="controls">
+  <label>Gap: <span id="gapVal">0.10</span> mm</label>
+  <input type="range" id="gap" min="0.03" max="0.30" step="0.01" value="0.10">
+  <button id="play">Play</button>
+  <button id="reset">Reset</button>
+</div>
+<div class="info">Molten filler is drawn into the gap by surface tension (capillary force). Smaller gaps → faster wetting.</div>
+<script>
+(function(){
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const gapSlider = document.getElementById('gap');
+  const gapVal = document.getElementById('gapVal');
+  const playBtn = document.getElementById('play');
+  const resetBtn = document.getElementById('reset');
+
+  let gap = 0.10;
+  let progress = 0; // 0 to 1, how far filler has penetrated
+  let playing = false;
+  let animId = null;
+
+  gapSlider.addEventListener('input', () => {
+    gap = parseFloat(gapSlider.value);
+    gapVal.textContent = gap.toFixed(2);
+  });
+
+  playBtn.addEventListener('click', () => {
+    if (playing) {
+      playing = false;
+      playBtn.textContent = 'Play';
+      if (animId) cancelAnimationFrame(animId);
+    } else {
+      if (progress >= 1) progress = 0;
+      playing = true;
+      playBtn.textContent = 'Pause';
+      tick();
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    progress = 0;
+    playing = false;
+    playBtn.textContent = 'Play';
+    if (animId) cancelAnimationFrame(animId);
+    draw();
+  });
+
+  function tick() {
+    if (!playing) return;
+    // Capillary velocity ~ 1/gap (smaller gap = faster)
+    const speed = 0.008 / (gap * 3);
+    progress += speed;
+    if (progress >= 1) { progress = 1; playing = false; playBtn.textContent = 'Play'; }
+    draw();
+    if (playing) animId = requestAnimationFrame(tick);
+  }
+
+  function draw() {
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+
+    // Scale: gap in mm → pixels (exaggerated for visibility)
+    const gapPx = gap * 200; // 0.03→6px, 0.30→60px
+    const midY = H / 2;
+    const topPlateY = midY - gapPx / 2;
+    const botPlateY = midY + gapPx / 2;
+    const plateH = 30;
+    const leftX = 60;
+    const rightX = W - 60;
+
+    // Draw plates (base metal)
+    ctx.fillStyle = '#667788';
+    ctx.fillRect(leftX, topPlateY - plateH, rightX - leftX, plateH);
+    ctx.fillRect(leftX, botPlateY, rightX - leftX, plateH);
+
+    // Plate labels
+    ctx.fillStyle = '#ccc';
+    ctx.font = '11px system-ui';
+    ctx.fillText('Base metal (top)', leftX + 5, topPlateY - plateH + 18);
+    ctx.fillText('Base metal (bottom)', leftX + 5, botPlateY + 18);
+
+    // Gap indicator
+    ctx.strokeStyle = '#555';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(leftX, topPlateY);
+    ctx.lineTo(rightX, topPlateY);
+    ctx.moveTo(leftX, botPlateY);
+    ctx.lineTo(rightX, botPlateY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Gap label
+    ctx.fillStyle = '#888';
+    ctx.font = '10px system-ui';
+    const gapLabelX = rightX + 5;
+    ctx.fillText(gap.toFixed(2) + ' mm', gapLabelX, midY + 3);
+    // Arrow for gap
+    ctx.strokeStyle = '#888';
+    ctx.beginPath();
+    ctx.moveTo(gapLabelX - 4, topPlateY);
+    ctx.lineTo(gapLabelX - 4, botPlateY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gapLabelX - 7, topPlateY + 3);
+    ctx.lineTo(gapLabelX - 4, topPlateY);
+    ctx.lineTo(gapLabelX - 1, topPlateY + 3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gapLabelX - 7, botPlateY - 3);
+    ctx.lineTo(gapLabelX - 4, botPlateY);
+    ctx.lineTo(gapLabelX - 1, botPlateY - 3);
+    ctx.stroke();
+
+    // Filler in the gap (penetrating from left)
+    const fillLen = (rightX - leftX) * progress;
+    if (fillLen > 0) {
+      const grad = ctx.createLinearGradient(leftX, 0, leftX + fillLen, 0);
+      grad.addColorStop(0, '#ffaa00');
+      grad.addColorStop(1, '#ff6600');
+      ctx.fillStyle = grad;
+      ctx.fillRect(leftX, topPlateY, fillLen, gapPx);
+
+      // Meniscus at the leading edge
+      if (progress < 1) {
+        ctx.fillStyle = '#ffcc44';
+        ctx.beginPath();
+        ctx.ellipse(leftX + fillLen, midY, 4, gapPx / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Filler source (left side, outside the gap)
+    ctx.fillStyle = '#ff8800';
+    ctx.beginPath();
+    ctx.arc(leftX - 15, midY, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '9px system-ui';
+    ctx.fillText('Filler', leftX - 28, midY + 3);
+
+    // Surface tension arrows
+    if (progress > 0.05 && progress < 0.95) {
+      const arrowX = leftX + fillLen + 10;
+      ctx.strokeStyle = '#44ddff';
+      ctx.lineWidth = 1.5;
+      // Top arrow pointing down
+      ctx.beginPath();
+      ctx.moveTo(arrowX, topPlateY - 12);
+      ctx.lineTo(arrowX, topPlateY - 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(arrowX - 3, topPlateY - 5);
+      ctx.lineTo(arrowX, topPlateY - 2);
+      ctx.lineTo(arrowX + 3, topPlateY - 5);
+      ctx.stroke();
+      // Bottom arrow pointing up
+      ctx.beginPath();
+      ctx.moveTo(arrowX, botPlateY + 12);
+      ctx.lineTo(arrowX, botPlateY + 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(arrowX - 3, botPlateY + 5);
+      ctx.lineTo(arrowX, botPlateY + 2);
+      ctx.lineTo(arrowX + 3, botPlateY + 5);
+      ctx.stroke();
+      ctx.fillStyle = '#44ddff';
+      ctx.font = '9px system-ui';
+      ctx.fillText('σ', arrowX + 5, midY + 3);
+      ctx.lineWidth = 1;
+    }
+
+    // Status
+    ctx.fillStyle = '#aaa';
+    ctx.font = '11px system-ui';
+    if (progress >= 1) {
+      ctx.fillText('✓ Joint fully wetted', leftX, H - 10);
+    } else if (progress > 0) {
+      ctx.fillText('Wetting: ' + Math.round(progress * 100) + '%', leftX, H - 10);
+    } else {
+      ctx.fillText('Press Play to start capillary flow', leftX, H - 10);
+    }
+  }
+
+  draw();
+})();
+</script>
+</body>
+</html>

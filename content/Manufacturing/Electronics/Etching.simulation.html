@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Etch profile simulator: isotropic wet vs RIE vs Bosch DRIE</title>
+<style>
+  body { margin:0; background:#101828; color:#e5e9f0; font-family:'Segoe UI',sans-serif; display:flex; flex-direction:column; align-items:center; }
+  h1 { font-size:1.05em; margin:10px 4px 2px; text-align:center; }
+  #modeinfo { font-size:0.82em; color:#9fb0c3; max-width:600px; text-align:center; margin:2px 10px 6px; line-height:1.35; }
+  #phase { font-size:0.95em; font-weight:bold; margin:2px 0; min-height:1.2em; }
+  #phase.etch { color:#ff6b6b; }
+  #phase.pass { color:#4ecdc4; }
+  #phase.idle { color:#9fb0c3; font-weight:normal; }
+  canvas { border:1px solid #2a3a55; border-radius:6px; background:#101828; }
+  .controls { display:flex; gap:8px; align-items:center; margin:10px 6px 4px; flex-wrap:wrap; justify-content:center; }
+  button { padding:6px 12px; border:1px solid #3a4a66; border-radius:5px; background:#1c2a44; color:#e5e9f0; cursor:pointer; font-size:0.85em; }
+  button.mode.active { background:#4ecdc4; color:#10202a; border-color:#4ecdc4; font-weight:bold; }
+  #play { background:#4ecdc4; color:#10202a; border-color:#4ecdc4; font-weight:bold; }
+  label { font-size:0.8em; color:#9fb0c3; }
+  input[type=range] { width:90px; vertical-align:middle; }
+  #legend { font-size:0.75em; color:#7a8aa0; margin:4px 8px 12px; text-align:center; }
+</style>
+</head>
+<body>
+<h1>Etch profile under a resist mask — three methods compared</h1>
+<div id="modeinfo"></div>
+<div id="phase" class="idle">Pick a method, then press Play</div>
+<canvas id="cv" width="640" height="380"></canvas>
+<div class="controls">
+  <button class="mode" data-m="wet">Isotropic wet</button>
+  <button class="mode" data-m="rie">RIE (anisotropic)</button>
+  <button class="mode active" data-m="drie">Bosch DRIE</button>
+  <button id="play">▶ Play</button>
+  <button id="reset">↺ Reset</button>
+  <label>Speed <input type="range" id="spd" min="0.3" max="3" step="0.1" value="1"></label>
+</div>
+<div id="legend">Grey = film to etch · dark = substrate · orange = resist mask · red = etch front · teal = C₄F₈ passivation · dashed lines = original mask edge</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = 640, H = 380;
+const SURF = 90, FILM_B = 300, SUB_B = 372;
+const XL = 250, XR = 390;
+const MAXD = FILM_B - SURF;                 // film thickness in px
+const UM_PER_PX = 6 / MAXD;                 // film is 6 µm thick
+const OPEN_UM = (XR - XL) * UM_PER_PX;      // mask opening width in µm
+
+const MODES = {
+  wet: {
+    dur: 9,
+    label: 'Isotropic wet etch (e.g. 49 % HF on SiO₂)',
+    info: 'A liquid etchant attacks every exposed surface at the same rate, so the lateral undercut equals the vertical depth. The profile is a stadium: semicircular sidewalls meeting a flat bottom. Fine for sacrificial-layer release; useless for nanometre-scale patterns.'
+  },
+  rie: {
+    dur: 7,
+    label: 'Anisotropic RIE (e.g. CHF₃/O₂ on SiO₂)',
+    info: 'Ions accelerated through the sheath remove material vertically, while inhibitor chemistry suppresses the lateral (radical) attack. Vertical walls, no undercut, no scallops — the workhorse of CMOS patterning.'
+  },
+  drie: {
+    dur: 14,
+    label: 'Bosch DRIE: etch (SF₆ for Si · CHF₃/CF₄ for SiO₂) + C₄F₈ passivation',
+    info: 'Alternating short isotropic etches (SF₆ for Si as in MEMS and TSVs; CHF₃ or CF₄ for SiO₂ as in 3D NAND) and C₄F₈ passivation steps. Each cycle re-protects the sidewalls, so the trench stays vertical, but every cycle bites a small lateral scallop (~5–20 nm). This trade buys aspect ratios above 100:1.'
+  }
+};
+
+// Bosch cycle constants
+const NC = 7;                 // number of Bosch cycles
+const STEPD = MAXD / NC;      // depth removed per cycle (px)
+const AMP = 6;                // scallop amplitude (px)
+const ETCHF = 0.62;           // fraction of each cycle spent etching
+
+let mode = 'drie', playing = false, e = 0, speed = 1, last = 0;
+const playBtn = document.getElementById('play');
+const phaseEl = document.getElementById('phase');
+const infoEl = document.getElementById('modeinfo');
+
+function drieState() {
+  const cycDur = MODES.drie.dur / NC;
+  const k = Math.min(Math.floor(e / cycDur), NC - 1);
+  const f = e / cycDur - k;
+  if (f < ETCHF) return { phase: 'etch', k, depth: (k + f / ETCHF) * STEPD };
+  return { phase: 'pass', k, depth: (k + 1) * STEPD };
+}
+function currentDepth() {
+  if (mode === 'drie') return drieState().depth;
+  return (e / MODES[mode].dur) * MAXD;
+}
+function drieOff(y) {
+  const i = Math.min(Math.floor(y / STEPD), NC - 1);
+  const local = Math.min((y - i * STEPD) / STEPD, 1);
+  return AMP * Math.sin(Math.PI * local);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const depth = currentDepth();
+
+  // substrate
+  ctx.fillStyle = '#232c3d';
+  ctx.fillRect(0, FILM_B, W, SUB_B - FILM_B);
+  ctx.fillStyle = '#8fa3bd'; ctx.font = '12px sans-serif';
+  ctx.fillText('Si substrate', 14, FILM_B + 22);
+
+  // film to etch
+  ctx.fillStyle = '#5a6b8c';
+  ctx.fillRect(0, SURF, W, FILM_B - SURF);
+  ctx.fillStyle = '#c7d3e8';
+  ctx.fillText('film to etch (SiO₂ / poly-Si)', 14, SURF + 18);
+
+  // original mask edges (dashed)
+  ctx.strokeStyle = '#7a8aa0'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(XL, SURF - 20); ctx.lineTo(XL, FILM_B);
+  ctx.moveTo(XR, SURF - 20); ctx.lineTo(XR, FILM_B);
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // etched region
+  ctx.fillStyle = '#101828';
+  if (mode === 'wet') {
+    const r = depth;
+    ctx.beginPath();
+    ctx.moveTo(XL - r, SURF);
+    ctx.arc(XL, SURF, r, Math.PI, Math.PI / 2, true);
+    ctx.lineTo(XR, SURF + r);
+    ctx.arc(XR, SURF, r, Math.PI / 2, 0, true);
+    ctx.closePath(); ctx.fill();
+  } else if (mode === 'rie') {
+    ctx.fillRect(XL, SURF, XR - XL, depth);
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(XL, SURF);
+    for (let y = 0; y <= depth; y += 3) ctx.lineTo(XL - drieOff(y), SURF + y);
+    ctx.lineTo(XL - drieOff(depth), SURF + depth);
+    ctx.lineTo(XR + drieOff(depth), SURF + depth);
+    for (let y = depth; y >= 0; y -= 3) ctx.lineTo(XR + drieOff(y), SURF + y);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // passivation layer (Bosch passivation step)
+  const st = mode === 'drie' ? drieState() : null;
+  if (st && st.phase === 'pass' && depth > 2) {
+    ctx.strokeStyle = '#4ecdc4'; ctx.lineWidth = 4;
+    ctx.beginPath();
+    for (let y = 0; y <= depth; y += 3) {
+      const x = XL - drieOff(y);
+      y === 0 ? ctx.moveTo(x, SURF) : ctx.lineTo(x, SURF + y);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for (let y = 0; y <= depth; y += 3) {
+      const x = XR + drieOff(y);
+      y === 0 ? ctx.moveTo(x, SURF) : ctx.lineTo(x, SURF + y);
+    }
+    ctx.stroke();
+  }
+
+  // etch front
+  if (depth > 0.5 && depth < MAXD - 0.5) {
+    const off = mode === 'drie' ? drieOff(depth) : 0;
+    ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(XL - off, SURF + depth);
+    ctx.lineTo(XR + off, SURF + depth);
+    ctx.stroke();
+  }
+
+  // resist mask
+  ctx.fillStyle = '#e8a84f';
+  ctx.fillRect(0, SURF - 18, XL, 18);
+  ctx.fillRect(XR, SURF - 18, W - XR, 18);
+  ctx.fillStyle = '#5c3d10'; ctx.font = '11px sans-serif';
+  ctx.fillText('resist mask', 14, SURF - 5);
+
+  // undercut annotation
+  ctx.font = '11px sans-serif';
+  if (mode === 'wet' && depth > 8) {
+    const r = depth, ay = SURF + 42;
+    ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(XL - r, ay); ctx.lineTo(XL, ay);
+    ctx.moveTo(XL - r + 6, ay - 4); ctx.lineTo(XL - r, ay); ctx.lineTo(XL - r + 6, ay + 4);
+    ctx.moveTo(XL - 6, ay - 4); ctx.lineTo(XL, ay); ctx.lineTo(XL - 6, ay + 4);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd166';
+    ctx.fillText('undercut = depth', XL - r - 10, ay - 8);
+  } else if (mode !== 'wet' && depth > 4) {
+    ctx.fillStyle = '#9fe8c8';
+    ctx.fillText('undercut ≈ 0', XL - 118, SURF + 60);
+  }
+
+  // readouts
+  const dUm = depth * UM_PER_PX;
+  ctx.fillStyle = '#e5e9f0'; ctx.font = '12px sans-serif';
+  ctx.fillText('depth: ' + dUm.toFixed(2) + ' µm', W - 150, SURF + 16);
+  ctx.fillText('aspect ratio: ' + (dUm / OPEN_UM).toFixed(1) + ' : 1', W - 150, SURF + 32);
+  if (mode === 'drie') ctx.fillText('cycle: ' + (st.k + 1) + ' / ' + NC, W - 150, SURF + 48);
+  ctx.fillStyle = '#7a8aa0'; ctx.font = '11px sans-serif';
+  ctx.fillText('opening: ' + OPEN_UM.toFixed(1) + ' µm', W - 150, SURF + (mode === 'drie' ? 64 : 48));
+
+  // phase label
+  if (!playing && e === 0) { phaseEl.textContent = 'Press Play'; phaseEl.className = 'idle'; }
+  else if (mode === 'drie' && st.phase === 'pass') { phaseEl.textContent = 'PASSIVATE (C₄F₈): depositing fluorocarbon on all surfaces'; phaseEl.className = 'pass'; }
+  else if (mode === 'drie') { phaseEl.textContent = 'ETCH (SF₆ for Si / CHF₃ for SiO₂): isotropic bite + ion direction'; phaseEl.className = 'etch'; }
+  else { phaseEl.textContent = MODES[mode].label; phaseEl.className = 'etch'; }
+}
+
+function loop(ts) {
+  if (!playing) return;
+  if (!last) last = ts;
+  e += (ts - last) / 1000 * speed;
+  last = ts;
+  if (e >= MODES[mode].dur) { e = MODES[mode].dur; playing = false; playBtn.textContent = '▶ Play'; }
+  draw();
+  if (playing) requestAnimationFrame(loop);
+}
+
+function setMode(m) {
+  mode = m; e = 0; last = 0; playing = false;
+  playBtn.textContent = '▶ Play';
+  document.querySelectorAll('.mode').forEach(b => b.classList.toggle('active', b.dataset.m === m));
+  infoEl.textContent = MODES[m].info;
+  draw();
+}
+
+document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => setMode(b.dataset.m)));
+playBtn.addEventListener('click', () => {
+  if (e >= MODES[mode].dur) { e = 0; }
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+  last = 0;
+  if (playing) requestAnimationFrame(loop);
+});
+document.getElementById('reset').addEventListener('click', () => { e = 0; playing = false; playBtn.textContent = '▶ Play'; draw(); });
+document.getElementById('spd').addEventListener('input', ev => { speed = +ev.target.value; });
+
+setMode('drie');
+</script>
+</body>
+</html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bosch DRIE Cycle Simulation</title>
+<style>
+body { margin: 0; background: #1a1a2e; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; }
+h1 { font-size: 1.1em; margin: 10px 0 4px; }
+#info { font-size: 0.85em; color: #aaa; margin-bottom: 8px; }
+#phase { font-size: 1em; font-weight: bold; margin: 4px 0; }
+#phase.etch { color: #ff6b6b; }
+#phase.pass { color: #4ecdc4; }
+canvas { border: 1px solid #333; border-radius: 4px; }
+.controls { margin: 10px 0; display: flex; gap: 12px; align-items: center; }
+button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; }
+#playBtn { background: #4ecdc4; color: #1a1a2e; }
+#resetBtn { background: #555; color: #eee; }
+label { font-size: 0.85em; }
+input[type=range] { width: 100px; }
+#legend { font-size: 0.8em; color: #999; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h1>Bosch DRIE Cycle — SiO₂ / Ta₂O₅ Trench</h1>
+<div id="info">Alternating CHF₃ etch and C₄F₈ passivation produce scalloped sidewalls</div>
+<div id="phase" class="etch">Phase: ETCH (CHF₃)</div>
+<canvas id="cv" width="600" height="340"></canvas>
+<div class="controls">
+<button id="playBtn">▶ Play</button>
+<button id="resetBtn">↺ Reset</button>
+<label>Etch depth/cycle: <input type="range" id="etchDepth" min="1" max="8" value="3"></label>
+<label>Passivation: <input type="range" id="passThick" min="1" max="6" value="3"></label>
+</div>
+<div id="legend">Red = etch front &nbsp;|&nbsp; Teal = passivation layer &nbsp;|&nbsp; Grey = SiO₂/Ta₂O₅ &nbsp;|&nbsp; Dark = Si substrate</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+
+let playing = false;
+let frame = 0;
+let etchDepth = 3;
+let passThick = 3;
+const trenchX = 200, trenchW = 200;
+const surfaceY = 60;
+const substrateY = H - 40;
+const maxDepth = substrateY - surfaceY;
+
+let depth = 0;
+let phase = 'etch'; // 'etch' or 'pass'
+let phaseProgress = 0;
+const etchDuration = 40;
+const passDuration = 20;
+
+// Scallop points: array of {x, y} for left and right sidewalls
+let leftWall = [];
+let rightWall = [];
+let scallopPhase = 0; // 0 to 1 within current scallop
+
+function reset() {
+  depth = 0;
+  phase = 'etch';
+  phaseProgress = 0;
+  leftWall = [];
+  rightWall = [];
+  scallopPhase = 0;
+  frame = 0;
+  draw();
+}
+
+function step() {
+  if (!playing) return;
+  frame++;
+  phaseProgress++;
+
+  if (phase === 'etch') {
+    if (phaseProgress >= etchDuration) {
+      phase = 'pass';
+      phaseProgress = 0;
+      // Record scallop point
+      const scallopX = 1 + Math.sin(scallopPhase * Math.PI * 2) * 4;
+      leftWall.push({ x: trenchX + scallopX, y: surfaceY + depth });
+      rightWall.push({ x: trenchX + trenchW - scallopX, y: surfaceY + depth });
+      scallopPhase += 0.5;
+    } else {
+      depth += etchDepth / etchDuration;
+    }
+  } else {
+    if (phaseProgress >= passDuration) {
+      phase = 'etch';
+      phaseProgress = 0;
+    }
+  }
+
+  if (depth >= maxDepth) {
+    depth = maxDepth;
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ Play';
+  }
+
+  draw();
+  if (playing) requestAnimationFrame(step);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Substrate (Si)
+  ctx.fillStyle = '#2d2d3d';
+  ctx.fillRect(0, substrateY, W, H - substrateY);
+  ctx.fillStyle = '#666';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Si substrate', 10, substrateY + 20);
+
+  // Film (SiO₂/Ta₂O₅) - the area not yet etched
+  ctx.fillStyle = '#5a5a7a';
+  // Left block
+  ctx.fillRect(0, surfaceY, trenchX, substrateY - surfaceY);
+  // Right block
+  ctx.fillRect(trenchX + trenchW, surfaceY, W - trenchX - trenchW, substrateY - surfaceY);
+  // Top strip above trench (if depth > 0, the top is open)
+  if (depth < 0.5) {
+    ctx.fillRect(trenchX, surfaceY, trenchW, 1);
+  }
+
+  // Draw the trench (empty space)
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(trenchX, surfaceY, trenchW, depth);
+
+  // Draw scalloped sidewalls
+  if (leftWall.length > 0) {
+    // Left wall
+    ctx.beginPath();
+    ctx.moveTo(trenchX, surfaceY);
+    for (let i = 0; i < leftWall.length; i++) {
+      ctx.lineTo(leftWall[i].x, leftWall[i].y);
+    }
+    ctx.lineTo(trenchX, surfaceY + depth);
+    ctx.lineTo(trenchX, surfaceY);
+    ctx.fillStyle = '#5a5a7a';
+    ctx.fill();
+
+    // Right wall
+    ctx.beginPath();
+    ctx.moveTo(trenchX + trenchW, surfaceY);
+    for (let i = 0; i < rightWall.length; i++) {
+      ctx.lineTo(rightWall[i].x, rightWall[i].y);
+    }
+    ctx.lineTo(trenchX + trenchW, surfaceY + depth);
+    ctx.lineTo(trenchX + trenchW, surfaceY);
+    ctx.fillStyle = '#5a5a7a';
+    ctx.fill();
+  }
+
+  // Passivation layer (teal) on sidewalls during pass phase
+  if (phase === 'pass' && depth > 2) {
+    ctx.strokeStyle = '#4ecdc4';
+    ctx.lineWidth = passThick;
+    ctx.beginPath();
+    ctx.moveTo(trenchX, surfaceY);
+    ctx.lineTo(trenchX, surfaceY + depth);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(trenchX + trenchW, surfaceY);
+    ctx.lineTo(trenchX + trenchW, surfaceY + depth);
+    ctx.stroke();
+  }
+
+  // Etch front (red line at bottom of trench)
+  if (depth > 0 && depth < maxDepth) {
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(trenchX, surfaceY + depth);
+    ctx.lineTo(trenchX + trenchW, surfaceY + depth);
+    ctx.stroke();
+  }
+
+  // Photoresist mask on top
+  ctx.fillStyle = '#e8a838';
+  ctx.fillRect(0, surfaceY - 15, trenchX, 15);
+  ctx.fillRect(trenchX + trenchW, surfaceY - 15, W - trenchX - trenchW, 15);
+  ctx.fillStyle = '#c48a20';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('Photoresist mask', 10, surfaceY - 4);
+
+  // Depth indicator
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('Depth: ' + depth.toFixed(1) + ' nm', W - 130, surfaceY + 20);
+  ctx.fillText('Aspect ratio: ' + (depth > 0 ? (depth / 10).toFixed(1) : '0') + ':1', W - 130, surfaceY + 36);
+
+  // Phase indicator
+  const phaseEl = document.getElementById('phase');
+  if (phase === 'etch') {
+    phaseEl.textContent = 'Phase: ETCH (CHF₃) — removing SiO₂/Ta₂O₅';
+    phaseEl.className = 'etch';
+  } else {
+    phaseEl.textContent = 'Phase: PASSIVATE (C₄F₈) — depositing fluorocarbon';
+    phaseEl.className = 'pass';
+  }
+
+  // Cycle counter
+  const cycles = Math.floor((depth / (etchDepth)) + 0.5);
+  ctx.fillStyle = '#999';
+  ctx.fillText('Cycles: ' + cycles, W - 130, surfaceY + 52);
+}
+
+document.getElementById('playBtn').addEventListener('click', function() {
+  if (depth >= maxDepth) reset();
+  playing = !playing;
+  this.textContent = playing ? '⏸ Pause' : '▶ Play';
+  if (playing) step();
+});
+
+document.getElementById('resetBtn').addEventListener('click', reset);
+document.getElementById('etchDepth').addEventListener('input', function() { etchDepth = +this.value; });
+document.getElementById('passThick').addEventListener('input', function() { passThick = +this.value; });
+
+reset();
+</script>
+</body>
+</html>

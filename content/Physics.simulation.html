@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>How the Four Categories of Physics Relate</title>
+<style>
+body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { margin: 0 0 8px; font-size: 1.1em; text-align: center; }
+#canvas { display: block; margin: 0 auto; border-radius: 8px; background: #0f0f23; cursor: pointer; }
+.hint { text-align: center; margin-top: 10px; font-size: 0.85em; color: #888; }
+</style>
+</head>
+<body>
+<h2>How the Four Categories of Physics Relate</h2>
+<canvas id="canvas" width="760" height="480"></canvas>
+<div class="hint">Click a category to highlight its connections. Click again to reset.</div>
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+
+const categories = [
+  { id: "mech", name: "Mechanics", x: 180, y: 120, color: "#e74c3c", subtopics: ["Space", "Motion", "Force", "Momentum"] },
+  { id: "thermo", name: "Thermodynamics", x: 580, y: 120, color: "#f39c12", subtopics: ["Work", "Energy", "Conservation", "Heat", "Entropy"] },
+  { id: "inter", name: "Interactions", x: 180, y: 360, color: "#3498db", subtopics: ["Gravity", "Electromagnetism", "Strong", "Weak"] },
+  { id: "std", name: "Standard Model", x: 580, y: 360, color: "#2ecc71", subtopics: ["Big Bang", "Particles", "Atoms", "Radioactivity", "QM"] }
+];
+
+const connections = [
+  { from: "mech", to: "thermo", label: "Stat mech derives thermo", dir: "both" },
+  { from: "mech", to: "inter", label: "F = ma; fields act on matter", dir: "both" },
+  { from: "inter", to: "std", label: "QFT quantizes each force", dir: "both" },
+  { from: "std", to: "mech", label: "Correspondence principle", dir: "std_to_mech" },
+  { from: "thermo", to: "std", label: "Quantum stat mech", dir: "both" }
+];
+
+let selected = null;
+
+function getCat(id) { return categories.find(c => c.id === id); }
+
+function drawArrow(x1, y1, x2, y2, color, alpha, label) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const ux = dx/len, uy = dy/len;
+  const startOff = 55, endOff = 55;
+  const sx = x1 + ux * startOff, sy = y1 + uy * startOff;
+  const ex = x2 - ux * endOff, ey = y2 - uy * endOff;
+
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+
+  const aSize = 10;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - aSize*ux + aSize*0.4*uy, ey - aSize*uy - aSize*0.4*ux);
+  ctx.lineTo(ex - aSize*ux - aSize*0.4*uy, ey - aSize*uy + aSize*0.4*ux);
+  ctx.closePath();
+  ctx.fill();
+
+  if (label) {
+    const mx = (sx + ex) / 2, my = (sy + ey) / 2;
+    const ox = -uy * 14, oy = ux * 14;
+    ctx.font = "10px system-ui";
+    ctx.fillStyle = color;
+    ctx.textAlign = "center";
+    ctx.fillText(label, mx + ox, my + oy);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  connections.forEach(conn => {
+    const from = getCat(conn.from), to = getCat(conn.to);
+    let alpha = 0.5;
+    let color = "#888";
+    if (selected) {
+      if (conn.from === selected || conn.to === selected) {
+        alpha = 1.0;
+        color = getCat(selected).color;
+      } else {
+        alpha = 0.12;
+      }
+    }
+    drawArrow(from.x, from.y, to.x, to.y, color, alpha, conn.label);
+  });
+
+  categories.forEach(cat => {
+    const isSelected = selected === cat.id;
+    const isDimmed = selected && !isSelected;
+    const alpha = isDimmed ? 0.25 : 1.0;
+    const bw = 160, bh = 80;
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = isSelected ? cat.color : "#1e1e3a";
+    ctx.strokeStyle = cat.color;
+    ctx.lineWidth = isSelected ? 3 : 2;
+    ctx.beginPath();
+    ctx.roundRect(cat.x - bw/2, cat.y - bh/2, bw, bh, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = isSelected ? "#1a1a2e" : cat.color;
+    ctx.font = "bold 14px system-ui";
+    ctx.textAlign = "center";
+    ctx.fillText(cat.name, cat.x, cat.y - 10);
+
+    ctx.font = "10px system-ui";
+    ctx.fillStyle = isSelected ? "#1a1a2e" : "#aaa";
+    const sub = cat.subtopics.join(", ");
+    if (sub.length > 30) {
+      const mid = Math.ceil(sub.length / 2);
+      const space = sub.indexOf(" ", mid);
+      ctx.fillText(sub.slice(0, space), cat.x, cat.y + 10);
+      ctx.fillText(sub.slice(space + 1), cat.x, cat.y + 24);
+    } else {
+      ctx.fillText(sub, cat.x, cat.y + 12);
+    }
+    ctx.globalAlpha = 1;
+  });
+
+  ctx.font = "11px system-ui";
+  ctx.fillStyle = "#666";
+  ctx.textAlign = "center";
+  ctx.fillText("Arrows show how one category builds upon or constrains another", W/2, H - 12);
+}
+
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+
+  let hit = null;
+  categories.forEach(cat => {
+    const bw = 160, bh = 80;
+    if (mx >= cat.x - bw/2 && mx <= cat.x + bw/2 && my >= cat.y - bh/2 && my <= cat.y + bh/2) {
+      hit = cat.id;
+    }
+  });
+
+  selected = (selected === hit) ? null : hit;
+  draw();
+});
+
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Forming Simulations</title>
+<style>
+body { margin: 0; background: #1a1a2e; display: flex; flex-direction: column; align-items: center; font-family: 'Segoe UI', sans-serif; color: #eee; }
+h2 { margin: 12px 0 4px; font-size: 16px; }
+.tabs { display: flex; gap: 0; margin: 8px 0; }
+.tab { padding: 8px 18px; border: 1px solid #444; background: #2a2a3e; color: #aaa; cursor: pointer; font-size: 13px; border-radius: 4px 4px 0 0; }
+.tab.active { background: #4ecdc4; color: #1a1a2e; font-weight: bold; }
+#controls { margin: 8px 0; display: flex; gap: 12px; align-items: center; }
+button { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+#playBtn { background: #4ecdc4; color: #1a1a2e; }
+#resetBtn { background: #555; color: #eee; }
+#slider { width: 160px; }
+label { font-size: 13px; }
+canvas { border: 1px solid #333; border-radius: 6px; background: #0f0f1a; }
+#info { font-size: 12px; color: #aaa; margin-top: 6px; max-width: 520px; text-align: center; }
+.panel { display: none; }
+.panel.active { display: flex; flex-direction: column; align-items: center; }
+</style>
+</head>
+<body>
+<h2>Forming Operations</h2>
+<div class="tabs">
+<div class="tab active" id="tabDraw">Deep Drawing</div>
+<div class="tab" id="tabBend">Bending / Springback</div>
+</div>
+
+<div class="panel active" id="panelDraw">
+<div id="controls">
+<button id="playBtn">▶ Play</button>
+<button id="resetBtn">↺ Reset</button>
+<label>Speed <input type="range" id="slider" min="1" max="10" value="3"></label>
+</div>
+<canvas id="cvDraw" width="520" height="340"></canvas>
+<div id="infoDraw">The blank (teal) is drawn into the die cavity by the punch. The blank-holder (red) clamps the flange to prevent wrinkling. Watch the wall thin as the cup deepens.</div>
+</div>
+
+<div class="panel" id="panelBend">
+<div id="controls2">
+<button id="playBtn2">▶ Play</button>
+<button id="resetBtn2">↺ Reset</button>
+<label>Speed <input type="range" id="slider2" min="1" max="10" value="3"></label>
+</div>
+<canvas id="cvBend" width="520" height="340"></canvas>
+<div id="infoBend">The sheet is bent around a die. After the die is removed (phase 2), the part elastically recovers by Δθ (springback). The dashed line shows the original angle; the solid line shows the final angle after recovery.</div>
+</div>
+
+<script>
+// Tab switching
+const tabs = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.panel');
+tabs.forEach(tab => {
+  tab.onclick = () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    if (tab.id === 'tabDraw') document.getElementById('panelDraw').classList.add('active');
+    else document.getElementById('panelBend').classList.add('active');
+  };
+});
+
+// === Deep Drawing Simulation ===
+const cvD = document.getElementById('cvDraw');
+const ctxD = cvD.getContext('2d');
+let tD = 0, playingD = false, speedD = 3;
+const W = 520, H = 340;
+const cx = W / 2;
+const dieTop = 100, dieBottom = 260, dieRadius = 80;
+const punchTop = 40, blankHolderY = dieTop - 8;
+const sheetThick = 6, cupDepth = dieBottom - dieTop;
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function drawDeep() {
+  ctxD.clearRect(0, 0, W, H);
+  const punchY = lerp(punchTop, dieBottom - 20, tD);
+  const bhY = lerp(blankHolderY, dieTop, tD);
+
+  ctxD.fillStyle = '#555';
+  ctxD.fillRect(cx - dieRadius - 30, dieTop, 30, dieBottom - dieTop + 20);
+  ctxD.fillRect(cx + dieRadius, dieTop, 30, dieBottom - dieTop + 20);
+  ctxD.fillRect(cx - dieRadius - 30, dieBottom, dieRadius * 2 + 60, 20);
+  ctxD.fillRect(cx - dieRadius - 30, dieTop - 15, 30, 15);
+  ctxD.fillRect(cx + dieRadius, dieTop - 15, 30, 15);
+
+  ctxD.fillStyle = '#e74c3c';
+  ctxD.fillRect(cx - dieRadius - 30, bhY - 10, dieRadius + 30, 10);
+  ctxD.fillRect(cx, bhY - 10, dieRadius + 30, 10);
+
+  ctxD.fillStyle = '#777';
+  const punchW = dieRadius - 5;
+  ctxD.fillRect(cx - punchW, punchY, punchW * 2, 30);
+  ctxD.fillRect(cx - 20, punchY - 60, 40, 60);
+
+  ctxD.strokeStyle = '#4ecdc4';
+  ctxD.lineWidth = sheetThick;
+  ctxD.lineCap = 'round';
+  ctxD.lineJoin = 'round';
+  const flangeLeft = cx - dieRadius - 50;
+  const flangeRight = cx + dieRadius + 50;
+  const wallH = tD * cupDepth;
+  const wallX = dieRadius - 3;
+
+  ctxD.beginPath();
+  ctxD.moveTo(flangeLeft, bhY);
+  ctxD.lineTo(cx - wallX, bhY);
+  ctxD.lineTo(cx - wallX, bhY + wallH);
+  const bottomY = bhY + wallH;
+  ctxD.quadraticCurveTo(cx - wallX, bottomY + 15, cx, bottomY + 15);
+  ctxD.quadraticCurveTo(cx + wallX, bottomY + 15, cx + wallX, bottomY);
+  ctxD.lineTo(cx + wallX, bhY);
+  ctxD.lineTo(flangeRight, bhY);
+  ctxD.stroke();
+
+  ctxD.fillStyle = '#aaa';
+  ctxD.font = '11px sans-serif';
+  ctxD.fillText('Punch', cx - 18, punchY - 40);
+  ctxD.fillText('Blank holder', cx + dieRadius + 35, bhY - 14);
+  ctxD.fillText('Die', cx + dieRadius + 35, dieTop + 40);
+  ctxD.fillText('Blank', flangeLeft - 5, bhY - 10);
+
+  ctxD.fillStyle = '#4ecdc4';
+  ctxD.font = '12px monospace';
+  const ldr = (1 + tD * 0.77).toFixed(2);
+  ctxD.fillText('LDR ≈ ' + ldr, 10, 20);
+  ctxD.fillText('Progress: ' + Math.round(tD * 100) + '%', 10, 38);
+
+  if (tD > 0.05) {
+    ctxD.strokeStyle = '#e74c3c';
+    ctxD.lineWidth = 2;
+    ctxD.beginPath();
+    ctxD.moveTo(cx - dieRadius - 15, bhY - 30);
+    ctxD.lineTo(cx - dieRadius - 15, bhY - 12);
+    ctxD.stroke();
+    ctxD.beginPath();
+    ctxD.moveTo(cx - dieRadius - 19, bhY - 16);
+    ctxD.lineTo(cx - dieRadius - 15, bhY - 10);
+    ctxD.lineTo(cx - dieRadius - 11, bhY - 16);
+    ctxD.stroke();
+    ctxD.fillStyle = '#e74c3c';
+    ctxD.fillText('F_bhf', cx - dieRadius - 40, bhY - 25);
+  }
+}
+
+// === Bending / Springback Simulation ===
+const cvB = document.getElementById('cvBend');
+const ctxB = cvB.getContext('2d');
+let tB = 0, playingB = false, speedB = 3;
+
+// Parameters: 90° bend, R=t, steel
+const theta_bend = 90; // degrees
+const sigma_y = 250e6, E_mod = 200e9;
+const x_param = sigma_y / E_mod; // R/t = 1, so x = sigma_y/(E) * R/t = 0.00125
+const K_val = 4*x_param**3 - 3*x_param + 1;
+const delta_theta = theta_bend * (1 - K_val); // ≈ 0.34°
+
+function drawBend() {
+  ctxB.clearRect(0, 0, W, H);
+  const cxB = W / 2, cyB = H / 2 + 20;
+  const armLen = 120;
+  const R_px = 30; // visual bend radius
+  const sheetW = 8;
+
+  // Phase 1: bending (t 0→0.6), Phase 2: die removal + springback (t 0.6→1)
+  const bendPhase = Math.min(tB / 0.6, 1);
+  const springPhase = Math.max(0, (tB - 0.6) / 0.4);
+
+  // Current angle: starts at 0 (flat), goes to theta_bend during bend, then recovers by delta_theta
+  let currentAngle;
+  if (tB <= 0.6) {
+    currentAngle = theta_bend * bendPhase;
+  } else {
+    currentAngle = theta_bend - delta_theta * springPhase;
+  }
+
+  const halfAngle = (currentAngle / 2) * Math.PI / 180;
+
+  // Draw the bent sheet
+  ctxB.strokeStyle = '#4ecdc4';
+  ctxB.lineWidth = sheetW;
+  ctxB.lineCap = 'round';
+  ctxB.lineJoin = 'round';
+
+  // Left arm
+  const lx1 = cxB - R_px * Math.cos(halfAngle);
+  const ly1 = cyB - R_px * Math.sin(halfAngle);
+  const lx2 = cxB - R_px * Math.cos(halfAngle) - armLen * Math.cos(halfAngle);
+  const ly2 = cyB - R_px * Math.sin(halfAngle) - armLen * Math.sin(halfAngle);
+
+  // Right arm
+  const rx1 = cxB + R_px * Math.cos(halfAngle);
+  const ry1 = cyB - R_px * Math.sin(halfAngle);
+  const rx2 = cxB + R_px * Math.cos(halfAngle) + armLen * Math.cos(halfAngle);
+  const ry2 = cyB - R_px * Math.sin(halfAngle) - armLen * Math.sin(halfAngle);
+
+  ctxB.beginPath();
+  ctxB.moveTo(lx2, ly2);
+  ctxB.lineTo(lx1, ly1);
+  // Arc through the bend
+  ctxB.arc(cxB, cyB, R_px, Math.PI + halfAngle, 2*Math.PI - halfAngle, false);
+  ctxB.lineTo(rx2, ry2);
+  ctxB.stroke();
+
+  // Draw die (only during bend phase)
+  if (tB < 0.6) {
+    ctxB.fillStyle = '#555';
+    // Die punch (V-shape)
+    const dieDepth = R_px + 15;
+    ctxB.beginPath();
+    ctxB.moveTo(cxB - R_px - 10, cyB - dieDepth);
+    ctxB.lineTo(cxB - R_px - 10, cyB + 20);
+    ctxB.lineTo(cxB + R_px + 10, cyB + 20);
+    ctxB.lineTo(cxB + R_px + 10, cyB - dieDepth);
+    ctxB.lineTo(cxB + R_px, cyB - dieDepth + 5);
+    ctxB.lineTo(cxB, cyB - 5);
+    ctxB.lineTo(cxB - R_px, cyB - dieDepth + 5);
+    ctxB.closePath();
+    ctxB.fill();
+    ctxB.fillStyle = '#aaa';
+    ctxB.font = '11px sans-serif';
+    ctxB.fillText('Die (punch)', cxB - 30, cyB + 40);
+  }
+
+  // Show original angle (dashed) after springback
+  if (springPhase > 0) {
+    const origHalf = (theta_bend / 2) * Math.PI / 180;
+    ctxB.setLineDash([5, 5]);
+    ctxB.strokeStyle = '#e74c3c';
+    ctxB.lineWidth = 2;
+    ctxB.beginPath();
+    const olx1 = cxB - R_px * Math.cos(origHalf);
+    const oly1 = cyB - R_px * Math.sin(origHalf);
+    const olx2 = cxB - R_px * Math.cos(origHalf) - armLen * Math.cos(origHalf);
+    const oly2 = cyB - R_px * Math.sin(origHalf) - armLen * Math.sin(origHalf);
+    const orx1 = cxB + R_px * Math.cos(origHalf);
+    const ory1 = cyB - R_px * Math.sin(origHalf);
+    const orx2 = cxB + R_px * Math.cos(origHalf) + armLen * Math.cos(origHalf);
+    const ory2 = cyB - R_px * Math.sin(origHalf) - armLen * Math.sin(origHalf);
+    ctxB.moveTo(olx2, oly2);
+    ctxB.lineTo(olx1, oly1);
+    ctxB.arc(cxB, cyB, R_px, Math.PI + origHalf, 2*Math.PI - origHalf, false);
+    ctxB.lineTo(orx2, ory2);
+    ctxB.stroke();
+    ctxB.setLineDash([]);
+  }
+
+  // Angle arc indicator
+  ctxB.strokeStyle = '#f39c12';
+  ctxB.lineWidth = 1.5;
+  ctxB.beginPath();
+  const arcR = R_px + 20;
+  ctxB.arc(cxB, cyB, arcR, Math.PI + halfAngle, 2*Math.PI - halfAngle, false);
+  ctxB.stroke();
+
+  // Labels
+  ctxB.fillStyle = '#f39c12';
+  ctxB.font = '13px monospace';
+  const angleDeg = (currentAngle).toFixed(2);
+  ctxB.fillText('θ = ' + angleDeg + '°', cxB + arcR + 5, cyB - 10);
+
+  ctxB.fillStyle = '#aaa';
+  ctxB.font = '11px sans-serif';
+  if (tB <= 0.6) {
+    ctxB.fillText('Phase 1: Bending', 10, 20);
+  } else {
+    ctxB.fillText('Phase 2: Springback (die removed)', 10, 20);
+    ctxB.fillStyle = '#e74c3c';
+    ctxB.fillText('Dashed: die angle (θ = ' + theta_bend + '°)', 10, 38);
+    ctxB.fillStyle = '#4ecdc4';
+    ctxB.fillText('Solid: final angle after recovery', 10, 54);
+  }
+
+  // Springback value
+  ctxB.fillStyle = '#4ecdc4';
+  ctxB.font = '12px monospace';
+  ctxB.fillText('Δθ (springback) = ' + delta_theta.toFixed(2) + '°', 10, H - 15);
+  ctxB.fillText('x = σ_y·R/(E·t) = ' + x_param.toFixed(5), 10, H - 32);
+}
+
+// Animation loop
+function animate() {
+  if (playingD) {
+    tD += 0.005 * speedD;
+    if (tD >= 1) { tD = 1; playingD = false; document.getElementById('playBtn').textContent = '▶ Play'; }
+  }
+  if (playingB) {
+    tB += 0.005 * speedB;
+    if (tB >= 1) { tB = 1; playingB = false; document.getElementById('playBtn2').textContent = '▶ Play'; }
+  }
+  drawDeep();
+  drawBend();
+  requestAnimationFrame(animate);
+}
+
+// Controls
+document.getElementById('playBtn').onclick = () => {
+  if (tD >= 1) tD = 0;
+  playingD = !playingD;
+  document.getElementById('playBtn').textContent = playingD ? '⏸ Pause' : '▶ Play';
+};
+document.getElementById('resetBtn').onclick = () => {
+  tD = 0; playingD = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+};
+document.getElementById('slider').oninput = (e) => { speedD = parseInt(e.target.value); };
+
+document.getElementById('playBtn2').onclick = () => {
+  if (tB >= 1) tB = 0;
+  playingB = !playingB;
+  document.getElementById('playBtn2').textContent = playingB ? '⏸ Pause' : '▶ Play';
+};
+document.getElementById('resetBtn2').onclick = () => {
+  tB = 0; playingB = false;
+  document.getElementById('playBtn2').textContent = '▶ Play';
+};
+document.getElementById('slider2').oninput = (e) => { speedB = parseInt(e.target.value); };
+
+drawDeep();
+drawBend();
+animate();
+</script>
+</body>
+</html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deep-Drawing Cup Forming</title>
+<style>
+body { margin: 0; background: #1a1a2e; display: flex; flex-direction: column; align-items: center; font-family: 'Segoe UI', sans-serif; color: #eee; }
+h2 { margin: 12px 0 4px; font-size: 16px; }
+#controls { margin: 8px 0; display: flex; gap: 12px; align-items: center; }
+button { padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+#playBtn { background: #4ecdc4; color: #1a1a2e; }
+#resetBtn { background: #555; color: #eee; }
+#slider { width: 160px; }
+label { font-size: 13px; }
+canvas { border: 1px solid #333; border-radius: 6px; background: #0f0f1a; }
+#info { font-size: 12px; color: #aaa; margin-top: 6px; max-width: 520px; text-align: center; }
+</style>
+</head>
+<body>
+<h2>Deep-Drawing Cup Forming (Cross-Section)</h2>
+<div id="controls">
+<button id="playBtn">▶ Play</button>
+<button id="resetBtn">↺ Reset</button>
+<label>Speed <input type="range" id="slider" min="1" max="10" value="3"></label>
+</div>
+<canvas id="cv" width="520" height="340"></canvas>
+<div id="info">The blank (blue) is drawn into the die cavity by the punch. The blank-holder (red) clamps the flange to prevent wrinkling. Watch the wall thin as the cup deepens.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let t = 0; // 0 to 1 progress
+let playing = false;
+let speed = 3;
+
+const W = 520, H = 340;
+const cx = W / 2;
+const dieTop = 100;
+const dieBottom = 260;
+const dieRadius = 80; // half-width of die cavity
+const punchTop = 40;
+const blankHolderY = dieTop - 8;
+const sheetThick = 6;
+const cupDepth = dieBottom - dieTop; // 160
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  const punchY = lerp(punchTop, dieBottom - 20, t);
+  const blankHolderY2 = lerp(blankHolderY, dieTop, t);
+
+  // Die (grey block with cavity)
+  ctx.fillStyle = '#555';
+  // Left die wall
+  ctx.fillRect(cx - dieRadius - 30, dieTop, 30, dieBottom - dieTop + 20);
+  // Right die wall
+  ctx.fillRect(cx + dieRadius, dieTop, 30, dieBottom - dieTop + 20);
+  // Die bottom
+  ctx.fillRect(cx - dieRadius - 30, dieBottom, dieRadius * 2 + 60, 20);
+  // Die top flange (left)
+  ctx.fillRect(cx - dieRadius - 30, dieTop - 15, 30, 15);
+  // Die top flange (right)
+  ctx.fillRect(cx + dieRadius, dieTop - 15, 30, 15);
+
+  // Blank holder (red)
+  ctx.fillStyle = '#e74c3c';
+  const bhLeft = cx - dieRadius - 30;
+  const bhRight = cx + dieRadius + 30;
+  ctx.fillRect(bhLeft, blankHolderY2 - 10, dieRadius + 30, 10);
+  ctx.fillRect(cx, blankHolderY2 - 10, dieRadius + 30, 10);
+
+  // Punch (dark grey)
+  ctx.fillStyle = '#777';
+  const punchW = dieRadius - 5;
+  ctx.fillRect(cx - punchW, punchY, punchW * 2, 30);
+  // Punch body
+  ctx.fillRect(cx - 20, punchY - 60, 40, 60);
+
+  // Blank (blue) - deforming sheet
+  ctx.strokeStyle = '#4ecdc4';
+  ctx.lineWidth = sheetThick;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // The blank: starts flat, gets drawn into cup
+  // Left flange: from left edge to die wall
+  const flangeLeft = cx - dieRadius - 50;
+  const flangeRight = cx + dieRadius + 50;
+
+  // Cup wall height achieved so far
+  const wallH = t * cupDepth;
+  const wallX = dieRadius - 3;
+
+  ctx.beginPath();
+  // Left flange (horizontal)
+  ctx.moveTo(flangeLeft, blankHolderY2);
+  ctx.lineTo(cx - wallX, blankHolderY2);
+  // Left wall (going down)
+  ctx.lineTo(cx - wallX, blankHolderY2 + wallH);
+  // Bottom (curved)
+  const bottomY = blankHolderY2 + wallH;
+  ctx.quadraticCurveTo(cx - wallX, bottomY + 15, cx, bottomY + 15);
+  ctx.quadraticCurveTo(cx + wallX, bottomY + 15, cx + wallX, bottomY);
+  // Right wall (going up)
+  ctx.lineTo(cx + wallX, blankHolderY2);
+  // Right flange
+  ctx.lineTo(flangeRight, blankHolderY2);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#aaa';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('Punch', cx - 18, punchY - 40);
+  ctx.fillText('Blank holder', cx + dieRadius + 35, blankHolderY2 - 14);
+  ctx.fillText('Die', cx + dieRadius + 35, dieTop + 40);
+  ctx.fillText('Blank', flangeLeft - 5, blankHolderY2 - 10);
+
+  // LDR indicator
+  ctx.fillStyle = '#4ecdc4';
+  ctx.font = '12px monospace';
+  const ldr = (1 + t * 0.77).toFixed(2);
+  ctx.fillText('LDR ≈ ' + ldr, 10, 20);
+  ctx.fillText('Progress: ' + Math.round(t * 100) + '%', 10, 38);
+
+  // Force arrow on blank holder
+  if (t > 0.05) {
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - dieRadius - 15, blankHolderY2 - 30);
+    ctx.lineTo(cx - dieRadius - 15, blankHolderY2 - 12);
+    ctx.stroke();
+    // Arrowhead
+    ctx.beginPath();
+    ctx.moveTo(cx - dieRadius - 19, blankHolderY2 - 16);
+    ctx.lineTo(cx - dieRadius - 15, blankHolderY2 - 10);
+    ctx.lineTo(cx - dieRadius - 11, blankHolderY2 - 16);
+    ctx.stroke();
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillText('F_bhf', cx - dieRadius - 40, blankHolderY2 - 25);
+  }
+}
+
+function animate() {
+  if (playing) {
+    t += 0.005 * speed;
+    if (t >= 1) { t = 1; playing = false; document.getElementById('playBtn').textContent = '▶ Play'; }
+  }
+  draw();
+  requestAnimationFrame(animate);
+}
+
+document.getElementById('playBtn').onclick = () => {
+  if (t >= 1) t = 0;
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? '⏸ Pause' : '▶ Play';
+};
+document.getElementById('resetBtn').onclick = () => {
+  t = 0; playing = false;
+  document.getElementById('playBtn').textContent = '▶ Play';
+};
+document.getElementById('slider').oninput = (e) => { speed = parseInt(e.target.value); };
+
+draw();
+animate();
+</script>
+</body>
+</html>

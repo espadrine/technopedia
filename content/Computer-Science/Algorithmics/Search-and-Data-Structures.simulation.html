@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Search and Data Structures</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;padding:12px}
+h2{font-size:1.1em;margin-bottom:8px}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:8px 16px;background:#16213e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:0.9em}
+.tab.active{background:#0f3460;border-color:#e94560}
+.panel{display:none}
+.panel.active{display:block}
+canvas{background:#16213e;border-radius:8px;display:block;margin:0 auto}
+.controls{margin:10px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{padding:6px 14px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px;cursor:pointer;font-size:0.85em}
+button:hover{background:#e94560}
+input[type=number]{width:60px;padding:4px;background:#16213e;color:#eee;border:1px solid #0f3460;border-radius:4px}
+label{font-size:0.85em}
+.info{font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.4}
+</style>
+</head>
+<body>
+<h2>Search and Data Structures — Interactive Visualizations</h2>
+<div class="tabs">
+<div class="tab active" onclick="showTab(0)">B-Tree</div>
+<div class="tab" onclick="showTab(1)">Hash Table</div>
+<div class="tab" onclick="showTab(2)">Graph Traversal</div>
+</div>
+
+<div class="panel active" id="panel0">
+<canvas id="btreeCanvas" width="700" height="400"></canvas>
+<div class="controls">
+<label>Insert:</label><input type="number" id="btreeVal" value="5" min="0" max="99">
+<button onclick="btreeInsert()">Insert</button>
+<button onclick="btreeReset()">Reset</button>
+<span class="info" id="btreeInfo">B-tree of order 4. Click Insert to add a value and watch splits.</span>
+</div>
+</div>
+
+<div class="panel" id="panel1">
+<canvas id="hashCanvas" width="700" height="350"></canvas>
+<div class="controls">
+<label>Insert:</label><input type="number" id="hashVal" value="7" min="0" max="99">
+<button onclick="hashInsert()">Insert</button>
+<button onclick="hashReset()">Reset</button>
+<label><input type="radio" name="mode" value="chain" checked> Chaining</label>
+<label><input type="radio" name="mode" value="open"> Open Addressing</label>
+<span class="info" id="hashInfo">Table size: 10. Load factor updates as you insert.</span>
+</div>
+</div>
+
+<div class="panel" id="panel2">
+<canvas id="graphCanvas" width="700" height="400"></canvas>
+<div class="controls">
+<button onclick="graphBFS()">BFS</button>
+<button onclick="graphDFS()">DFS</button>
+<button onclick="graphReset()">Reset</button>
+<span class="info" id="graphInfo">Click BFS or DFS to animate traversal from node 0.</span>
+</div>
+</div>
+
+<script>
+function showTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',j===i));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',j===i));
+}
+
+// === B-TREE ===
+let btree=null;
+function BTreeNode(){this.keys=[];this.children=[];this.leaf=true;}
+function btreeReset(){btree=new BTreeNode();drawBTree();}
+function btreeInsert(){
+  const v=parseInt(document.getElementById('btreeVal').value)||0;
+  if(!btree)btree=new BTreeNode();
+  if(btree.keys.length>=3){
+    const newRoot=new BTreeNode();newRoot.leaf=false;
+    newRoot.children.push(btree);
+    splitChild(newRoot,0);
+    insertNonFull(newRoot,v);
+    btree=newRoot;
+  }else{insertNonFull(btree,v);}
+  drawBTree();
+}
+function splitChild(parent,i){
+  const child=parent.children[i];
+  const newSib=new BTreeNode();newSib.leaf=child.leaf;
+  const mid=child.keys.length>>1;
+  newSib.keys=child.keys.splice(mid+1);
+  const pushed=child.keys.pop();
+  if(!child.leaf){newSib.children=child.children.splice(mid+1);}
+  parent.keys.splice(i,0,pushed);
+  parent.children.splice(i+1,0,newSib);
+}
+function insertNonFull(node,v){
+  let i=node.keys.length;
+  if(node.leaf){
+    while(i>0&&node.keys[i-1]>v)i--;
+    node.keys.splice(i,0,v);
+  }else{
+    while(i>0&&node.keys[i-1]>v)i--;
+    if(node.children[i].keys.length>=3){splitChild(node,i);if(v>node.keys[i])i++;}
+    insertNonFull(node.children[i],v);
+  }
+}
+function drawBTree(){
+  const c=document.getElementById('btreeCanvas').getContext('2d');
+  c.clearRect(0,0,700,400);
+  if(!btree)return;
+  const levels=[];let q=[{node:btree,depth:0,x:350}];
+  while(q.length){const{node,depth,x}=q.shift();if(!levels[depth])levels[depth]=[];levels[depth].push({node,x});for(let i=0;i<node.children.length;i++)q.push({node:node.children[i],depth:depth+1,x:0});}
+  levels.forEach((lv,d)=>{const w=700/(lv.length+1);lv.forEach((n,i)=>n.x=w*(i+1));});
+  const yOff=50,levelH=levels.length>1?Math.min(100,300/levels.length):0;
+  function drawNode(node,x,y){
+    const w=Math.max(40,node.keys.length*28+10),h=28;
+    c.fillStyle='#0f3460';c.strokeStyle='#e94560';c.lineWidth=1.5;
+    c.beginPath();c.roundRect(x-w/2,y-h/2,w,h,4);c.fill();c.stroke();
+    c.fillStyle='#eee';c.font='12px monospace';c.textAlign='center';c.textBaseline='middle';
+    node.keys.forEach((k,i)=>{c.fillText(k,x-w/2+14+i*28,y);});
+    return{w,h};
+  }
+  function drawEdges(node,x,y){
+    if(node.leaf)return;
+    const w=Math.max(40,node.keys.length*28+10);
+    const nextY=y+levelH;
+    const childCount=node.children.length;
+    const spacing=700/(childCount+1);
+    node.children.forEach((ch,i)=>{
+      const cx=spacing*(i+1);
+      c.strokeStyle='#444';c.lineWidth=1;
+      c.beginPath();c.moveTo(x,y+14);c.lineTo(cx,nextY-14);c.stroke();
+      drawNode(ch,cx,nextY);
+      drawEdges(ch,cx,nextY);
+    });
+  }
+  const startY=40;
+  drawNode(btree,350,startY);
+  drawEdges(btree,350,startY);
+  document.getElementById('btreeInfo').textContent='B-tree of order 4. Keys: ['+collectKeys(btree)+']. Click Insert to add a value and watch splits.';
+}
+function collectKeys(n){let r=[];n.keys.forEach(k=>r.push(k));n.children.forEach(c=>r=r.concat(collectKeys(c)));return r;}
+
+// === HASH TABLE ===
+const HASH_SIZE=10;
+let hashTable=[];
+function hashReset(){hashTable=Array(HASH_SIZE).fill(null);drawHash();}
+function hashInsert(){
+  const v=parseInt(document.getElementById('hashVal').value)||0;
+  const mode=document.querySelector('input[name=mode]:checked').value;
+  const h=v%HASH_SIZE;
+  if(mode==='chain'){
+    if(!hashTable[h])hashTable[h]=[];
+    hashTable[h].push(v);
+  }else{
+    let i=h,tries=0;
+    while(hashTable[i]!==null&&tries<HASH_SIZE){i=(i+1)%HASH_SIZE;tries++;}
+    if(tries<HASH_SIZE)hashTable[i]=v;
+  }
+  drawHash();
+}
+function drawHash(){
+  const c=document.getElementById('hashCanvas').getContext('2d');
+  c.clearRect(0,0,700,350);
+  const mode=document.querySelector('input[name=mode]:checked').value;
+  const bw=60,bh=30,gap=8,startX=30,startY=60;
+  let count=0;
+  for(let i=0;i<HASH_SIZE;i++){
+    const x=startX+i*(bw+gap),y=startY;
+    c.fillStyle='#0f3460';c.strokeStyle='#444';c.lineWidth=1;
+    c.beginPath();c.roundRect(x,y,bw,bh,3);c.fill();c.stroke();
+    c.fillStyle='#888';c.font='10px monospace';c.textAlign='center';
+    c.fillText('['+i+']',x+bw/2,y-6);
+    if(mode==='chain'){
+      if(hashTable[i]){
+        hashTable[i].forEach((v,j)=>{
+          const vy=y+bh+10+j*24;
+          c.fillStyle=j===0?'#e94560':'#16213e';
+          c.beginPath();c.roundRect(x+5,vy,bw-10,20,3);c.fill();
+          c.fillStyle='#eee';c.font='11px monospace';c.fillText(v,x+bw/2,vy+10);
+          if(j>0){c.strokeStyle='#666';c.beginPath();c.moveTo(x+bw/2,vy-4);c.lineTo(x+bw/2,vy);c.stroke();}
+          count++;
+        });
+      }
+    }else{
+      if(hashTable[i]!==null){
+        c.fillStyle='#e94560';c.beginPath();c.roundRect(x+5,y+5,bw-10,bh-10,3);c.fill();
+        c.fillStyle='#eee';c.font='11px monospace';c.fillText(hashTable[i],x+bw/2,y+bh/2);
+        count++;
+      }
+    }
+  }
+  const lf=(count/HASH_SIZE*100).toFixed(0);
+  document.getElementById('hashInfo').textContent='Table size: '+HASH_SIZE+'. Entries: '+count+'. Load factor: '+lf+'%. Mode: '+(mode==='chain'?'Chaining':'Open Addressing (linear probing)');
+}
+
+// === GRAPH ===
+const graphNodes=[
+  {x:350,y:50,id:0},{x:200,y:150,id:1},{x:500,y:150,id:2},
+  {x:100,y:280,id:3},{x:350,y:280,id:4},{x:600,y:280,id:5},
+  {x:200,y:370,id:6},{x:500,y:370,id:7}
+];
+const graphEdges=[[0,1],[0,2],[1,3],[1,4],[2,4],[2,5],[3,6],[4,6],[4,7],[5,7]];
+let graphState=[];let graphAnim=null;
+function graphReset(){
+  if(graphAnim)clearInterval(graphAnim);
+  graphState=graphNodes.map(()=>({visited:false,discovering:false}));
+  drawGraph();
+  document.getElementById('graphInfo').textContent='Click BFS or DFS to animate traversal from node 0.';
+}
+function graphBFS(){
+  graphReset();
+  const visited=new Set([0]);const queue=[0];let qi=0;
+  document.getElementById('graphInfo').textContent='BFS: exploring level by level...';
+  graphAnim=setInterval(()=>{
+    if(qi>=queue.length){clearInterval(graphAnim);graphAnim=null;document.getElementById('graphInfo').textContent='BFS complete. Order: '+[...visited].join(', ');return;}
+    const u=queue[qi++];
+    graphState[u].visited=true;graphState[u].discovering=false;
+    graphEdges.forEach(([a,b])=>{
+      const v=a===u?b:b===u?a:-1;
+      if(v>=0&&!visited.has(v)){visited.add(v);queue.push(v);}
+    });
+    drawGraph();
+  },400);
+}
+function graphDFS(){
+  graphReset();
+  const visited=new Set();const order=[];
+  function dfs(u){
+    visited.add(u);order.push(u);
+    graphState[u].visited=true;graphState[u].discovering=true;
+    drawGraph();
+    const neighbors=graphEdges.filter(([a,b])=>a===u||b===u).map(([a,b])=>a===u?b:a).sort((a,b)=>a-b);
+    for(const v of neighbors){
+      if(!visited.has(v)){
+        setTimeout(()=>{dfs(v);},400);
+        return;
+      }
+    }
+    graphState[u].discovering=false;
+    drawGraph();
+    if(visited.size===graphNodes.length){clearInterval(graphAnim);graphAnim=null;document.getElementById('graphInfo').textContent='DFS complete. Order: '+order.join(', ');}
+  }
+  document.getElementById('graphInfo').textContent='DFS: exploring depth-first...';
+  dfs(0);
+}
+function drawGraph(){
+  const c=document.getElementById('graphCanvas').getContext('2d');
+  c.clearRect(0,0,700,400);
+  c.strokeStyle='#444';c.lineWidth=1.5;
+  graphEdges.forEach(([a,b])=>{
+    c.beginPath();c.moveTo(graphNodes[a].x,graphNodes[a].y);c.lineTo(graphNodes[b].x,graphNodes[b].y);c.stroke();
+  });
+  graphNodes.forEach((n,i)=>{
+    const s=graphState[i]||{visited:false,discovering:false};
+    c.fillStyle=s.visited?'#e94560':s.discovering?'#f9a826':'#0f3460';
+    c.beginPath();c.arc(n.x,n.y,18,0,Math.PI*2);c.fill();
+    c.strokeStyle='#eee';c.lineWidth=1;c.stroke();
+    c.fillStyle='#eee';c.font='12px monospace';c.textAlign='center';c.textBaseline='middle';
+    c.fillText(n.id,n.x,n.y);
+  });
+}
+
+// Init
+btreeReset();hashReset();graphReset();
+</script>
+</body>
+</html>

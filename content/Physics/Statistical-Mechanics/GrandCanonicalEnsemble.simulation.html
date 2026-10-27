@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Grand Canonical Ensemble Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; background: #0f1420; color: #e0e6f0; margin: 0; padding: 12px; }
+h2 { font-size: 15px; margin: 8px 0 4px; color: #9aa7bd; }
+.controls { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.controls label { font-size: 13px; }
+.controls input[type=range] { width: 120px; }
+.controls span { font-size: 13px; min-width: 36px; display: inline-block; }
+.panels { display: flex; gap: 12px; flex-wrap: wrap; }
+.panel { background: #1a2035; border-radius: 8px; padding: 10px; flex: 1; min-width: 280px; }
+canvas { display: block; width: 100%; }
+.stats { font-size: 12px; margin-top: 6px; line-height: 1.6; }
+.stats .val { color: #6ea8fe; font-weight: bold; }
+.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 4px; }
+.badge.ok { background: #1a3a2a; color: #5ad1a0; }
+.badge.bad { background: #3a1a1a; color: #f0a35e; }
+</style>
+</head>
+<body>
+<h2>Grand Canonical Ensemble — 12 levels, fermions</h2>
+<div class="controls">
+<label>T = <input type="range" id="tempSlider" min="0.1" max="5" step="0.1" value="1"> <span id="tempVal">1.0</span></label>
+<label>μ = <input type="range" id="muSlider" min="-2" max="11" step="0.1" value="5"> <span id="muVal">5.0</span></label>
+<button id="sampleBtn" style="background:#2a3a5a;color:#e0e6f0;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Sample</button>
+</div>
+<div class="panels">
+<div class="panel">
+<h2>Particle-number distribution P(N)</h2>
+<canvas id="distCanvas" width="300" height="160"></canvas>
+</div>
+<div class="panel">
+<h2>Per-level occupation f<sub>i</sub></h2>
+<canvas id="occCanvas" width="300" height="160"></canvas>
+</div>
+<div class="panel">
+<h2>Live sample (100 draws)</h2>
+<canvas id="sampleCanvas" width="300" height="160"></canvas>
+<div class="stats" id="statsBox"></div>
+</div>
+</div>
+<script>
+const M = 12; // number of levels
+const eps = Array.from({length: M}, (_, i) => i);
+let T = 1.0, mu = 5.0;
+
+function fermiOcc(eps_i, T, mu) {
+  const x = (eps_i - mu) / T;
+  if (x > 500) return 0;
+  if (x < -500) return 1;
+  return 1 / (1 + Math.exp(x));
+}
+
+function computeAll() {
+  const f = eps.map(e => fermiOcc(e, T, mu));
+  const meanN = f.reduce((a, b) => a + b, 0);
+  const varN = f.reduce((a, fi) => a + fi * (1 - fi), 0);
+  // P(N) via convolution of Bernoulli distributions
+  let p = [1]; // p[n] = P(N=n)
+  for (let i = 0; i < M; i++) {
+    const newP = new Array(p.length + 1).fill(0);
+    for (let n = 0; n < p.length; n++) {
+      newP[n] += p[n] * (1 - f[i]);
+      newP[n + 1] += p[n] * f[i];
+    }
+    p = newP;
+  }
+  // numerical derivative d<N>/d(mu)
+  const dmu = 0.001;
+  const f2 = eps.map(e => fermiOcc(e, T, mu + dmu));
+  const meanN2 = f2.reduce((a, b) => a + b, 0);
+  const dNdmu = (meanN2 - meanN) / dmu;
+  const fdCheck = T * dNdmu;
+  return { f, meanN, varN, p, dNdmu, fdCheck };
+}
+
+function drawDist(data) {
+  const c = document.getElementById('distCanvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const maxP = Math.max(...data.p);
+  const barW = c.width / data.p.length;
+  for (let n = 0; n < data.p.length; n++) {
+    const h = (data.p[n] / maxP) * (c.height - 20);
+    ctx.fillStyle = '#6ea8fe';
+    ctx.fillRect(n * barW + 1, c.height - 10 - h, barW - 2, h);
+  }
+  // axis
+  ctx.strokeStyle = '#26304a';
+  ctx.beginPath(); ctx.moveTo(0, c.height - 10); ctx.lineTo(c.width, c.height - 10); ctx.stroke();
+  ctx.fillStyle = '#9aa7bd'; ctx.font = '10px system-ui';
+  ctx.fillText('N=0', 2, c.height - 2);
+  ctx.fillText('N=' + (data.p.length - 1), c.width - 25, c.height - 2);
+  // mean marker
+  const mx = data.meanN / (data.p.length - 1) * c.width;
+  ctx.strokeStyle = '#f0a35e'; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, c.height - 10); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawOcc(data) {
+  const c = document.getElementById('occCanvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const barW = c.width / M;
+  for (let i = 0; i < M; i++) {
+    const h = data.f[i] * (c.height - 20);
+    ctx.fillStyle = '#5ad1a0';
+    ctx.fillRect(i * barW + 2, c.height - 10 - h, barW - 4, h);
+  }
+  ctx.strokeStyle = '#26304a';
+  ctx.beginPath(); ctx.moveTo(0, c.height - 10); ctx.lineTo(c.width, c.height - 10); ctx.stroke();
+  ctx.fillStyle = '#9aa7bd'; ctx.font = '10px system-ui';
+  ctx.fillText('ε=0', 2, c.height - 2);
+  ctx.fillText('ε=' + (M-1), c.width - 25, c.height - 2);
+  // f=1 line
+  ctx.strokeStyle = '#26304a'; ctx.setLineDash([2,2]);
+  ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(c.width, 10); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#9aa7bd'; ctx.fillText('f=1', 2, 9);
+}
+
+function drawSample(samples) {
+  const c = document.getElementById('sampleCanvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const maxN = M;
+  const barW = c.width / (maxN + 1);
+  const counts = new Array(maxN + 1).fill(0);
+  samples.forEach(n => counts[n]++);
+  const maxC = Math.max(...counts, 1);
+  for (let n = 0; n <= maxN; n++) {
+    const h = (counts[n] / maxC) * (c.height - 20);
+    ctx.fillStyle = '#f0a35e';
+    ctx.fillRect(n * barW + 1, c.height - 10 - h, barW - 2, h);
+  }
+  ctx.strokeStyle = '#26304a';
+  ctx.beginPath(); ctx.moveTo(0, c.height - 10); ctx.lineTo(c.width, c.height - 10); ctx.stroke();
+  ctx.fillStyle = '#9aa7bd'; ctx.font = '10px system-ui';
+  ctx.fillText('N=0', 2, c.height - 2);
+  ctx.fillText('N=' + maxN, c.width - 25, c.height - 2);
+}
+
+function sampleN(f) {
+  let n = 0;
+  for (let i = 0; i < M; i++) {
+    if (Math.random() < f[i]) n++;
+  }
+  return n;
+}
+
+function update() {
+  const data = computeAll();
+  drawDist(data);
+  drawOcc(data);
+  // sample 100 times
+  const samples = [];
+  for (let i = 0; i < 100; i++) samples.push(sampleN(data.f));
+  drawSample(samples);
+  const sampleMean = samples.reduce((a,b) => a+b, 0) / samples.length;
+  const sampleVar = samples.reduce((a,n) => a + (n - sampleMean)**2, 0) / samples.length;
+  const ratio = data.fdCheck / data.varN;
+  const ok = Math.abs(ratio - 1) < 0.05;
+  document.getElementById('statsBox').innerHTML =
+    `⟨N⟩ = <span class="val">${data.meanN.toFixed(3)}</span> &nbsp; Var(N) = <span class="val">${data.varN.toFixed(4)}</span><br>` +
+    `k_BT·∂μ⟨N⟩ = <span class="val">${data.fdCheck.toFixed(4)}</span> &nbsp; ratio = <span class="val">${ratio.toFixed(3)}</span>` +
+    `<span class="badge ${ok ? 'ok' : 'bad'}">${ok ? '✓ FD identity holds' : '✗ check T,μ'}</span><br>` +
+    `Sample (100): mean = <span class="val">${sampleMean.toFixed(2)}</span>, var = <span class="val">${sampleVar.toFixed(3)}</span>`;
+}
+
+document.getElementById('tempSlider').addEventListener('input', e => {
+  T = parseFloat(e.target.value);
+  document.getElementById('tempVal').textContent = T.toFixed(1);
+  update();
+});
+document.getElementById('muSlider').addEventListener('input', e => {
+  mu = parseFloat(e.target.value);
+  document.getElementById('muVal').textContent = mu.toFixed(1);
+  update();
+});
+document.getElementById('sampleBtn').addEventListener('click', update);
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algorithmics: four classes, one pipeline</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 14px; color: #222; background: #fafafa; }
+  h2 { margin: 0 0 2px; font-size: 18px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 12px; }
+  .pipeline { display: flex; align-items: stretch; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stage { border: 2px solid; border-radius: 8px; padding: 6px 8px; font-size: 11.5px; text-align: center; min-width: 82px; line-height: 1.25; }
+  .stage b { display: block; font-size: 12px; }
+  .stage small { color: #555; }
+  .arrow { align-self: center; font-size: 16px; color: #aaa; }
+  .s0, .s5 { border-color: #999; background: #f2f2f2; }
+  .s1 { border-color: #50a0e0; background: #eaf4fd; }
+  .s2 { border-color: #50c080; background: #eafaf0; }
+  .s3 { border-color: #e0a050; background: #fdf3e7; }
+  .s4 { border-color: #c070e0; background: #f5eafd; }
+  .main { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+  canvas { border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: crosshair; }
+  .panel { font-size: 13px; max-width: 360px; }
+  .panel h3 { margin: 10px 0 3px; font-size: 13px; }
+  .panel h3:first-child { margin-top: 0; }
+  .tag { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: baseline; }
+  button { font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid #888; background: #f0f0f0; cursor: pointer; margin-right: 6px; }
+  button:hover { background: #e2e2e2; }
+  .metric { font-family: ui-monospace, monospace; }
+  .note { font-size: 12px; color: #555; margin-top: 8px; }
+  .lossbar { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+  .lossbar > div { height: 100%; background: #c070e0; width: 0%; transition: width 0.1s linear; }
+</style>
+</head>
+<body>
+<h2>Algorithmics: four classes, one pipeline</h2>
+<div class="sub">Fit a line to a set of 2D points. Each class of algorithmics does exactly one job in the pipeline.</div>
+
+<div class="pipeline">
+  <div class="stage s0"><b>Problem</b><small>fit a line</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="stage s1"><b>Theory</b><small>is it in P?</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="stage s2"><b>Data structures</b><small>store points</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="stage s3"><b>Graphics</b><small>draw points</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="stage s4"><b>Optimization</b><small>minimize loss</small></div>
+  <div class="arrow">&rarr;</div>
+  <div class="stage s5"><b>Result</b><small>the line</small></div>
+</div>
+
+<div class="main">
+  <canvas id="cv" width="420" height="320"></canvas>
+  <div class="panel">
+    <h3><span class="tag" style="background:#50a0e0"></span>1 &middot; Theory of computation</h3>
+    <div>Least-squares line fit is <b>decidable</b> and in <b>P</b>: the closed form is <span class="metric">O(n)</span>; gradient descent is <span class="metric">O(n&middot;T)</span> for T steps.</div>
+    <h3><span class="tag" style="background:#50c080"></span>2 &middot; Search &amp; data structures</h3>
+    <div>Points live in an <b>array</b>; each gradient step reads all n points &rarr; <span class="metric">O(n)</span>. n = <span id="n" class="metric">0</span>.</div>
+    <h3><span class="tag" style="background:#e0a050"></span>3 &middot; Graphics</h3>
+    <div>The canvas is the <b>framebuffer</b>: n points and the fitted line are rasterized into it.</div>
+    <h3><span class="tag" style="background:#c070e0"></span>4 &middot; Optimization</h3>
+    <div>Minimize <span class="metric">L(m,b) = &Sigma;(y&#7522; &minus; (m&middot;x&#7522;+b))&sup2;</span> by gradient descent.</div>
+    <div>Loss = <span id="loss" class="metric">&ndash;</span> &nbsp; slope = <span id="m" class="metric">&ndash;</span> &nbsp; intercept = <span id="b" class="metric">&ndash;</span></div>
+    <div class="lossbar"><div id="lossfill"></div></div>
+    <div style="margin-top:12px;">
+      <button id="run">Run gradient descent</button>
+      <button id="add">Add point</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="note">Click the canvas to add a point, then run gradient descent and watch the line converge as the loss falls.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height, pad = 34;
+  var points = [];
+  var m = 0, b = 0;
+  var animating = false;
+  var loss0 = 1;
+
+  function toCanvas(x, y) { return [pad + x * (W - 2 * pad), H - pad - y * (H - 2 * pad)]; }
+  function toData(cx, cy) { return [(cx - pad) / (W - 2 * pad), (H - pad - cy) / (H - 2 * pad)]; }
+
+  function loss() {
+    var s = 0;
+    for (var i = 0; i < points.length; i++) { var r = points[i].y - (m * points[i].x + b); s += r * r; }
+    return s;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, H - pad); ctx.lineTo(W - pad, H - pad); ctx.stroke();
+    ctx.fillStyle = '#bbb'; ctx.font = '11px sans-serif';
+    ctx.fillText('x', W - pad + 4, H - pad + 4);
+    ctx.fillText('y', pad - 14, pad - 4);
+    if (points.length) {
+      ctx.strokeStyle = '#c070e0'; ctx.lineWidth = 2;
+      var p0 = toCanvas(0, b), p1 = toCanvas(1, m + b);
+      ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+    ctx.fillStyle = '#50a0e0';
+    for (var i = 0; i < points.length; i++) {
+      var c = toCanvas(points[i].x, points[i].y);
+      ctx.beginPath(); ctx.arc(c[0], c[1], 4, 0, 2 * Math.PI); ctx.fill();
+    }
+    var L = loss();
+    document.getElementById('n').textContent = points.length;
+    document.getElementById('loss').textContent = points.length ? L.toFixed(4) : '\u2013';
+    document.getElementById('m').textContent = points.length ? m.toFixed(3) : '\u2013';
+    document.getElementById('b').textContent = points.length ? b.toFixed(3) : '\u2013';
+    var frac = points.length ? Math.max(0, Math.min(1, 1 - L / loss0)) : 0;
+    document.getElementById('lossfill').style.width = (frac * 100).toFixed(1) + '%';
+  }
+
+  function step() {
+    if (!points.length) return;
+    var lr = 0.25, dm = 0, db = 0;
+    for (var i = 0; i < points.length; i++) {
+      var r = points[i].y - (m * points[i].x + b);
+      dm += -2 * points[i].x * r; db += -2 * r;
+    }
+    dm /= points.length; db /= points.length;
+    m -= lr * dm; b -= lr * db;
+  }
+
+  function animate() {
+    if (!animating) return;
+    var prev = loss();
+    for (var k = 0; k < 8; k++) step();
+    draw();
+    if (Math.abs(prev - loss()) < 1e-6) { animating = false; return; }
+    requestAnimationFrame(animate);
+  }
+
+  function randomPoints(n) {
+    points = [];
+    var tm = 0.2 + Math.random() * 0.5, tb = 0.1 + Math.random() * 0.3;
+    for (var i = 0; i < n; i++) {
+      var x = Math.random();
+      var y = Math.max(0, Math.min(1, tm * x + tb + (Math.random() - 0.5) * 0.18));
+      points.push({ x: x, y: y });
+    }
+    m = 0; b = 0; loss0 = Math.max(loss(), 1e-9);
+  }
+
+  document.getElementById('run').onclick = function () { loss0 = Math.max(loss(), 1e-9); animating = true; animate(); };
+  document.getElementById('add').onclick = function () {
+    var x = Math.random();
+    var y = Math.max(0, Math.min(1, m * x + b + (Math.random() - 0.5) * 0.2));
+    points.push({ x: x, y: y }); draw();
+  };
+  document.getElementById('reset').onclick = function () { animating = false; randomPoints(12); draw(); };
+  cv.onclick = function (e) {
+    var rect = cv.getBoundingClientRect();
+    var d = toData(e.clientX - rect.left, e.clientY - rect.top);
+    if (d[0] >= 0 && d[0] <= 1 && d[1] >= 0 && d[1] <= 1) { points.push({ x: d[0], y: d[1] }); draw(); }
+  };
+
+  randomPoints(12);
+  draw();
+})();
+</script>
+</body>
+</html>

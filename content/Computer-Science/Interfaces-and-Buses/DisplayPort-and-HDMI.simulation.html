@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Display link bandwidth budget calculator</title>
+<style>
+  body{font-family:-apple-system,"Segoe UI",sans-serif;margin:10px;color:#222;font-size:14px}
+  h2{margin:2px 0 8px;font-size:17px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin-bottom:10px}
+  .ctl{display:flex;flex-direction:column;gap:2px}
+  .ctl>label{font-size:10.5px;color:#555;text-transform:uppercase;letter-spacing:.04em}
+  select,input[type=number]{font-size:13px;padding:2px 4px}
+  input[type=range]{width:120px;vertical-align:middle}
+  button{font-size:11.5px;padding:2px 7px;cursor:pointer}
+  canvas{background:#fafafa;border:1px solid #ccc;max-width:100%;display:block}
+  #readout{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.6;margin-top:8px;white-space:pre-wrap}
+  .verdict{display:inline-block;padding:2px 9px;border-radius:5px;font-weight:700;font-family:sans-serif;font-size:12px}
+  .ok{background:#cdeccd}.bad{background:#f6c3c3}.warn{background:#fbe3ae}
+  .note{color:#666;font-size:11.5px;margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<h2>Display bandwidth budget calculator</h2>
+<div class="controls">
+  <div class="ctl"><label>Resolution</label>
+    <select id="res">
+      <option value="1920x1080">1920 × 1080</option>
+      <option value="2560x1440">2560 × 1440</option>
+      <option value="3840x2160" selected>3840 × 2160 (4K)</option>
+      <option value="5120x2880">5120 × 2880 (5K)</option>
+      <option value="7680x4320">7680 × 4320 (8K)</option>
+      <option value="custom">custom…</option>
+    </select></div>
+  <div class="ctl" id="customBox" style="display:none"><label>W × H</label>
+    <span><input id="cw" type="number" value="3440" min="64" max="16384" style="width:66px"> ×
+    <input id="ch" type="number" value="1440" min="64" max="16384" style="width:66px"></span></div>
+  <div class="ctl"><label>Refresh: <span id="rrL">60</span> Hz</label>
+    <input type="range" id="rr" min="24" max="240" step="1" value="60"></div>
+  <div class="ctl"><label>Bits / channel</label>
+    <select id="bpc"><option>8</option><option selected>10</option><option>12</option></select></div>
+  <div class="ctl"><label>Chroma</label>
+    <select id="chroma">
+      <option value="3">4:4:4 (full)</option>
+      <option value="2">4:2:2 (½ chroma)</option>
+      <option value="1.5">4:2:0 (¼ chroma)</option>
+    </select></div>
+  <div class="ctl"><label>Blanking × <span id="bkL">1.05</span></label>
+    <span><input type="range" id="bk" min="100" max="125" step="1" value="105">
+    <button id="cvtBtn" title="Estimate blanking with the CVT-RB reduced-blanking formula">CVT-RB est.</button></span></div>
+  <div class="ctl"><label>Link</label>
+    <select id="link">
+      <option value="10.2,0.8,3">HDMI 1.3/1.4 · TMDS ×3 · 10.2 Gb/s</option>
+      <option value="18,0.8,3">HDMI 2.0 · TMDS ×3 · 18 Gb/s</option>
+      <option value="48,0.8889,4">HDMI 2.1 FRL ×4 · 48 Gb/s</option>
+      <option value="21.6,0.8,4">DP 1.4 HBR2 ×4 · 21.6 Gb/s</option>
+      <option value="16.2,0.8,2">DP 1.4 HBR3 ×2 lanes</option>
+      <option value="32.4,0.8,4" selected>DP 1.4 HBR3 ×4 · 32.4 Gb/s</option>
+      <option value="40,0.9697,4">DP 2.x UHBR10 ×4 · 40 Gb/s</option>
+      <option value="80,0.9697,4">DP 2.x UHBR20 ×4 · 80 Gb/s</option>
+    </select></div>
+  <div class="ctl"><label>Compression</label>
+    <select id="dsc"><option value="1">none</option><option value="3">DSC (~3×)</option></select></div>
+</div>
+<canvas id="chart" width="780" height="235"></canvas>
+<div id="readout"></div>
+<div class="note">
+Required rate = W × H × refresh × blanking × bits/px, where bits/px = 3·bpc (4:4:4), 2·bpc (4:2:2) or 1.5·bpc (4:2:0).
+Link payload = line rate × code efficiency (8b/10b → 0.80, 16b/18b → 0.889, 128b/132b → 0.970).
+<b>CVT-RB est.</b> replaces the blanking factor with a reduced-blanking estimate:
+((W+80)/W) × (H + round(460 µs × refresh)) / H — typically 1.03–1.08, versus the conservative 1.2 used in hand calculations.
+</div>
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var cv = $('chart'), ctx = cv.getContext('2d');
+
+  function cvtBlank(w, h, f){
+    var vb = Math.round(460e-6 * f);          // CVT-RB: fixed ~460 µs vertical blank
+    return ((w + 80) / w) * ((h + vb) / h);   // plus a small fixed horizontal blank
+  }
+  function fmtG(x){ return x >= 10 ? x.toFixed(1) : x.toFixed(2); }
+
+  function calc(){
+    var res = $('res').value, w, h;
+    if (res === 'custom'){ w = +$('cw').value; h = +$('ch').value; }
+    else { var p = res.split('x'); w = +p[0]; h = +p[1]; }
+    var f   = +$('rr').value;
+    var bpc = +$('bpc').value;
+    var cpp = bpc * (+$('chroma').value);          // bits per pixel
+    var blank = (+$('bk').value) / 100;
+    var dsc  = +$('dsc').value;
+    var lk   = $('link').value.split(',');
+    var line = +lk[0], eff = +lk[1], lanes = +lk[2];
+    var linkName = $('link').options[$('link').selectedIndex].text;
+
+    var px      = w * h * f;                        // active pixels per second
+    var active  = px * cpp / 1e9;                   // Gb/s, no blanking
+    var req     = active * blank / dsc;             // required video payload rate
+    var payload = line * eff;                       // link payload capacity
+    var fits    = req <= payload;
+    var margin  = payload - req;
+
+    // ---- chart ----
+    var W = cv.width, H = cv.height, x0 = 250, x1 = W - 70;
+    var xmax = Math.max(active, req, payload, 5) * 1.12;
+    function X(v){ return x0 + (x1 - x0) * v / xmax; }
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '12px sans-serif';
+
+    // axis
+    ctx.strokeStyle = '#999'; ctx.beginPath();
+    ctx.moveTo(x0, 18); ctx.lineTo(x0, H - 30); ctx.lineTo(x1 + 20, H - 30); ctx.stroke();
+    ctx.fillStyle = '#777'; ctx.textAlign = 'center';
+    var step = xmax > 60 ? 20 : xmax > 25 ? 10 : 5;
+    for (var g = 0; g <= xmax; g += step){
+      ctx.fillText(g + ' Gb/s', X(g), H - 12);
+      ctx.beginPath(); ctx.moveTo(X(g), H - 30); ctx.lineTo(X(g), H - 26); ctx.stroke();
+    }
+
+    function bar(y, label, val, color, lanesN){
+      ctx.textAlign = 'right'; ctx.fillStyle = '#333';
+      ctx.fillText(label, x0 - 8, y + 15);
+      ctx.fillStyle = color;
+      ctx.fillRect(x0, y, Math.max(1, X(val) - x0), 22);
+      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.strokeRect(x0, y, Math.max(1, X(val) - x0), 22);
+      if (lanesN > 1){
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+        for (var i = 1; i < lanesN; i++){
+          var lx = x0 + (X(val) - x0) * i / lanesN;
+          ctx.beginPath(); ctx.moveTo(lx, y); ctx.lineTo(lx, y + 22); ctx.stroke();
+        }
+        ctx.lineWidth = 1;
+      }
+      ctx.fillStyle = '#222'; ctx.textAlign = 'left';
+      ctx.fillText(fmtG(val) + ' Gb/s', Math.min(X(val) + 6, W - 60), y + 15);
+    }
+
+    bar(28,  'Active pixels only', active, '#9ec9e8', 1);
+    bar(88,  dsc > 1 ? 'Required (blanking + DSC)' : 'Required (with blanking)',
+        req, fits ? '#7fbf7f' : '#e07a7a', 1);
+    bar(148, 'Link payload capacity', payload, '#b9b9b9', lanes);
+
+    // verdict
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = fits ? '#1d7a1d' : '#a11';
+    ctx.textAlign = 'left';
+    ctx.fillText(fits ? '✓ FITS' : '✗ DOES NOT FIT', x0, 210);
+    ctx.font = '12px sans-serif'; ctx.fillStyle = '#555';
+    ctx.fillText(fits
+      ? 'margin ' + fmtG(margin) + ' Gb/s (' + Math.round(100 * margin / payload) + '% of payload free)'
+      : 'over by ' + fmtG(-margin) + ' Gb/s — lower bpc/chroma/refresh, or enable DSC',
+      x0 + 110, 210);
+
+    // readout
+    var v = fits ? '<span class="verdict ok">FITS</span>'
+                 : '<span class="verdict bad">DOES NOT FIT</span>';
+    if (!fits && dsc == 1) v += ' <span class="verdict warn">try DSC (~3×) or 4:2:2</span>';
+    $('readout').innerHTML =
+      'Mode: ' + w + '×' + h + ' @ ' + f + ' Hz, ' + bpc + ' bpc, ' +
+      $('chroma').options[$('chroma').selectedIndex].text +
+      ' → ' + cpp.toFixed(1) + ' bits/px\n' +
+      'Active pixel clock: ' + (px / 1e6).toFixed(1) + ' MHz\n' +
+      'Active rate ' + fmtG(active) + ' Gb/s  ×  blanking ' + blank.toFixed(2) +
+      (dsc > 1 ? '  ÷ ' + dsc + ' (DSC)' : '') +
+      '  =  required ' + fmtG(req) + ' Gb/s\n' +
+      'Link: ' + linkName + ' → payload ' + fmtG(payload) + ' Gb/s\n' +
+      'Verdict: ' + v;
+  }
+
+  $('res').addEventListener('change', function(){
+    $('customBox').style.display = (this.value === 'custom') ? '' : 'none';
+    calc();
+  });
+  ['rr','bpc','chroma','bk','link','dsc'].forEach(function(id){
+    $(id).addEventListener('input', function(){
+      if (id === 'rr') $('rrL').textContent = $('rr').value;
+      if (id === 'bk') $('bkL').textContent = (+$('bk').value / 100).toFixed(2);
+      calc();
+    });
+  });
+  $('cw').addEventListener('input', calc);
+  $('ch').addEventListener('input', calc);
+  $('cvtBtn').addEventListener('click', function(){
+    var w, h;
+    if ($('res').value === 'custom'){ w = +$('cw').value; h = +$('ch').value; }
+    else { var p = $('res').value.split('x'); w = +p[0]; h = +p[1]; }
+    var b = cvtBlank(w, h, +$('rr').value);
+    $('bk').value = Math.round(b * 100);
+    $('bkL').textContent = b.toFixed(2);
+    calc();
+  });
+  calc();
+})();
+</script>
+</body>
+</html>

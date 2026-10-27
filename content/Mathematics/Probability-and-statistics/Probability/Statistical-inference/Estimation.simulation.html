@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MLE Convergence and Likelihood Surface</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #f8f9fa; }
+h2 { margin: 0 0 8px; font-size: 1.1em; color: #333; }
+.controls { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.controls label { font-size: 0.9em; }
+input[type=range] { width: 180px; }
+button { padding: 6px 14px; border: none; border-radius: 4px; background: #2563eb; color: #fff; cursor: pointer; font-size: 0.9em; }
+button:hover { background: #1d4ed8; }
+canvas { border: 1px solid #ddd; border-radius: 6px; background: #fff; display: block; margin-bottom: 12px; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; line-height: 1.5; }
+.legend { display: flex; gap: 16px; margin-top: 6px; font-size: 0.8em; }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<h2>MLE Convergence &amp; Likelihood Surface</h2>
+<div class="controls">
+  <label>n = <span id="nVal">10</span></label>
+  <input type="range" id="nSlider" min="2" max="200" value="10">
+  <button id="btnAnim">Animate</button>
+  <button id="btnReset">Reset</button>
+</div>
+<canvas id="cv" width="700" height="320"></canvas>
+<div class="legend">
+  <span><span class="dot" style="background:#2563eb"></span> Log-likelihood ℓ(θ)</span>
+  <span><span class="dot" style="background:#dc2626"></span> MLE θ̂</span>
+  <span><span class="dot" style="background:#16a34a"></span> True θ₀</span>
+  <span><span class="dot" style="background:#f59e0b"></span> CRLB floor</span>
+</div>
+<div class="info" id="info"></div>
+<script>
+(function(){
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var W = cv.width, H = cv.height;
+  var pad = {l:55, r:20, t:20, b:40};
+  var plotW = W - pad.l - pad.r;
+  var plotH = H - pad.t - pad.b;
+
+  var trueMu = 0.5;
+  var sigma = 1.0;
+  var n = 10;
+  var data = [];
+  var animId = null;
+
+  function randn() {
+    var u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  function generateData(n) {
+    data = [];
+    for(var i=0;i<n;i++) data.push(trueMu + sigma*randn());
+  }
+
+  function logLikelihood(theta) {
+    var ll = 0;
+    for(var i=0;i<n;i++) {
+      var d = data[i] - theta;
+      ll += -0.5*Math.log(2*Math.PI*sigma*sigma) - d*d/(2*sigma*sigma);
+    }
+    return ll;
+  }
+
+  function mle() {
+    var s = 0;
+    for(var i=0;i<n;i++) s += data[i];
+    return s/n;
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    var thetaMin = -2, thetaMax = 3;
+    var thetaRange = thetaMax - thetaMin;
+
+    // Compute log-likelihood values
+    var steps = 300;
+    var llVals = [];
+    var llMin = Infinity, llMax = -Infinity;
+    for(var i=0;i<=steps;i++) {
+      var th = thetaMin + (thetaMax-thetaMin)*i/steps;
+      var ll = logLikelihood(th);
+      llVals.push(ll);
+      if(ll < llMin) llMin = ll;
+      if(ll > llMax) llMax = ll;
+    }
+    var llRange = llMax - llMin || 1;
+
+    function xScale(th) { return pad.l + (th - thetaMin)/thetaRange * plotW; }
+    function yScale(ll) { return pad.t + plotH - (ll - llMin)/llRange * plotH; }
+
+    // Grid
+    ctx.strokeStyle = '#eee';
+    ctx.lineWidth = 1;
+    for(var g=0; g<=5; g++) {
+      var gy = pad.t + plotH*g/5;
+      ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(pad.l+plotW, gy); ctx.stroke();
+    }
+
+    // Axes
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t);
+    ctx.lineTo(pad.l, pad.t+plotH);
+    ctx.lineTo(pad.l+plotW, pad.t+plotH);
+    ctx.stroke();
+
+    // Axis labels
+    ctx.fillStyle = '#333';
+    ctx.font = '12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('θ', pad.l + plotW/2, H - 8);
+    ctx.save();
+    ctx.translate(14, pad.t + plotH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText('ℓ(θ)', 0, 0);
+    ctx.restore();
+
+    // CRLB floor (variance = sigma^2/n, shown as a horizontal band)
+    var crlbVar = sigma*sigma/n;
+    // Show as a shaded region at the bottom representing the bound
+    ctx.fillStyle = 'rgba(245,158,11,0.12)';
+    ctx.fillRect(pad.l, pad.t + plotH*0.85, plotW, plotH*0.15);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5,3]);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, pad.t + plotH*0.85);
+    ctx.lineTo(pad.l+plotW, pad.t + plotH*0.85);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('CRLB: σ²/n = ' + crlbVar.toFixed(4), pad.l + 4, pad.t + plotH*0.85 - 4);
+
+    // Log-likelihood curve
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for(var i=0;i<=steps;i++) {
+      var th = thetaMin + thetaRange*i/steps;
+      var x = xScale(th);
+      var y = yScale(llVals[i]);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // MLE marker
+    var muHat = mle();
+    var llAtMle = logLikelihood(muHat);
+    var mx = xScale(muHat);
+    var my = yScale(llAtMle);
+    ctx.strokeStyle = '#dc2626';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(mx, pad.t+plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#dc2626';
+    ctx.beginPath(); ctx.arc(mx, my, 5, 0, 2*Math.PI); ctx.fill();
+    ctx.font = 'bold 11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('θ̂ = ' + muHat.toFixed(3), mx, my - 10);
+
+    // True theta marker
+    var tx = xScale(trueMu);
+    ctx.strokeStyle = '#16a34a';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(tx, pad.t); ctx.lineTo(tx, pad.t+plotH); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#16a34a';
+    ctx.font = 'bold 11px system-ui';
+    ctx.fillText('θ₀ = ' + trueMu.toFixed(2), tx, pad.t + 14);
+
+    // Info
+    var se = sigma/Math.sqrt(n);
+    document.getElementById('info').innerHTML =
+      'n = ' + n + ' &nbsp;|&nbsp; θ̂_MLE = ' + muHat.toFixed(4) +
+      ' &nbsp;|&nbsp; SE = σ/√n = ' + se.toFixed(4) +
+      ' &nbsp;|&nbsp; CRLB = σ²/n = ' + crlbVar.toFixed(6) +
+      ' &nbsp;|&nbsp; |θ̂ − θ₀| = ' + Math.abs(muHat - trueMu).toFixed(4);
+  }
+
+  var slider = document.getElementById('nSlider');
+  var nVal = document.getElementById('nVal');
+
+  slider.addEventListener('input', function() {
+    n = parseInt(this.value);
+    nVal.textContent = n;
+    generateData(n);
+    draw();
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function() {
+    if(animId) { cancelAnimationFrame(animId); animId = null; }
+    n = 10;
+    slider.value = 10;
+    nVal.textContent = 10;
+    generateData(n);
+    draw();
+  });
+
+  document.getElementById('btnAnim').addEventListener('click', function() {
+    if(animId) { cancelAnimationFrame(animId); animId = null; this.textContent = 'Animate'; return; }
+    this.textContent = 'Stop';
+    var self = this;
+    function step() {
+      n = parseInt(slider.value) + 1;
+      if(n > 200) { cancelAnimationFrame(animId); animId = null; self.textContent = 'Animate'; return; }
+      slider.value = n;
+      nVal.textContent = n;
+      generateData(n);
+      draw();
+      animId = requestAnimationFrame(step);
+    }
+    animId = requestAnimationFrame(step);
+  });
+
+  generateData(n);
+  draw();
+})();
+</script>
+</body>
+</html>

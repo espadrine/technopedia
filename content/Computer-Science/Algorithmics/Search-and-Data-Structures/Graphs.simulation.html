@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Graphs — BFS, DFS, Dijkstra</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;padding:12px}
+h2{font-size:1.1em;margin-bottom:8px}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:8px 16px;background:#16213e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:0.9em}
+.tab.active{background:#0f3460;border-color:#e94560}
+.panel{display:none}
+.panel.active{display:block}
+canvas{background:#16213e;border-radius:8px;display:block;margin:0 auto}
+.controls{margin:10px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{padding:6px 14px;background:#0f3460;color:#eee;border:1px solid #e94560;border-radius:4px;cursor:pointer;font-size:0.85em}
+button:hover{background:#e94560}
+.info{font-size:0.8em;color:#aaa;margin-top:8px;line-height:1.4;max-width:700px}
+.pq{margin-top:8px;padding:8px;background:#0f3460;border-radius:6px;font-size:0.8em;font-family:monospace;min-height:30px}
+</style>
+</head>
+<body>
+<h2>Graph Algorithms — Interactive Visualizations</h2>
+<div class="tabs">
+<div class="tab active" onclick="showTab(0)">BFS</div>
+<div class="tab" onclick="showTab(1)">DFS</div>
+<div class="tab" onclick="showTab(2)">Dijkstra</div>
+</div>
+
+<div class="panel active" id="panel0">
+<canvas id="bfsCanvas" width="700" height="380"></canvas>
+<div class="controls">
+<button onclick="bfsStep()">Step</button>
+<button onclick="bfsAuto()">Auto</button>
+<button onclick="bfsReset()">Reset</button>
+<span class="info" id="bfsInfo">Click Step or Auto to animate BFS from node 0.</span>
+</div>
+</div>
+
+<div class="panel" id="panel1">
+<canvas id="dfsCanvas" width="700" height="380"></canvas>
+<div class="controls">
+<button onclick="dfsStep()">Step</button>
+<button onclick="dfsAuto()">Auto</button>
+<button onclick="dfsReset()">Reset</button>
+<span class="info" id="dfsInfo">Click Step or Auto to animate DFS from node 0.</span>
+</div>
+</div>
+
+<div class="panel" id="panel2">
+<canvas id="dijCanvas" width="700" height="380"></canvas>
+<div class="controls">
+<button onclick="dijStep()">Step</button>
+<button onclick="dijAuto()">Auto</button>
+<button onclick="dijReset()">Reset</button>
+<span class="info" id="dijInfo">Click Step or Auto to animate Dijkstra from node A.</span>
+</div>
+<div class="pq" id="dijPQ">Priority Queue: [(0, A)]</div>
+</div>
+
+<script>
+function showTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',j===i));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',j===i));
+}
+
+// Graph: 6 nodes
+const nodes = [
+  {id:0, x:350, y:50, label:'0'},
+  {id:1, x:200, y:130, label:'1'},
+  {id:2, x:500, y:130, label:'2'},
+  {id:3, x:100, y:250, label:'3'},
+  {id:4, x:350, y:250, label:'4'},
+  {id:5, x:580, y:250, label:'5'}
+];
+const edges = [
+  {u:0,v:1,w:4},{u:0,v:2,w:2},{u:1,v:3,w:1},{u:2,v:4,w:8},
+  {u:1,v:4,w:5},{u:2,v:5,w:10},{u:4,v:5,w:2},{u:3,v:4,w:3}
+];
+
+function drawGraph(ctx, nodeColors, edgeHighlights, labels) {
+  ctx.clearRect(0,0,700,380);
+  // Draw edges
+  edges.forEach(e => {
+    const a = nodes[e.u], b = nodes[e.v];
+    const hl = edgeHighlights && edgeHighlights.find(h => (h.u===e.u&&h.v===e.v)||(h.u===e.v&&h.v===e.u));
+    ctx.strokeStyle = hl ? '#4ecdc4' : '#444';
+    ctx.lineWidth = hl ? 3 : 1.5;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    // Weight label
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    ctx.fillStyle='#888'; ctx.font='11px monospace'; ctx.textAlign='center';
+    ctx.fillText(e.w, mx+8, my-4);
+  });
+  // Draw nodes
+  nodes.forEach(n => {
+    const col = nodeColors ? nodeColors[n.id] : '#0f3460';
+    ctx.fillStyle = col;
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(n.x,n.y,20,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(n.label, n.x, n.y);
+    if(labels && labels[n.id]) {
+      ctx.fillStyle='#ffd700'; ctx.font='11px monospace';
+      ctx.fillText(labels[n.id], n.x, n.y+32);
+    }
+  });
+}
+
+// === BFS ===
+let bfsState = null, bfsTimer = null;
+function bfsReset(){
+  clearInterval(bfsTimer);
+  bfsState = {visited:[], queue:[0], step:0, current:-1};
+  bfsState.visited = new Set([0]);
+  drawGraph(document.getElementById('bfsCanvas').getContext('2d'), bfsColors(), null, null);
+  document.getElementById('bfsInfo').textContent = 'BFS from node 0. Queue: [0]';
+}
+function bfsColors(){
+  const cols = {};
+  nodes.forEach(n => cols[n.id] = '#0f3460');
+  if(!bfsState) return cols;
+  bfsState.visited.forEach(v => cols[v] = '#16213e');
+  if(bfsState.current >= 0) cols[bfsState.current] = '#e94560';
+  return cols;
+}
+function bfsStep(){
+  if(!bfsState) bfsReset();
+  if(bfsState.queue.length === 0){
+    document.getElementById('bfsInfo').textContent = 'BFS complete! All reachable nodes visited.';
+    return;
+  }
+  const cur = bfsState.queue.shift();
+  bfsState.current = cur;
+  const neighbors = edges.filter(e=>e.u===cur||e.v===cur).map(e=>e.u===cur?e.v:e.u);
+  neighbors.forEach(nb => {
+    if(!bfsState.visited.has(nb)){
+      bfsState.visited.add(nb);
+      bfsState.queue.push(nb);
+    }
+  });
+  drawGraph(document.getElementById('bfsCanvas').getContext('2d'), bfsColors(), null, null);
+  document.getElementById('bfsInfo').textContent = 'Dequeued: ' + cur + ' | Queue: [' + bfsState.queue.join(', ') + '] | Visited: ' + bfsState.visited.size + '/6';
+}
+function bfsAuto(){
+  if(bfsTimer) clearInterval(bfsTimer);
+  bfsReset();
+  bfsTimer = setInterval(()=>{ if(bfsState.queue.length===0){clearInterval(bfsTimer);bfsTimer=null;} else bfsStep(); }, 800);
+}
+
+// === DFS ===
+let dfsState = null, dfsTimer = null;
+function dfsReset(){
+  clearInterval(dfsTimer);
+  dfsState = {stack:[0], visited:new Set(), order:[], current:-1};
+  drawGraph(document.getElementById('dfsCanvas').getContext('2d'), dfsColors(), null, null);
+  document.getElementById('dfsInfo').textContent = 'DFS from node 0. Stack: [0]';
+}
+function dfsColors(){
+  const cols = {};
+  nodes.forEach(n => cols[n.id] = '#0f3460');
+  if(!dfsState) return cols;
+  dfsState.visited.forEach(v => cols[v] = '#16213e');
+  if(dfsState.current >= 0) cols[dfsState.current] = '#e94560';
+  return cols;
+}
+function dfsStep(){
+  if(!dfsState) dfsReset();
+  if(dfsState.stack.length === 0){
+    document.getElementById('dfsInfo').textContent = 'DFS complete! Order: ' + dfsState.order.join(' → ');
+    return;
+  }
+  const cur = dfsState.stack.pop();
+  if(dfsState.visited.has(cur)){
+    drawGraph(document.getElementById('dfsCanvas').getContext('2d'), dfsColors(), null, null);
+    return;
+  }
+  dfsState.visited.add(cur);
+  dfsState.order.push(cur);
+  dfsState.current = cur;
+  const neighbors = edges.filter(e=>e.u===cur||e.v===cur).map(e=>e.u===cur?e.v:e.u).reverse();
+  neighbors.forEach(nb => { if(!dfsState.visited.has(nb)) dfsState.stack.push(nb); });
+  drawGraph(document.getElementById('dfsCanvas').getContext('2d'), dfsColors(), null, null);
+  document.getElementById('dfsInfo').textContent = 'Visited: ' + cur + ' | Stack: [' + dfsState.stack.join(', ') + '] | Order: ' + dfsState.order.join(' → ');
+}
+function dfsAuto(){
+  if(dfsTimer) clearInterval(dfsTimer);
+  dfsReset();
+  dfsTimer = setInterval(()=>{ if(dfsState.stack.length===0){clearInterval(dfsTimer);dfsTimer=null;} else dfsStep(); }, 800);
+}
+
+// === Dijkstra ===
+const dijNodes = [
+  {id:0, x:100, y:190, label:'A'},
+  {id:1, x:300, y:80, label:'B'},
+  {id:2, x:300, y:300, label:'C'},
+  {id:3, x:500, y:80, label:'D'},
+  {id:4, x:500, y:300, label:'E'}
+];
+const dijEdges = [
+  {u:0,v:1,w:4},{u:0,v:2,w:2},{u:1,v:2,w:1},{u:1,v:3,w:5},{u:2,v:3,w:8},{u:2,v:4,w:10},{u:3,v:4,w:2}
+];
+let dijState = null, dijTimer = null;
+function dijReset(){
+  clearInterval(dijTimer);
+  dijState = {dist:[0,Infinity,Infinity,Infinity,Infinity], visited:new Set(), pq:[[0,0]], current:-1, relaxEdge:null};
+  drawDij();
+  document.getElementById('dijPQ').textContent = 'PQ: [(0, A)]';
+  document.getElementById('dijInfo').textContent = 'Dijkstra from A. Click Step to advance.';
+}
+function drawDij(){
+  const ctx = document.getElementById('dijCanvas').getContext('2d');
+  ctx.clearRect(0,0,700,380);
+  // Edges
+  dijEdges.forEach(e => {
+    const a = dijNodes[e.u], b = dijNodes[e.v];
+    const hl = dijState && dijState.relaxEdge && ((dijState.relaxEdge.u===e.u&&dijState.relaxEdge.v===e.v)||(dijState.relaxEdge.u===e.v&&dijState.relaxEdge.v===e.u));
+    ctx.strokeStyle = hl ? '#4ecdc4' : '#444';
+    ctx.lineWidth = hl ? 3 : 1.5;
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    ctx.fillStyle='#888'; ctx.font='11px monospace'; ctx.textAlign='center';
+    ctx.fillText(e.w, mx+10, my-4);
+  });
+  // Nodes
+  const labels = {};
+  dijNodes.forEach(n => {
+    const col = dijState && dijState.visited.has(n.id) ? '#16213e' : (dijState && dijState.current===n.id ? '#e94560' : '#0f3460');
+    ctx.fillStyle = col; ctx.strokeStyle='#e94560'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(n.x,n.y,22,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='13px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(n.label, n.x, n.y);
+    if(dijState && dijState.dist[n.id] < Infinity) {
+      labels[n.id] = 'd=' + dijState.dist[n.id];
+    }
+  });
+  // Labels
+  dijNodes.forEach(n => {
+    if(labels[n.id]) {
+      ctx.fillStyle='#ffd700'; ctx.font='11px monospace'; ctx.textAlign='center';
+      ctx.fillText(labels[n.id], n.x, n.y+34);
+    }
+  });
+}
+function dijStep(){
+  if(!dijState) dijReset();
+  if(dijState.pq.length === 0){
+    document.getElementById('dijInfo').textContent = 'Dijkstra complete! Distances: A=0, B=3, C=2, D=8, E=10';
+    return;
+  }
+  // Sort PQ by distance
+  dijState.pq.sort((a,b)=>a[0]-b[0]);
+  const [d, u] = dijState.pq.shift();
+  if(dijState.visited.has(u)){ drawDij(); updatePQ(); return; }
+  dijState.visited.add(u);
+  dijState.current = u;
+  dijState.relaxEdge = null;
+  // Relax edges
+  dijEdges.forEach(e => {
+    let v = -1;
+    if(e.u === u) v = e.v;
+    else if(e.v === u) v = e.u;
+    if(v === -1) return;
+    const nd = d + e.w;
+    if(nd < dijState.dist[v]){
+      dijState.dist[v] = nd;
+      dijState.pq.push([nd, v]);
+      dijState.relaxEdge = e;
+    }
+  });
+  drawDij();
+  updatePQ();
+  const name = dijNodes[u].label;
+  document.getElementById('dijInfo').textContent = 'Finalized ' + name + ' (d=' + d + '). Relaxed outgoing edges.';
+}
+function updatePQ(){
+  if(!dijState) return;
+  const names = dijState.pq.map(([d,i]) => '(' + d + ', ' + dijNodes[i].label + ')');
+  document.getElementById('dijPQ').textContent = 'PQ: [' + names.join(', ') + ']';
+}
+function dijAuto(){
+  if(dijTimer) clearInterval(dijTimer);
+  dijReset();
+  dijTimer = setInterval(()=>{ if(dijState.pq.length===0){clearInterval(dijTimer);dijTimer=null;} else dijStep(); }, 1000);
+}
+
+// Init
+bfsReset(); dfsReset(); dijReset();
+</script>
+</body>
+</html>

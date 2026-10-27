@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CI/CD Pipeline and Deployment Strategies</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+h2 { margin-bottom: 10px; font-size: 18px; color: #7ec8e3; }
+.tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+.tab { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; background: #2a2a4a; color: #aaa; font-size: 14px; }
+.tab.active { background: #4a90d9; color: white; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Pipeline */
+.pipeline { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 20px 0; }
+.stage { padding: 10px 14px; border-radius: 6px; background: #2a2a4a; color: #888; font-size: 12px; text-align: center; min-width: 80px; transition: all 0.3s; }
+.stage.running { background: #f0ad4e; color: #fff; box-shadow: 0 0 12px rgba(240,173,78,0.5); }
+.stage.pass { background: #5cb85c; color: #fff; }
+.stage.fail { background: #e74c3c; color: #fff; }
+.arrow { color: #555; font-size: 18px; }
+.btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 5px; }
+.btn-run { background: #4a90d9; color: white; }
+.btn-fail { background: #e74c3c; color: white; }
+.status { margin-top: 15px; padding: 10px; border-radius: 6px; background: #2a2a4a; font-size: 13px; min-height: 40px; }
+
+/* Canary */
+.canary-viz { margin: 20px 0; }
+.traffic-bar { display: flex; height: 40px; border-radius: 6px; overflow: hidden; margin: 10px 0; }
+.traffic-old { background: #3498db; transition: width 0.5s; }
+.traffic-new { background: #e74c3c; transition: width 0.5s; }
+.traffic-label { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; }
+.canary-controls { margin: 15px 0; }
+.canary-controls label { font-size: 13px; color: #ccc; }
+input[type=range] { width: 200px; vertical-align: middle; }
+.metrics { display: flex; gap: 20px; margin: 15px 0; }
+.metric-box { padding: 10px; border-radius: 6px; background: #2a2a4a; text-align: center; min-width: 100px; }
+.metric-box .val { font-size: 20px; font-weight: bold; }
+.metric-box .lbl { font-size: 11px; color: #888; }
+.metric-box.good .val { color: #5cb85c; }
+.metric-box.warn .val { color: #f0ad4e; }
+.metric-box.bad .val { color: #e74c3c; }
+
+/* Test Pyramid */
+.pyramid { display: flex; flex-direction: column; align-items: center; margin: 20px 0; }
+.pyr-layer { display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; cursor: pointer; transition: all 0.3s; border-radius: 4px; margin: 2px 0; }
+.pyr-layer:hover { opacity: 0.85; transform: scale(1.02); }
+.pyr-layer.selected { outline: 3px solid #fff; }
+.pyr-info { margin-top: 20px; padding: 15px; border-radius: 8px; background: #2a2a4a; min-height: 100px; font-size: 13px; line-height: 1.6; }
+.pyr-info h3 { color: #7ec8e3; margin-bottom: 8px; font-size: 15px; }
+</style>
+</head>
+<body>
+<h2>Software Engineering: CI/CD &amp; Deployment</h2>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('pipeline')">CI/CD Pipeline</button>
+  <button class="tab" onclick="showTab('canary')">Canary Deployment</button>
+  <button class="tab" onclick="showTab('pyramid')">Test Pyramid</button>
+</div>
+
+<!-- Pipeline Panel -->
+<div id="panel-pipeline" class="panel active">
+  <p style="font-size:13px;color:#aaa;margin-bottom:10px;">Watch a commit flow through the CI/CD pipeline. Click "Run" to start, or "Run (fail at integration)" to see a failure stop the pipeline.</p>
+  <div class="pipeline" id="pipeline">
+    <div class="stage" data-i="0">Build</div>
+    <span class="arrow">→</span>
+    <div class="stage" data-i="1">Unit Test</div>
+    <span class="arrow">→</span>
+    <div class="stage" data-i="2">Integration</div>
+    <span class="arrow">→</span>
+    <div class="stage" data-i="3">Security Scan</div>
+    <span class="arrow">→</span>
+    <div class="stage" data-i="4">Staging</div>
+    <span class="arrow">→</span>
+    <div class="stage" data-i="5">Acceptance</div>
+    <span class="arrow">→</span>
+    <div class="stage" data-i="6">Production</div>
+  </div>
+  <button class="btn btn-run" onclick="runPipeline(false)">▶ Run</button>
+  <button class="btn btn-fail" onclick="runPipeline(true)">▶ Run (fail at integration)</button>
+  <div class="status" id="pipe-status">Ready. Click a button to start the pipeline.</div>
+</div>
+
+<!-- Canary Panel -->
+<div id="panel-canary" class="panel">
+  <p style="font-size:13px;color:#aaa;margin-bottom:10px;">Adjust the canary percentage to see how traffic is split between old and new versions. Metrics update in real-time.</p>
+  <div class="canary-controls">
+    <label>Canary traffic: <span id="canary-pct">5</span>%</label>
+    <input type="range" id="canary-slider" min="0" max="100" value="5" oninput="updateCanary()">
+  </div>
+  <div class="canary-viz">
+    <div class="traffic-label"><span>Old version (stable)</span><span>New version (canary)</span></div>
+    <div class="traffic-bar">
+      <div class="traffic-old" id="bar-old" style="width:95%"></div>
+      <div class="traffic-new" id="bar-new" style="width:5%"></div>
+    </div>
+  </div>
+  <div class="metrics">
+    <div class="metric-box good" id="m-err"><div class="val" id="v-err">0.1%</div><div class="lbl">Error rate</div></div>
+    <div class="metric-box good" id="m-lat"><div class="val" id="v-lat">110ms</div><div class="lbl">p99 Latency</div></div>
+    <div class="metric-box good" id="m-req"><div class="val" id="v-req">50</div><div class="lbl">Canary req/min</div></div>
+  </div>
+  <div class="status" id="canary-status">Canary at 5%: metrics nominal. Safe to increase.</div>
+</div>
+
+<!-- Pyramid Panel -->
+<div id="panel-pyramid" class="panel">
+  <p style="font-size:13px;color:#aaa;margin-bottom:10px;">Click a layer to see details about that test type.</p>
+  <div class="pyramid" id="pyramid">
+    <div class="pyr-layer" style="width:120px;height:50px;background:#4a90d9;" onclick="selectLayer(0)">Acceptance</div>
+    <div class="pyr-layer" style="width:220px;height:50px;background:#5cb85c;" onclick="selectLayer(1)">Integration</div>
+    <div class="pyr-layer" style="width:320px;height:50px;background:#f0ad4e;" onclick="selectLayer(2)">Unit</div>
+  </div>
+  <div class="pyr-info" id="pyr-info">
+    <h3>Select a layer</h3>
+    <p>Click on a pyramid layer above to see its characteristics: count, speed, cost, and what it tests.</p>
+  </div>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// Pipeline
+let pipeTimer = null;
+function runPipeline(failAtIntegration) {
+  if (pipeTimer) clearInterval(pipeTimer);
+  const stages = document.querySelectorAll('#pipeline .stage');
+  const status = document.getElementById('pipe-status');
+  stages.forEach(s => s.className = 'stage');
+  status.textContent = 'Pipeline started...';
+  let i = 0;
+  const failIdx = failAtIntegration ? 2 : -1;
+  pipeTimer = setInterval(() => {
+    if (i > 0) stages[i-1].className = 'stage ' + (i-1 === failIdx ? 'fail' : 'pass');
+    if (i === failIdx) {
+      stages[i].className = 'stage fail';
+      status.textContent = '✗ FAILED at Integration Test. Pipeline stopped. Fix the failing test and re-push.';
+      clearInterval(pipeTimer);
+      pipeTimer = null;
+      return;
+    }
+    if (i >= stages.length) {
+      status.textContent = '✓ All stages passed. Artifact v2.14.3 deployed to production.';
+      clearInterval(pipeTimer);
+      pipeTimer = null;
+      return;
+    }
+    stages[i].className = 'stage running';
+    status.textContent = 'Running: ' + stages[i].textContent + '...';
+    i++;
+  }, 800);
+}
+
+// Canary
+function updateCanary() {
+  const pct = parseInt(document.getElementById('canary-slider').value);
+  document.getElementById('canary-pct').textContent = pct;
+  document.getElementById('bar-old').style.width = (100 - pct) + '%';
+  document.getElementById('bar-new').style.width = pct + '%';
+  // Simulate metrics
+  const err = (0.1 + pct * 0.008).toFixed(1);
+  const lat = Math.round(110 + pct * 0.5);
+  const req = Math.round(1000 * pct / 100);
+  document.getElementById('v-err').textContent = err + '%';
+  document.getElementById('v-lat').textContent = lat + 'ms';
+  document.getElementById('v-req').textContent = req;
+  // Color coding
+  const errBox = document.getElementById('m-err');
+  const latBox = document.getElementById('m-lat');
+  errBox.className = 'metric-box ' + (parseFloat(err) > 1 ? 'bad' : parseFloat(err) > 0.5 ? 'warn' : 'good');
+  latBox.className = 'metric-box ' + (lat > 150 ? 'bad' : lat > 130 ? 'warn' : 'good');
+  const status = document.getElementById('canary-status');
+  if (parseFloat(err) > 1) {
+    status.textContent = '⚠ Error rate ' + err + '% exceeds threshold (1%). ROLLBACK recommended.';
+    status.style.color = '#e74c3c';
+  } else if (parseFloat(err) > 0.5) {
+    status.textContent = '⚡ Error rate ' + err + '% elevated. Monitor closely before increasing.';
+    status.style.color = '#f0ad4e';
+  } else {
+    status.textContent = '✓ Canary at ' + pct + '%: metrics nominal. Safe to increase.';
+    status.style.color = '#5cb85c';
+  }
+}
+
+// Pyramid
+const layerData = [
+  { name: 'Acceptance Tests', count: '5–10', speed: 'Slow (minutes)', cost: 'High (full stack)', tests: 'End-to-end user journeys: login, checkout, payment. Verifies the system meets user requirements. Run in CI after staging deployment.', example: 'User clicks "Pay" → card is charged → confirmation email arrives → order appears in account.' },
+  { name: 'Integration Tests', count: '30–50', speed: 'Medium (seconds)', cost: 'Medium (needs DB, mocks)', tests: 'Interaction between 2+ components: API → database, service → message queue. Verifies contracts between components.', example: 'POST /orders creates a row in the orders table AND publishes an event to the order-processed topic.' },
+  { name: 'Unit Tests', count: '200–500', speed: 'Fast (milliseconds)', cost: 'Low (pure functions)', tests: 'Single function or class in isolation. No I/O, no network. Verifies logic: calculations, state transitions, edge cases.', example: 'calculateTax(100, 0.08) === 8.00; validateCard("1234") === false; merge([1,3],[2,4]) === [1,2,3,4].' }
+];
+function selectLayer(i) {
+  document.querySelectorAll('.pyr-layer').forEach(l => l.classList.remove('selected'));
+  document.querySelectorAll('.pyr-layer')[i].classList.add('selected');
+  const d = layerData[i];
+  document.getElementById('pyr-info').innerHTML = '<h3>' + d.name + '</h3><p><strong>Count:</strong> ' + d.count + ' &nbsp; <strong>Speed:</strong> ' + d.speed + ' &nbsp; <strong>Cost:</strong> ' + d.cost + '</p><p><strong>Tests:</strong> ' + d.tests + '</p><p><strong>Example:</strong> ' + d.example + '</p>';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chip process-flow simulator</title>
+<style>
+  html,body{margin:0;padding:0;background:#fff;font-family:sans-serif;color:#333;}
+  #wrap{max-width:760px;margin:0 auto;padding:8px;}
+  h3{margin:4px 0 6px;font-size:15px;}
+  #bar{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+  button{font-size:12px;padding:5px 8px;border:1px solid #90a4ae;border-radius:4px;background:#eceff1;cursor:pointer;}
+  button:disabled{opacity:.4;cursor:default;}
+  button.primary{background:#1565c0;color:#fff;border-color:#0d47a1;}
+  canvas{border:1px solid #bbb;border-radius:3px;display:block;background:#fafafa;width:100%;height:auto;}
+  #log{font-size:11.5px;line-height:1.45;height:78px;overflow-y:auto;border:1px solid #ddd;border-radius:3px;padding:4px 6px;margin-top:6px;background:#fcfcfc;}
+  #log b{color:#0d47a1;}
+  .legend{font-size:11px;margin-top:5px;line-height:1.7;}
+  .sw{display:inline-block;width:11px;height:11px;border:1px solid #777;vertical-align:-1px;margin:0 3px 0 8px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+<h3>Chip process-flow simulator — build a transistor cross-section</h3>
+<div id="bar">
+  <button id="b-dep-ox">Deposit oxide</button>
+  <button id="b-dep-me">Deposit metal</button>
+  <button id="b-res">Spin resist</button>
+  <button id="b-exp">Expose + develop</button>
+  <button id="b-etch">Etch</button>
+  <button id="b-impn">Implant N</button>
+  <button id="b-impP">Implant P</button>
+  <button id="b-ann">Anneal</button>
+  <button id="b-cmp">CMP</button>
+  <button id="b-reset">Reset</button>
+  <button id="b-demo" class="primary">▶ Demo: build a transistor</button>
+</div>
+<canvas id="cv" width="720" height="300"></canvas>
+<div class="legend">
+  <span class="sw" style="background:#8d6e63"></span>Si substrate
+  <span class="sw" style="background:#cfd8dc"></span>oxide
+  <span class="sw" style="background:#e8912d"></span>metal
+  <span class="sw" style="background:#ce93d8"></span>resist
+  <span class="sw" style="background:#66bb6a"></span>n-type (active)
+  <span class="sw" style="background:#33691e"></span>n-type (implanted, unannealed)
+  <span class="sw" style="background:#64b5f6"></span>p-type (active)
+  <span class="sw" style="background:#1565c0"></span>p-type (implanted, unannealed)
+</div>
+<div id="log"></div>
+</div>
+<script>
+(function(){
+"use strict";
+var COLS=72, ROWS=24, SUB=16;
+var VAC=0, SUBS=1, OX=2, MET=3, RES=4, NN=5, PP=6, NND=7, PPD=8;
+var grid=[], busy=false, demoTimer=null;
+var cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+var CW=cv.width/COLS, CH=(cv.height-20)/ROWS;
+var logEl=document.getElementById("log");
+
+function log(msg){var d=document.createElement("div");d.innerHTML=msg;logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;}
+function reset(){grid=[];for(var c=0;c<COLS;c++){var col=[];for(var r=0;r<ROWS;r++)col.push(r>=SUB?SUBS:VAC);grid.push(col);}logEl.innerHTML="";log("<b>Wafer loaded.</b> Bare silicon substrate. Try the buttons left to right, or press Demo.");draw();}
+function topSolid(c){for(var r=0;r<ROWS;r++){if(grid[c][r]!==VAC)return r;}return ROWS;}
+function isResistTop(c){var t=topSolid(c);return t<ROWS&&grid[c][t]===RES;}
+function hasResist(c){for(var r=0;r<ROWS;r++)if(grid[c][r]===RES)return true;return false;}
+function exposedCol(c){return Math.floor(c/9)%2===0;}
+function fillUp(mat,thick){for(var c=0;c<COLS;c++){var t=topSolid(c);for(var k=1;k<=thick;k++){var r=t-k;if(r>=0&&grid[c][r]===VAC)grid[c][r]=mat;}}}
+function deposit(mat,name){fillUp(mat,2);log("<b>"+name+"</b> — a uniform thin film is added on every exposed surface (conformal growth).");}
+function spinResist(){fillUp(RES,1);log("<b>Spin resist</b> — photoresist coats the whole wafer (Lithography step 1).");}
+function expose(){for(var c=0;c<COLS;c++){if(exposedCol(c)){for(var r=0;r<ROWS;r++){if(grid[c][r]===RES)grid[c][r]=VAC;}}}log("<b>Expose + develop</b> — light through the mask makes the exposed resist soluble; it is washed away. Alternating stripes of the wafer are now open.");}
+function etch(){for(var c=0;c<COLS;c++){if(isResistTop(c))continue;var t=topSolid(c);if(t>=ROWS)continue;var m=grid[c][t];if(m===SUBS)continue;var r=t;while(r<ROWS&&grid[c][r]===m){grid[c][r]=VAC;r++;}}for(var c2=0;c2<COLS;c2++)for(var r2=0;r2<ROWS;r2++)if(grid[c2][r2]===RES)grid[c2][r2]=VAC;log("<b>Etch</b> — anisotropic plasma etch removes the exposed film everywhere the resist does not protect it (selective, vertical); the resist is then stripped. The pattern is now physical.");}
+function implant(type){var dmg=(type==="n")?NND:PPD;for(var c=0;c<COLS;c++){if(hasResist(c))continue;var t=topSolid(c);if(t>=ROWS)continue;if(grid[c][t]===SUBS){for(var r=t;r<Math.min(t+2,ROWS);r++)grid[c][r]=dmg;}}log("<b>Implant "+type.toUpperCase()+"</b> — dopant ions are fired through the open windows into the top of the substrate (dark cells). The lattice is damaged: an anneal is required before the dopants become electrically active.");}
+function anneal(){var n=0;for(var c=0;c<COLS;c++)for(var r=0;r<ROWS;r++){if(grid[c][r]===NND){grid[c][r]=NN;n++;}else if(grid[c][r]===PPD){grid[c][r]=PP;n++;}}log("<b>Anneal</b> — rapid thermal anneal: crystal damage healed, dopants moved onto lattice sites. Bright green = active n-type, bright blue = active p-type."+(n?" ("+n+" cells activated)":" (nothing to activate)"));}
+function cmp(){var stop=-1;for(var c=0;c<COLS;c++){var t=topSolid(c);if(t<ROWS&&grid[c][t]!==SUBS&&t>stop)stop=t;}if(stop<0){log("<b>CMP</b> — only substrate exposed; nothing to planarize.");return;}var rem=0;for(var c2=0;c2<COLS;c2++){var t2=topSolid(c2);while(t2<stop){grid[c2][t2]=VAC;rem++;t2=topSolid(c2);}}log("<b>CMP (chemical-mechanical planarization)</b> — rotating pad + reactive slurry ground away "+rem+" cells of the overfilled layers, stopping flat at the lowest film surface. The wafer is flat again, ready for the next lithography cycle.");}
+function colColor(m){switch(m){case SUBS:return"#8d6e63";case OX:return"#cfd8dc";case MET:return"#e8912d";case RES:return"#ce93d8";case NN:return"#66bb6a";case PP:return"#64b5f6";case NND:return"#33691e";case PPD:return"#1565c0";}return null;}
+function draw(){ctx.clearRect(0,0,cv.width,cv.height);for(var c=0;c<COLS;c++){for(var r=0;r<ROWS;r++){var m=grid[c][r];if(m===VAC)continue;ctx.fillStyle=colColor(m);ctx.fillRect(Math.round(c*CW),20+r*CH,Math.ceil(CW),Math.ceil(CH));}}ctx.fillStyle="#555";ctx.font="11px sans-serif";ctx.fillText("wafer cross-section (not to scale)",8,14);}
+function anim(kind,done){var t0=null,dur=450;function frame(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur);draw();ctx.save();if(kind==="cmp"){var x=p*cv.width;ctx.fillStyle="rgba(144,164,174,0.55)";ctx.fillRect(x-60,20,60,cv.height-20);ctx.fillStyle="#455a64";ctx.fillRect(x-60,20,60,10);}else if(kind==="imp"){ctx.fillStyle="#c62828";for(var i=0;i<14;i++){var xx=(i*53+p*260)%cv.width;ctx.beginPath();ctx.arc(xx,20+p*(cv.height-40),2.5,0,6.3);ctx.fill();}}else if(kind==="lit"){ctx.fillStyle="rgba(255,235,59,"+(0.5-0.4*p)+")";ctx.fillRect(0,20,cv.width,cv.height-20);}else{ctx.fillStyle="rgba(0,150,136,"+(0.35*(1-p))+")";ctx.fillRect(0,20,cv.width,cv.height-20);}ctx.restore();if(p<1)requestAnimationFrame(frame);else done();}
+ requestAnimationFrame(frame);}
+function setDisabled(d){var bs=document.querySelectorAll("#bar button");for(var i=0;i<bs.length;i++)if(bs[i].id!=="b-demo"&&bs[i].id!=="b-reset")bs[i].disabled=d;}
+function run(fn,kind){if(busy)return;busy=true;setDisabled(true);anim(kind,function(){fn();draw();busy=false;setDisabled(false);});}
+
+document.getElementById("b-dep-ox").onclick=function(){run(function(){deposit(OX,"Deposit oxide");},"dep");};
+document.getElementById("b-dep-me").onclick=function(){run(function(){deposit(MET,"Deposit metal");},"dep");};
+document.getElementById("b-res").onclick=function(){run(function(){spinResist();},"dep");};
+document.getElementById("b-exp").onclick=function(){run(function(){expose();},"lit");};
+document.getElementById("b-etch").onclick=function(){run(function(){etch();},"dep");};
+document.getElementById("b-impn").onclick=function(){run(function(){implant("n");},"imp");};
+document.getElementById("b-impP").onclick=function(){run(function(){implant("p");},"imp");};
+document.getElementById("b-ann").onclick=function(){if(busy)return;anneal();draw();};
+document.getElementById("b-cmp").onclick=function(){run(function(){cmp();},"cmp");};
+document.getElementById("b-reset").onclick=function(){if(demoTimer){clearTimeout(demoTimer);demoTimer=null;}busy=false;setDisabled(false);reset();};
+
+document.getElementById("b-demo").onclick=function(){
+ if(demoTimer){clearTimeout(demoTimer);demoTimer=null;busy=false;setDisabled(false);log("Demo stopped.");return;}
+ reset();setDisabled(true);busy=true;
+ var steps=[
+  {msg:"spin resist — coating the whole wafer…",fn:function(){spinResist();},kind:"dep"},
+  {msg:"expose + develop: the mask opens alternating stripes…",fn:function(){expose();},kind:"lit"},
+  {msg:"implant N: source/drain regions (damaged crystal)…",fn:function(){implant("n");},kind:"imp"},
+  {msg:"anneal: dopants activated, damage healed…",fn:function(){anneal();},kind:null},
+  {msg:"deposit oxide — gate dielectric over everything…",fn:function(){deposit(OX,"Deposit oxide");},kind:"dep"},
+  {msg:"deposit metal — the gate metal…",fn:function(){deposit(MET,"Deposit metal");},kind:"dep"},
+  {msg:"spin resist again…",fn:function(){spinResist();},kind:"dep"},
+  {msg:"expose + develop: gate mask…",fn:function(){expose();},kind:"lit"},
+  {msg:"etch the gate…",fn:function(){etch();},kind:"dep"},
+  {msg:"implant P: p-type dopants in the open windows…",fn:function(){implant("p");},kind:"imp"},
+  {msg:"anneal again…",fn:function(){anneal();},kind:null},
+  {msg:"CMP: flatten before the next layer…",fn:function(){cmp();},kind:"cmp"},
+  {msg:"done — a striped MOSFET-like stack: doped source/drain stripes (green), gate oxide + metal gate, all planarized. A real chip repeats this cycle ~50–100 times!",fn:null,kind:null}
+ ];
+ var i=0;
+ function next(){
+  if(i>=steps.length){busy=false;setDisabled(false);demoTimer=null;return;}
+  var s=steps[i++];
+  log("<b>Demo:</b> "+s.msg);
+  var proceed=function(){demoTimer=setTimeout(next,850);};
+  if(s.fn&&s.kind){anim(s.kind,function(){s.fn();draw();proceed();});}
+  else{if(s.fn)s.fn();draw();proceed();}
+ }
+ next();
+};
+reset();
+})();
+</script>
+</body>
+</html>

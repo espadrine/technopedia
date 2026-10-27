@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markov chain</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a; background: #fff;
+  }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  p.sub { font-size: 12px; margin: 0 0 12px; color: #555; line-height: 1.4; }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-bottom: 10px; }
+  .controls label { font-size: 13px; font-weight: 600; }
+  .controls input[type=range] { width: 140px; vertical-align: middle; }
+  .controls button {
+    font-size: 13px; padding: 6px 14px; border: 1px solid #bbb; border-radius: 6px;
+    background: #f4f4f4; cursor: pointer;
+  }
+  .controls button:hover { background: #e8e8e8; }
+  .controls button.primary { background: #1565c0; color: #fff; border-color: #1565c0; }
+  .controls button.primary:hover { background: #0d47a1; }
+  .val { font-variant-numeric: tabular-nums; font-weight: 700; color: #1565c0; }
+  .stats { display: flex; gap: 22px; font-size: 13px; margin-bottom: 8px; }
+  .stats span b { font-variant-numeric: tabular-nums; }
+  .panels { display: flex; flex-wrap: wrap; gap: 12px; }
+  .panel { flex: 1 1 320px; min-width: 300px; }
+  .panel h2 { font-size: 13px; margin: 0 0 6px; color: #333; }
+  canvas { width: 100%; height: auto; display: block; border: 1px solid #e0e0e0; border-radius: 6px; background: #fcfcfc; }
+  .legend { font-size: 12px; color: #555; margin-top: 8px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 5px; }
+</style>
+</head>
+<body>
+  <h1>Markov chain &mdash; random walk on a 4-state graph</h1>
+  <p class="sub">Each step moves from the current state to a neighbour chosen with probability given by the transition matrix P (edge thickness &prop; probability). The left panel is the transition graph with the current state highlighted; the right panel tracks the empirical visit frequency of each state, which converges to the stationary distribution &pi; (red markers).</p>
+
+  <div class="controls">
+    <button class="primary" id="step">Step</button>
+    <button id="play">Run</button>
+    <button id="reset">Reset</button>
+    <label>Speed
+      <input type="range" id="speed" min="1" max="60" step="1" value="12">
+    </label>
+  </div>
+
+  <div class="stats">
+    <span>steps <b id="stepsVal">0</b></span>
+    <span>current state <b id="stateVal">A</b></span>
+    <span>&pi; = (<b id="piVal">...</b>)</span>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Transition graph</h2>
+      <canvas id="graph" width="360" height="340"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Empirical frequency vs stationary &pi;</h2>
+      <canvas id="bars" width="360" height="340"></canvas>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#1565c0"></i>empirical frequency</span>
+    <span><i style="background:#d32f2f"></i>stationary &pi;</span>
+    <span><i style="background:#fff;border:2px solid #d32f2f"></i>current state</span>
+  </div>
+
+<script>
+(function () {
+  // ---- transition matrix (row-stochastic) ----
+  var P = [
+    [0.5, 0.3, 0.2, 0.0],
+    [0.2, 0.4, 0.2, 0.2],
+    [0.1, 0.2, 0.4, 0.3],
+    [0.0, 0.2, 0.3, 0.5]
+  ];
+  var names = ['A', 'B', 'C', 'D'];
+  var n = 4;
+
+  // ---- stationary distribution via power iteration ----
+  var pi = new Array(n).fill(1 / n);
+  for (var it = 0; it < 5000; it++) {
+    var np = new Array(n).fill(0);
+    for (var j = 0; j < n; j++) {
+      for (var i = 0; i < n; i++) np[j] += pi[i] * P[i][j];
+    }
+    pi = np;
+  }
+
+  // ---- node positions (square layout) ----
+  var pos = [
+    { x: 0.28, y: 0.26 },
+    { x: 0.72, y: 0.26 },
+    { x: 0.72, y: 0.74 },
+    { x: 0.28, y: 0.74 }
+  ];
+
+  // ---- state ----
+  var current = 0;
+  var counts = [0, 0, 0, 0];
+  var steps = 0;
+  var running = false;
+  var speed = 12;
+  var acc = 0;
+  var lastTs = 0;
+
+  function sampleNext(i) {
+    var u = Math.random();
+    var c = 0;
+    for (var j = 0; j < n; j++) {
+      c += P[i][j];
+      if (u <= c) return j;
+    }
+    return n - 1;
+  }
+
+  function doStep() {
+    current = sampleNext(current);
+    counts[current]++;
+    steps++;
+  }
+
+  function reset() {
+    current = 0;
+    counts = [0, 0, 0, 0];
+    steps = 0;
+    acc = 0;
+  }
+
+  // ---- graph canvas ----
+  var gc = document.getElementById('graph');
+  var gctx = gc.getContext('2d');
+  var GW = gc.width, GH = gc.height;
+
+  function nodeXY(i) { return { x: pos[i].x * GW, y: pos[i].y * GH }; }
+
+  function drawGraph() {
+    gctx.clearRect(0, 0, GW, GH);
+
+    // edges
+    for (var i = 0; i < n; i++) {
+      for (var j = 0; j < n; j++) {
+        if (i === j || P[i][j] <= 0) continue;
+        var a = nodeXY(i), b = nodeXY(j);
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var len = Math.sqrt(dx * dx + dy * dy);
+        var ux = dx / len, uy = dy / len;
+        var r = 26; // node radius
+        var sx = a.x + ux * r, sy = a.y + uy * r;
+        var ex = b.x - ux * (r + 6), ey = b.y - uy * (r + 6);
+        var w = 1 + P[i][j] * 9;
+        gctx.strokeStyle = 'rgba(21,101,192,0.55)';
+        gctx.lineWidth = w;
+        gctx.beginPath();
+        gctx.moveTo(sx, sy);
+        gctx.lineTo(ex, ey);
+        gctx.stroke();
+        // arrowhead
+        var ah = 7;
+        gctx.fillStyle = 'rgba(21,101,192,0.75)';
+        gctx.beginPath();
+        gctx.moveTo(ex, ey);
+        gctx.lineTo(ex - ux * ah - uy * ah * 0.6, ey - uy * ah + ux * ah * 0.6);
+        gctx.lineTo(ex - ux * ah + uy * ah * 0.6, ey - uy * ah - ux * ah * 0.6);
+        gctx.closePath();
+        gctx.fill();
+        // label
+        var mx = (sx + ex) / 2, my = (sy + ey) / 2;
+        gctx.fillStyle = '#37474f';
+        gctx.font = '11px sans-serif';
+        gctx.textAlign = 'center';
+        gctx.textBaseline = 'middle';
+        gctx.fillText(P[i][j].toFixed(1), mx - uy * 9, my + ux * 9);
+      }
+    }
+
+    // nodes
+    for (var k = 0; k < n; k++) {
+      var p = nodeXY(k);
+      var isCur = (k === current);
+      gctx.beginPath();
+      gctx.arc(p.x, p.y, 24, 0, Math.PI * 2);
+      gctx.fillStyle = isCur ? '#ffe0b2' : '#e3f2fd';
+      gctx.fill();
+      gctx.lineWidth = isCur ? 3.5 : 2;
+      gctx.strokeStyle = isCur ? '#d32f2f' : '#1565c0';
+      gctx.stroke();
+      gctx.fillStyle = '#1a1a1a';
+      gctx.font = 'bold 16px sans-serif';
+      gctx.textAlign = 'center';
+      gctx.textBaseline = 'middle';
+      gctx.fillText(names[k], p.x, p.y);
+    }
+  }
+
+  // ---- bars canvas ----
+  var bc = document.getElementById('bars');
+  var bctx = bc.getContext('2d');
+  var BW = bc.width, BH = bc.height;
+  var padL = 40, padR = 16, padT = 16, padB = 40;
+  var plotW = BW - padL - padR;
+  var plotH = BH - padT - padB;
+  var maxFrac = 0.4; // y-axis max
+
+  function drawBars() {
+    bctx.clearRect(0, 0, BW, BH);
+
+    // axes
+    bctx.strokeStyle = '#333';
+    bctx.lineWidth = 1.5;
+    bctx.beginPath();
+    bctx.moveTo(padL, padT + plotH);
+    bctx.lineTo(padL + plotW, padT + plotH);
+    bctx.moveTo(padL, padT);
+    bctx.lineTo(padL, padT + plotH);
+    bctx.stroke();
+
+    // y ticks
+    bctx.fillStyle = '#666';
+    bctx.font = '11px sans-serif';
+    bctx.textAlign = 'right';
+    bctx.textBaseline = 'middle';
+    for (var f = 0; f <= maxFrac + 1e-9; f += 0.1) {
+      var y = padT + plotH - (f / maxFrac) * plotH;
+      bctx.beginPath();
+      bctx.moveTo(padL - 4, y);
+      bctx.lineTo(padL, y);
+      bctx.stroke();
+      bctx.fillText(f.toFixed(1), padL - 7, y);
+    }
+
+    var total = steps;
+    var slot = plotW / n;
+    var barW = slot * 0.55;
+
+    for (var i = 0; i < n; i++) {
+      var cx = padL + slot * i + slot / 2;
+      var frac = total > 0 ? counts[i] / total : 0;
+      var h = (frac / maxFrac) * plotH;
+      var y = padT + plotH - h;
+
+      // empirical bar
+      bctx.fillStyle = '#1565c0';
+      bctx.fillRect(cx - barW / 2, y, barW, h);
+
+      // stationary pi marker (red horizontal tick)
+      var py = padT + plotH - (pi[i] / maxFrac) * plotH;
+      bctx.strokeStyle = '#d32f2f';
+      bctx.lineWidth = 2.5;
+      bctx.beginPath();
+      bctx.moveTo(cx - barW / 2 - 4, py);
+      bctx.lineTo(cx + barW / 2 + 4, py);
+      bctx.stroke();
+
+      // label
+      bctx.fillStyle = '#1a1a1a';
+      bctx.font = 'bold 14px sans-serif';
+      bctx.textAlign = 'center';
+      bctx.textBaseline = 'top';
+      bctx.fillText(names[i], cx, padT + plotH + 8);
+      // value
+      bctx.fillStyle = '#37474f';
+      bctx.font = '11px sans-serif';
+      bctx.textBaseline = 'bottom';
+      bctx.fillText(frac.toFixed(3), cx, y - 3);
+    }
+
+    bctx.fillStyle = '#666';
+    bctx.font = '11px sans-serif';
+    bctx.textAlign = 'center';
+    bctx.textBaseline = 'bottom';
+    bctx.fillText('state', padL + plotW / 2, BH - 4);
+  }
+
+  function updateStats() {
+    document.getElementById('stepsVal').textContent = String(steps);
+    document.getElementById('stateVal').textContent = names[current];
+  }
+
+  function draw() {
+    drawGraph();
+    drawBars();
+    updateStats();
+  }
+
+  function frame(ts) {
+    if (!lastTs) lastTs = ts;
+    var dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if (running) {
+      acc += dt * speed;
+      while (acc >= 1) { doStep(); acc -= 1; }
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- controls ----
+  document.getElementById('step').addEventListener('click', function () {
+    doStep();
+  });
+  var playBtn = document.getElementById('play');
+  playBtn.addEventListener('click', function () {
+    running = !running;
+    playBtn.textContent = running ? 'Pause' : 'Run';
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    reset();
+  });
+  document.getElementById('speed').addEventListener('input', function (e) {
+    speed = parseInt(e.target.value, 10);
+  });
+
+  // ---- init ----
+  document.getElementById('piVal').textContent =
+    pi.map(function (x) { return x.toFixed(3); }).join(', ');
+  draw();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

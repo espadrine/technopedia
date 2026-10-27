@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stock Production Flow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.2em;margin-bottom:8px;color:#a8d8ea}
+.subtitle{font-size:0.8em;color:#888;margin-bottom:12px}
+.controls{margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.controls button{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;background:#16213e;color:#a8d8ea;transition:background .2s}
+.controls button:hover{background:#0f3460}
+.controls button.active{background:#e94560;color:#fff}
+#canvas-wrap{position:relative;width:100%;max-width:960px}
+canvas{width:100%;height:auto;border-radius:8px;background:#16213e;cursor:pointer}
+#info-panel{position:absolute;bottom:10px;left:10px;right:10px;background:rgba(15,52,96,0.95);border:1px solid #4a90d9;border-radius:8px;padding:12px 16px;font-size:0.82em;line-height:1.5;display:none;max-height:120px;overflow-y:auto}
+#info-panel .title{font-weight:bold;color:#a8d8ea;margin-bottom:4px}
+#info-panel .desc{color:#ddd}
+#info-panel .temp{margin-top:4px;font-size:0.9em}
+#info-panel .temp.hot{color:#ff6b6b}
+#info-panel .temp.cold{color:#74b9ff}
+#info-panel .temp.ambient{color:#a29bfe}
+#legend{display:flex;gap:16px;margin-top:8px;font-size:0.75em;color:#aaa;flex-wrap:wrap;justify-content:center}
+#legend span{display:flex;align-items:center;gap:4px}
+#legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+</style>
+</head>
+<body>
+<h1>Stock Production Flow</h1>
+<p class="subtitle">Click a node to see details. Color indicates operating temperature.</p>
+<div class="controls">
+<button class="active" data-path="steel">Steel (sheet/bar)</button>
+<button data-path="aluminum">Aluminum (extrusion)</button>
+<button data-path="powder">Powder metallurgy</button>
+<button data-path="ceramic">Ceramics</button>
+</div>
+<div id="canvas-wrap">
+<canvas id="c" width="960" height="480"></canvas>
+<div id="info-panel"><div class="title"></div><div class="desc"></div><div class="temp"></div></div>
+</div>
+<div id="legend">
+<span><span class="dot" style="background:#ff6b6b"></span> Hot (> recrystallization T)</span>
+<span><span class="dot" style="background:#74b9ff"></span> Cold (below recrystallization T)</span>
+<span><span class="dot" style="background:#a29bfe"></span> Ambient / melt</span>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const infoPanel=document.getElementById('info-panel');
+const infoTitle=infoPanel.querySelector('.title');
+const infoDesc=infoPanel.querySelector('.desc');
+const infoTemp=infoPanel.querySelector('.temp');
+const W=960,H=480;
+
+// temp: 'hot' | 'cold' | 'ambient'
+// crossSection: [width, height] in arbitrary units for drawing
+const paths={
+steel:{
+  nodes:[
+    {x:70,y:240,label:"Iron ore /\nScrap",desc:"Raw material: hematite ore or recycled steel scrap.",temp:"ambient",cs:[40,40]},
+    {x:210,y:240,label:"BOF / EAF\nMelting",desc:"Basic Oxygen Furnace or Electric Arc Furnace melts the charge at ~1600 °C.",temp:"hot",cs:[50,30]},
+    {x:350,y:240,label:"Ladle\nRefining",desc:"Chemistry adjusted (C, Mn, S, P); inclusions removed.",temp:"hot",cs:[50,30]},
+    {x:490,y:240,label:"Continuous\nCasting",desc:"Melt solidified into slab (200×2000 mm) or billet (150×150 mm).",temp:"hot",cs:[60,20]},
+    {x:630,y:160,label:"Hot Rolling",desc:"Slab rolled to sheet/strip or billet to bar at >900 °C. Thickness reduced 10:1 to 50:1.",temp:"hot",cs:[70,8]},
+    {x:630,y:320,label:"Cold Rolling",desc:"Sheet reduced below recrystallization T; work hardening raises strength and surface finish.",temp:"cold",cs:[70,4]},
+    {x:800,y:160,label:"Sheet /\nStrip",desc:"Final stock: 0.3–25 mm thick, coil or flat.",temp:"cold",cs:[70,3]},
+    {x:800,y:320,label:"Bar /\nRod",desc:"Final stock: round, square, or flat cross-section.",temp:"cold",cs:[12,12]}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[3,5],[4,6],[5,7]]
+},
+aluminum:{
+  nodes:[
+    {x:70,y:240,label:"Bauxite /\nScrap",desc:"Aluminum oxide ore or recycled scrap.",temp:"ambient",cs:[40,40]},
+    {x:210,y:240,label:"Hall-Héroult\nElectrolysis",desc:"Al₂O₃ dissolved in cryolite; electrolyzed at ~960 °C to produce primary Al.",temp:"hot",cs:[50,30]},
+    {x:350,y:240,label:"Remelt /\nRefine",desc:"Scrap remelted (saves ~95% energy); impurities removed.",temp:"hot",cs:[50,30]},
+    {x:490,y:240,label:"Continuous\nCasting",desc:"Melt cast into billet (150–300 mm square).",temp:"hot",cs:[50,50]},
+    {x:630,y:240,label:"Hot\nExtrusion",desc:"Billet heated to ~480 °C, forced through die at 5–20:1 ratio.",temp:"hot",cs:[30,30]},
+    {x:800,y:240,label:"Profile /\nBar",desc:"Final stock: complex cross-sections, tubes, wire rod.",temp:"cold",cs:[20,20]}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[4,5]]
+},
+powder:{
+  nodes:[
+    {x:70,y:240,label:"Alloy\nIngot",desc:"Pre-alloyed metal ingot (e.g., 316L SS, Ti-6Al-4V).",temp:"ambient",cs:[40,40]},
+    {x:210,y:240,label:"Induction\nMelting",desc:"Ingot melted in vacuum or inert atmosphere.",temp:"hot",cs:[50,30]},
+    {x:350,y:240,label:"Gas / Water\nAtomization",desc:"Melt stream broken by high-pressure Ar/N₂ or water into droplets.",temp:"hot",cs:[8,8]},
+    {x:490,y:240,label:"Spherical\nPowder",desc:"10–150 µm spherical particles; sieved to size.",temp:"ambient",cs:[8,8]},
+    {x:630,y:160,label:"Pressing",desc:"Powder compacted in die (uniaxial or isostatic).",temp:"cold",cs:[50,30]},
+    {x:630,y:320,label:"Sintering",desc:"Green body heated to 0.7–0.9 Tm in vacuum/inert gas.",temp:"hot",cs:[50,30]},
+    {x:800,y:240,label:"Sintered\nPart",desc:"Near-net-shape part with 95–99% density.",temp:"ambient",cs:[50,30]}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[3,5],[4,6],[5,6]]
+},
+ceramic:{
+  nodes:[
+    {x:70,y:240,label:"Raw\nOxides",desc:"Al₂O₃, SiC, ZrO₂, or other ceramic powders.",temp:"ambient",cs:[40,40]},
+    {x:210,y:240,label:"Powder\nPrep",desc:"Calcination, milling, or chemical synthesis to target particle size.",temp:"hot",cs:[8,8]},
+    {x:350,y:240,label:"Pressing",desc:"Uniaxial, CIP, or HIP compaction to green body.",temp:"cold",cs:[50,30]},
+    {x:490,y:240,label:"Sintering",desc:"Heated to 1400–1700 °C; particles bond via diffusion.",temp:"hot",cs:[50,30]},
+    {x:630,y:240,label:"HIP (optional)",desc:"Hot Isostatic Pressing: 300 MPa Ar at 1200–1400 °C closes pores.",temp:"hot",cs:[50,30]},
+    {x:800,y:240,label:"Ceramic\nPart",desc:"Final part: >99% density, near-theoretical properties.",temp:"ambient",cs:[50,30]}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[4,5]]
+}
+};
+
+let currentPath='steel';
+let animT=0;
+let selectedNode=-1;
+
+function lerp(a,b,t){return a+(b-a)*t}
+
+function tempColor(temp){
+  if(temp==='hot')return '#ff6b6b';
+  if(temp==='cold')return '#74b9ff';
+  return '#a29bfe';
+}
+
+function tempLabel(temp){
+  if(temp==='hot')return '🔥 Hot operation';
+  if(temp==='cold')return '❄️ Cold operation';
+  return '⚪ Ambient / melt';
+}
+
+function drawCrossSection(cx,cy,w,h,color){
+  // Draw a small cross-section rectangle to the right of the node
+  const ox=cx+35,oy=cy-10;
+  ctx.save();
+  ctx.globalAlpha=0.7;
+  ctx.fillStyle=color;
+  ctx.strokeStyle=color;
+  ctx.lineWidth=1;
+  // Scale to fit in a 24x24 box
+  const scale=Math.min(24/Math.max(w,h),1);
+  const dw=w*scale,dh=h*scale;
+  ctx.fillRect(ox-dw/2,oy-dh/2,dw,dh);
+  ctx.strokeRect(ox-dw/2,oy-dh/2,dw,dh);
+  ctx.restore();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const p=paths[currentPath];
+  const nodes=p.nodes;
+  const edges=p.edges;
+
+  // Draw edges
+  edges.forEach(([a,b],i)=>{
+    const na=nodes[a],nb=nodes[b];
+    const t=Math.min(1,Math.max(0,(animT-i*0.3)/0.5));
+    ctx.beginPath();
+    ctx.moveTo(na.x,na.y);
+    const ex=lerp(na.x,nb.x,t),ey=lerp(na.y,nb.y,t);
+    ctx.lineTo(ex,ey);
+    ctx.strokeStyle=t<1?'#e94560':'#4a90d9';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    // Arrow
+    if(t>=1){
+      const dx=nb.x-na.x,dy=nb.y-na.y;
+      const len=Math.sqrt(dx*dx+dy*dy);
+      const ux=dx/len,uy=dy/len;
+      const ax=nb.x-ux*22,ay=nb.y-uy*22;
+      ctx.beginPath();
+      ctx.moveTo(ax,ay);
+      ctx.lineTo(ax-ux*10-uy*5,ay-uy*10+ux*5);
+      ctx.lineTo(ax-ux*10+uy*5,ay-uy*10-ux*5);
+      ctx.closePath();
+      ctx.fillStyle='#4a90d9';
+      ctx.fill();
+    }
+  });
+
+  // Draw nodes
+  nodes.forEach((n,i)=>{
+    const t=Math.min(1,Math.max(0,(animT-i*0.3)/0.4));
+    const r=lerp(0,26,t);
+    const tc=tempColor(n.temp);
+    const isSelected=i===selectedNode;
+
+    // Glow for selected
+    if(isSelected){
+      ctx.beginPath();
+      ctx.arc(n.x,n.y,r+6,0,Math.PI*2);
+      ctx.fillStyle=tc+'33';
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    ctx.fillStyle=isSelected?tc:'#0f3460';
+    ctx.fill();
+    ctx.strokeStyle=tc;
+    ctx.lineWidth=isSelected?3:2;
+    ctx.stroke();
+
+    // Cross-section indicator
+    if(t>0.5){
+      drawCrossSection(n.x,n.y,n.cs[0],n.cs[1],tc);
+    }
+
+    // Label
+    if(t>0.5){
+      ctx.fillStyle='#eee';
+      ctx.font='11px system-ui';
+      ctx.textAlign='center';
+      const lines=n.label.split('\n');
+      lines.forEach((line,li)=>{
+        ctx.fillText(line,n.x,n.y+r+14+li*13);
+      });
+    }
+  });
+
+  animT+=0.02;
+  if(animT>nodes.length*0.3+1)animT=nodes.length*0.3+1;
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+// Controls
+document.querySelectorAll('.controls button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.controls button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPath=btn.dataset.path;
+    animT=0;
+    selectedNode=-1;
+    infoPanel.style.display='none';
+  });
+});
+
+// Click to select node
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=W/rect.width,scaleY=H/rect.height;
+  const mx=(e.clientX-rect.left)*scaleX;
+  const my=(e.clientY-rect.top)*scaleY;
+  const p=paths[currentPath];
+  selectedNode=-1;
+  for(let i=0;i<p.nodes.length;i++){
+    const n=p.nodes[i];
+    const dx=mx-n.x,dy=my-n.y;
+    if(dx*dx+dy*dy<900){selectedNode=i;break;}
+  }
+  if(selectedNode>=0){
+    const n=p.nodes[selectedNode];
+    infoTitle.textContent=n.label.replace('\n',' ');
+    infoDesc.textContent=n.desc;
+    infoTemp.textContent=tempLabel(n.temp);
+    infoTemp.className='temp '+n.temp;
+    infoPanel.style.display='block';
+  }else{
+    infoPanel.style.display='none';
+  }
+});
+</script>
+</body>
+</html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stock Production Flow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px}
+h1{font-size:1.2em;margin-bottom:10px;color:#a8d8ea}
+.controls{margin-bottom:15px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.controls button{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:0.85em;background:#16213e;color:#a8d8ea;transition:background .2s}
+.controls button:hover{background:#0f3460}
+.controls button.active{background:#e94560;color:#fff}
+#canvas-wrap{position:relative;width:100%;max-width:900px}
+canvas{width:100%;height:auto;border-radius:8px;background:#16213e}
+#tooltip{position:absolute;background:#0f3460;color:#eee;padding:8px 12px;border-radius:6px;font-size:0.8em;pointer-events:none;display:none;max-width:260px;line-height:1.4}
+</style>
+</head>
+<body>
+<h1>Stock Production Flow</h1>
+<div class="controls">
+<button class="active" data-path="steel">Steel (sheet/bar)</button>
+<button data-path="aluminum">Aluminum (extrusion)</button>
+<button data-path="powder">Powder metallurgy</button>
+<button data-path="ceramic">Ceramics</button>
+</div>
+<div id="canvas-wrap">
+<canvas id="c" width="900" height="420"></canvas>
+<div id="tooltip"></div>
+</div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const tooltip=document.getElementById('tooltip');
+const W=900,H=420;
+
+const paths={
+steel:{
+  nodes:[
+    {x:60,y:200,label:"Iron ore /\nScrap",desc:"Raw material: hematite ore or recycled steel scrap."},
+    {x:200,y:200,label:"BOF / EAF\nMelting",desc:"Basic Oxygen Furnace or Electric Arc Furnace melts the charge at ~1600 °C."},
+    {x:340,y:200,label:"Ladle\nRefining",desc:"Chemistry adjusted (C, Mn, S, P); inclusions removed."},
+    {x:480,y:200,label:"Continuous\nCasting",desc:"Melt solidified into slab (sheet) or billet (bar)."},
+    {x:620,y:140,label:"Hot Rolling",desc:"Slab rolled to sheet/strip or billet to bar at >900 °C."},
+    {x:620,y:260,label:"Cold Rolling",desc:"Sheet reduced below recrystallization T; work hardening."},
+    {x:780,y:140,label:"Sheet /\nStrip",desc:"Final stock: 0.3–25 mm thick, coil or flat."},
+    {x:780,y:260,label:"Bar /\nRod",desc:"Final stock: round, square, or flat cross-section."}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[3,5],[4,6],[5,7]]
+},
+aluminum:{
+  nodes:[
+    {x:60,y:200,label:"Bauxite /\nScrap",desc:"Aluminum oxide ore or recycled scrap."},
+    {x:200,y:200,label:"Hall-Héroult\nElectrolysis",desc:"Al₂O₃ dissolved in cryolite; electrolyzed at ~960 °C to produce primary Al."},
+    {x:340,y:200,label:"Remelt /\nRefine",desc:"Scrap remelted (saves ~95% energy); impurities removed."},
+    {x:480,y:200,label:"Continuous\nCasting",desc:"Melt cast into billet (150–300 mm square)."},
+    {x:620,y:200,label:"Hot\nExtrusion",desc:"Billet heated to ~480 °C, forced through die at 5–20:1 ratio."},
+    {x:780,y:200,label:"Profile /\nBar",desc:"Final stock: complex cross-sections, tubes, wire rod."}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[4,5]]
+},
+powder:{
+  nodes:[
+    {x:60,y:200,label:"Alloy\nIngot",desc:"Pre-alloyed metal ingot (e.g., 316L SS, Ti-6Al-4V)."},
+    {x:200,y:200,label:"Induction\nMelting",desc:"Ingot melted in vacuum or inert atmosphere."},
+    {x:340,y:200,label:"Gas / Water\nAtomization",desc:"Melt stream broken by high-pressure Ar/N₂ or water into droplets."},
+    {x:480,y:200,label:"Spherical\nPowder",desc:"10–150 µm spherical particles; sieved to size."},
+    {x:620,y:140,label:"Pressing",desc:"Powder compacted in die (uniaxial or isostatic)."},
+    {x:620,y:260,label:"Sintering",desc:"Green body heated to 0.7–0.9 Tm in vacuum/inert gas."},
+    {x:780,y:200,label:"Sintered\nPart",desc:"Near-net-shape part with 95–99% density."}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[3,5],[4,6],[5,6]]
+},
+ceramic:{
+  nodes:[
+    {x:60,y:200,label:"Raw\nOxides",desc:"Al₂O₃, SiC, ZrO₂, or other ceramic powders."},
+    {x:200,y:200,label:"Powder\nPrep",desc:"Calcination, milling, or chemical synthesis to target particle size."},
+    {x:340,y:200,label:"Pressing",desc:"Uniaxial, CIP, or HIP compaction to green body."},
+    {x:480,y:200,label:"Sintering",desc:"Heated to 1400–1700 °C; particles bond via diffusion."},
+    {x:620,y:200,label:"HIP (optional)",desc:"Hot Isostatic Pressing: 300 MPa Ar at 1200–1400 °C closes pores."},
+    {x:780,y:200,label:"Ceramic\nPart",desc:"Final part: >99% density, near-theoretical properties."}
+  ],
+  edges:[[0,1],[1,2],[2,3],[3,4],[4,5]]
+}
+};
+
+let currentPath='steel';
+let animT=0;
+let hovered=-1;
+
+function lerp(a,b,t){return a+(b-a)*t}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const p=paths[currentPath];
+  const nodes=p.nodes;
+  const edges=p.edges;
+
+  // Draw edges
+  edges.forEach(([a,b],i)=>{
+    const na=nodes[a],nb=nodes[b];
+    const t=Math.min(1,Math.max(0,(animT-i*0.3)/0.5));
+    ctx.beginPath();
+    ctx.moveTo(na.x,na.y);
+    const ex=lerp(na.x,nb.x,t),ey=lerp(na.y,nb.y,t);
+    ctx.lineTo(ex,ey);
+    ctx.strokeStyle=t<1?'#e94560':'#4a90d9';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    // Arrow
+    if(t>=1){
+      const dx=nb.x-na.x,dy=nb.y-na.y;
+      const len=Math.sqrt(dx*dx+dy*dy);
+      const ux=dx/len,uy=dy/len;
+      const ax=nb.x-ux*20,ay=nb.y-uy*20;
+      ctx.beginPath();
+      ctx.moveTo(ax,ay);
+      ctx.lineTo(ax-ux*10-uy*5,ay-uy*10+ux*5);
+      ctx.lineTo(ax-ux*10+uy*5,ay-uy*10-ux*5);
+      ctx.closePath();
+      ctx.fillStyle='#4a90d9';
+      ctx.fill();
+    }
+  });
+
+  // Draw nodes
+  nodes.forEach((n,i)=>{
+    const t=Math.min(1,Math.max(0,(animT-i*0.3)/0.4));
+    const r=lerp(0,28,t);
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,r,0,Math.PI*2);
+    ctx.fillStyle=i===hovered?'#e94560':'#0f3460';
+    ctx.fill();
+    ctx.strokeStyle=i===hovered?'#fff':'#4a90d9';
+    ctx.lineWidth=2;
+    ctx.stroke();
+
+    if(t>0.5){
+      ctx.fillStyle='#eee';
+      ctx.font='11px system-ui';
+      ctx.textAlign='center';
+      const lines=n.label.split('\n');
+      lines.forEach((line,li)=>{
+        ctx.fillText(line,n.x,n.y+r+14+li*13);
+      });
+    }
+  });
+
+  animT+=0.02;
+  if(animT>nodes.length*0.3+1)animT=nodes.length*0.3+1;
+  requestAnimationFrame(draw);
+}
+
+draw();
+
+// Controls
+document.querySelectorAll('.controls button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.controls button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPath=btn.dataset.path;
+    animT=0;
+    hovered=-1;
+  });
+});
+
+// Hover
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=W/rect.width,scaleY=H/rect.height;
+  const mx=(e.clientX-rect.left)*scaleX;
+  const my=(e.clientY-rect.top)*scaleY;
+  const p=paths[currentPath];
+  hovered=-1;
+  for(let i=0;i<p.nodes.length;i++){
+    const n=p.nodes[i];
+    const dx=mx-n.x,dy=my-n.y;
+    if(dx*dx+dy*dy<900){hovered=i;break;}
+  }
+  if(hovered>=0){
+    const n=p.nodes[hovered];
+    tooltip.style.display='block';
+    tooltip.textContent=n.desc;
+    tooltip.style.left=(e.clientX-rect.left+10)+'px';
+    tooltip.style.top=(e.clientY-rect.top-10)+'px';
+  }else{
+    tooltip.style.display='none';
+  }
+});
+canvas.addEventListener('mouseleave',()=>{tooltip.style.display='none';hovered=-1;});
+</script>
+</body>
+</html>

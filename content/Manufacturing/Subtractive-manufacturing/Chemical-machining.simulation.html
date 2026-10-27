@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Chemical Machining – Etch Profile Simulation</title>
+<style>
+body{margin:0;padding:16px;font-family:system-ui,sans-serif;background:#1a1a2e;color:#eee}
+h2{margin:0 0 8px;font-size:1.1em;text-align:center}
+canvas{border:1px solid #444;border-radius:6px;background:#0f0f1a;display:block;margin:0 auto}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0;justify-content:center}
+.controls label{font-size:.85em}
+.controls input[type=range]{width:120px}
+.controls button{padding:4px 12px;cursor:pointer;border-radius:4px;border:1px solid #555;background:#2a2a4a;color:#eee}
+.controls button.active{background:#4a4a8a}
+.info{text-align:center;font-size:.85em;color:#aaa;margin-top:8px}
+</style>
+</head>
+<body>
+<h2>Chemical Machining &ndash; Etch Profile</h2>
+<canvas id="c" width="700" height="400"></canvas>
+<div class="controls">
+<label>Etch factor: <span id="efVal">2.0</span></label>
+<input type="range" id="ef" min="1" max="4" step="0.1" value="2">
+<label><input type="checkbox" id="ds" checked> Double-sided</label>
+<button id="playBtn" class="active">Pause</button>
+<button id="resetBtn">Reset</button>
+</div>
+<div class="info" id="info">Etch depth: 0.00 mm | Undercut: 0.00 mm | EF: 2.0</div>
+<script>
+var cv=document.getElementById('c'),ctx=cv.getContext('2d');
+var W=cv.width,H=cv.height;
+var ef=2.0,ds=true,playing=true,t=0;
+var maxT=5.0;
+var sheetX=150,sheetW=400,sheetY=80,sheetH=240;
+var holeW=80;
+var resistTh=12;
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  var depth=t*40;
+  var maxDepth=sheetH;
+  if(depth>maxDepth)depth=maxDepth;
+  var uc=depth/ef;
+
+  // Draw metal sheet
+  ctx.fillStyle='#8899aa';
+  ctx.fillRect(sheetX,sheetY,sheetW,sheetH);
+
+  // Draw etched hole
+  var cx=sheetX+sheetW/2;
+  ctx.fillStyle='#0f0f1a';
+  if(ds){
+    // Double-sided: hourglass profile
+    var halfDepth=depth/2;
+    // Top etch front
+    ctx.beginPath();
+    ctx.moveTo(cx-holeW/2,sheetY);
+    ctx.lineTo(cx+holeW/2,sheetY);
+    ctx.lineTo(cx+holeW/2+halfDepth/ef,sheetY+halfDepth);
+    ctx.lineTo(cx-holeW/2-halfDepth/ef,sheetY+halfDepth);
+    ctx.closePath();
+    ctx.fill();
+    // Bottom etch front
+    ctx.beginPath();
+    ctx.moveTo(cx-holeW/2,sheetY+sheetH);
+    ctx.lineTo(cx+holeW/2,sheetY+sheetH);
+    ctx.lineTo(cx+holeW/2+halfDepth/ef,sheetY+sheetH-halfDepth);
+    ctx.lineTo(cx-holeW/2-halfDepth/ef,sheetY+sheetH-halfDepth);
+    ctx.closePath();
+    ctx.fill();
+    // Cusp at mid-thickness (small ridge)
+    if(halfDepth>=sheetH/2){
+      var cuspW=4;
+      ctx.fillStyle='#8899aa';
+      ctx.fillRect(cx-cuspW/2,sheetY+sheetH/2-2,cuspW,4);
+    }
+  } else {
+    // Single-sided: trapezoid from top
+    ctx.beginPath();
+    ctx.moveTo(cx-holeW/2,sheetY);
+    ctx.lineTo(cx+holeW/2,sheetY);
+    ctx.lineTo(cx+holeW/2+uc,sheetY+depth);
+    ctx.lineTo(cx-holeW/2-uc,sheetY+depth);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Draw resist mask (top)
+  ctx.fillStyle='#cc4444';
+  ctx.fillRect(sheetX,sheetY-resistTh,sheetX+cx-holeW/2-sheetX,resistTh);
+  ctx.fillRect(cx+holeW/2,sheetY-resistTh,sheetX+sheetW-(cx+holeW/2),resistTh);
+
+  // Draw resist mask (bottom) if double-sided
+  if(ds){
+    ctx.fillStyle='#cc4444';
+    ctx.fillRect(sheetX,sheetY+sheetH,sheetX+cx-holeW/2-sheetX,resistTh);
+    ctx.fillRect(cx+holeW/2,sheetY+sheetH,sheetX+sheetW-(cx+holeW/2),resistTh);
+  }
+
+  // Etchant arrows
+  ctx.strokeStyle='#44aaff';
+  ctx.lineWidth=2;
+  var arrowY=sheetY-resistTh-20;
+  for(var i=0;i<5;i++){
+    var ax=cx-holeW/2+10+i*(holeW-20)/4;
+    ctx.beginPath();
+    ctx.moveTo(ax,arrowY);
+    ctx.lineTo(ax,arrowY+15);
+    ctx.lineTo(ax-4,arrowY+11);
+    ctx.moveTo(ax,arrowY+15);
+    ctx.lineTo(ax+4,arrowY+11);
+    ctx.stroke();
+  }
+  if(ds){
+    arrowY=sheetY+sheetH+resistTh+5;
+    for(var i=0;i<5;i++){
+      var ax=cx-holeW/2+10+i*(holeW-20)/4;
+      ctx.beginPath();
+      ctx.moveTo(ax,arrowY+15);
+      ctx.lineTo(ax,arrowY);
+      ctx.lineTo(ax-4,arrowY+4);
+      ctx.moveTo(ax,arrowY);
+      ctx.lineTo(ax+4,arrowY+4);
+      ctx.stroke();
+    }
+  }
+
+  // Labels
+  ctx.fillStyle='#eee';
+  ctx.font='12px system-ui';
+  ctx.textAlign='left';
+  ctx.fillText('Resist',sheetX+5,sheetY-resistTh-4);
+  ctx.fillText('Metal sheet',sheetX+5,sheetY+sheetH/2+4);
+  if(ds)ctx.fillText('Resist',sheetX+5,sheetY+sheetH+resistTh+12);
+
+  // Dimension lines
+  ctx.strokeStyle='#ffcc44';
+  ctx.lineWidth=1;
+  var dimX=sheetX+sheetW+20;
+  if(ds){
+    // Top depth
+    ctx.beginPath();ctx.moveTo(dimX,sheetY);ctx.lineTo(dimX,sheetY+halfDepth);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dimX-4,sheetY);ctx.lineTo(dimX+4,sheetY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dimX-4,sheetY+halfDepth);ctx.lineTo(dimX+4,sheetY+halfDepth);ctx.stroke();
+    ctx.fillStyle='#ffcc44';
+    ctx.fillText('d/2',dimX+6,sheetY+halfDepth/2+4);
+    // Bottom depth
+    ctx.beginPath();ctx.moveTo(dimX,sheetY+sheetH);ctx.lineTo(dimX,sheetY+sheetH-halfDepth);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dimX-4,sheetY+sheetH);ctx.lineTo(dimX+4,sheetY+sheetH);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dimX-4,sheetY+sheetH-halfDepth);ctx.lineTo(dimX+4,sheetY+sheetH-halfDepth);ctx.stroke();
+    ctx.fillText('d/2',dimX+6,sheetY+sheetH-halfDepth/2+4);
+  } else {
+    ctx.beginPath();ctx.moveTo(dimX,sheetY);ctx.lineTo(dimX,sheetY+depth);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dimX-4,sheetY);ctx.lineTo(dimX+4,sheetY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(dimX-4,sheetY+depth);ctx.lineTo(dimX+4,sheetY+depth);ctx.stroke();
+    ctx.fillStyle='#ffcc44';
+    ctx.fillText('d',dimX+6,sheetY+depth/2+4);
+  }
+
+  // Undercut dimension
+  var ucDimY=sheetY+(ds?halfDepth:depth)+10;
+  if(depth>5){
+    ctx.strokeStyle='#66ff66';
+    ctx.beginPath();
+    ctx.moveTo(cx+holeW/2,ucDimY);
+    ctx.lineTo(cx+holeW/2+(ds?halfDepth:depth)/ef,ucDimY);
+    ctx.stroke();
+    ctx.fillStyle='#66ff66';
+    ctx.fillText('uc',cx+holeW/2+(ds?halfDepth:depth)/ef+4,ucDimY+4);
+  }
+
+  // Cusp label
+  if(ds&&halfDepth>=sheetH/2){
+    ctx.fillStyle='#ff8888';
+    ctx.font='11px system-ui';
+    ctx.fillText('cusp',cx+10,sheetY+sheetH/2+4);
+  }
+
+  // Info
+  var dMM=(depth/40).toFixed(2);
+  var ucMM=((ds?halfDepth:depth)/ef/40).toFixed(2);
+  document.getElementById('info').textContent='Etch depth: '+dMM+' mm | Undercut: '+ucMM+' mm | EF: '+ef.toFixed(1)+(ds?' (double-sided)':' (single-sided)');
+}
+
+function loop(){
+  if(playing){
+    t+=0.02;
+    if(t>maxT)t=0;
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('ef').addEventListener('input',function(){
+  ef=parseFloat(this.value);
+  document.getElementById('efVal').textContent=ef.toFixed(1);
+});
+document.getElementById('ds').addEventListener('change',function(){
+  ds=this.checked;
+});
+document.getElementById('playBtn').addEventListener('click',function(){
+  playing=!playing;
+  this.textContent=playing?'Pause':'Play';
+  this.classList.toggle('active',playing);
+});
+document.getElementById('resetBtn').addEventListener('click',function(){
+  t=0;
+});
+
+loop();
+</script>
+</body>
+</html>

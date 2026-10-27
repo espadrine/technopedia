@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D die stack with TSVs</title>
+<style>
+body { margin: 0; padding: 10px; font-family: system-ui, sans-serif; background: #1a1a2e; color: #eee; }
+h2 { text-align: center; font-size: 1.1em; margin: 5px 0; }
+.controls { text-align: center; margin: 8px 0; font-size: 0.9em; }
+.controls input { vertical-align: middle; }
+canvas { display: block; margin: 0 auto; border: 1px solid #333; border-radius: 4px; background: #12122a; }
+.legend { text-align: center; font-size: 0.8em; margin-top: 6px; color: #aaa; }
+</style>
+</head>
+<body>
+<h2>3D die stack: signals travel vertically through TSVs</h2>
+<div class="controls">
+<label>Dies in stack: <span id="nval">4</span> <input type="range" id="n" min="2" max="8" value="4"></label>
+</div>
+<canvas id="cv" width="700" height="380"></canvas>
+<div class="legend">Each die is thinned to ~45 µm; TSVs (2–10 µm) pass through it and micro-bumps join die to die. The highlighted path is one vertical signal.</div>
+<script>
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const nEl = document.getElementById('n');
+const nVal = document.getElementById('nval');
+
+function draw() {
+  const n = parseInt(nEl.value, 10);
+  nVal.textContent = n;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const dieH = 34;
+  const gap = 14;
+  const x0 = 150, w = 400;
+  const totalH = n * dieH + (n - 1) * gap;
+  const y0 = (cv.height - totalH) / 2 + 10;
+  // Dies
+  for (let i = 0; i < n; i++) {
+    const y = y0 + i * (dieH + gap);
+    ctx.fillStyle = i % 2 ? '#6ab04c' : '#4a90d9';
+    ctx.fillRect(x0, y, w, dieH);
+    ctx.fillStyle = '#eee';
+    ctx.font = '11px system-ui';
+    ctx.fillText('DRAM die ' + (i + 1) + ' (thinned, ~45 µm)', x0 + 10, y + dieH / 2 + 4);
+    // TSVs through this die
+    for (let k = 0; k < 7; k++) {
+      ctx.fillStyle = '#e67e22';
+      ctx.fillRect(x0 + 40 + k * 50, y, 5, dieH);
+    }
+    // Micro-bumps between dies
+    if (i < n - 1) {
+      for (let k = 0; k < 7; k++) {
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(x0 + 42 + k * 50, y + dieH + gap / 2, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  // Highlight one vertical signal path
+  const px = x0 + 42 + 3 * 50 + 2;
+  ctx.strokeStyle = '#f1c40f';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.moveTo(px, y0);
+  ctx.lineTo(px, y0 + totalH);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f1c40f';
+  ctx.font = '11px system-ui';
+  ctx.fillText('one vertical signal: ~' + (n * 45 + (n - 1) * 20) + ' µm total', px + 10, y0 - 8);
+  // Substrate below
+  ctx.fillStyle = '#8b6914';
+  ctx.fillRect(100, y0 + totalH + 20, 500, 40);
+  ctx.fillStyle = '#eee';
+  ctx.fillText('Base die / substrate (C4 bumps)', 110, y0 + totalH + 45);
+}
+
+nEl.addEventListener('input', draw);
+draw();
+</script>
+</body>
+</html>

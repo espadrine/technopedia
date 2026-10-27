@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shift-Reduce Parser: a + b * c</title>
+<style>
+body { font-family: 'Courier New', monospace; max-width: 700px; margin: 20px auto; padding: 0 10px; background: #1a1a2e; color: #e0e0e0; }
+h1 { font-size: 1.2em; color: #64ffda; text-align: center; }
+.grammar { background: #16213e; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 0.9em; }
+.grammar div { margin: 3px 0; }
+.controls { text-align: center; margin: 15px 0; }
+button { background: #0f3460; color: #64ffda; border: 1px solid #64ffda; padding: 8px 16px; margin: 0 5px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.9em; }
+button:hover { background: #1a5276; }
+button:disabled { opacity: 0.4; cursor: default; }
+.state { display: flex; gap: 10px; margin: 10px 0; }
+.panel { flex: 1; background: #16213e; border-radius: 6px; padding: 10px; min-height: 60px; }
+.panel h3 { font-size: 0.8em; color: #64ffda; margin: 0 0 8px 0; border-bottom: 1px solid #0f3460; padding-bottom: 4px; }
+.stack-items { display: flex; flex-wrap: wrap; gap: 4px; }
+.stack-item { background: #0f3460; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; }
+.stack-item.nt { background: #4a1a6b; color: #dda0dd; }
+.input-items { display: flex; gap: 4px; }
+.input-item { background: #1b4332; padding: 3px 8px; border-radius: 3px; font-size: 0.85em; }
+.input-item.consumed { opacity: 0.3; }
+.action { background: #16213e; border-radius: 6px; padding: 10px; margin: 10px 0; min-height: 40px; }
+.action h3 { font-size: 0.8em; color: #ffd700; margin: 0 0 6px 0; }
+.action p { margin: 0; font-size: 0.9em; }
+.ast { background: #16213e; border-radius: 6px; padding: 10px; margin: 10px 0; display: none; }
+.ast h3 { font-size: 0.8em; color: #64ffda; margin: 0 0 8px 0; }
+.ast pre { margin: 0; font-size: 0.9em; color: #a0e7e5; }
+.step-counter { text-align: center; font-size: 0.8em; color: #888; margin: 5px 0; }
+</style>
+</head>
+<body>
+<h1>Shift-Reduce Parser</h1>
+<div class="grammar">
+<strong>Grammar:</strong>
+<div>0: E' → E $</div>
+<div>1: E → E + T</div>
+<div>2: E → T</div>
+<div>3: T → T * F</div>
+<div>4: T → F</div>
+<div>5: F → ( E )</div>
+<div>6: F → id</div>
+</div>
+<div class="controls">
+<button id="prev" disabled>◀ Step</button>
+<button id="next">Step ▶</button>
+<button id="reset">Reset</button>
+<button id="auto">Auto</button>
+</div>
+<div class="step-counter" id="counter">Step 0 / 13</div>
+<div class="state">
+<div class="panel">
+<h3>Stack</h3>
+<div class="stack-items" id="stack"></div>
+</div>
+<div class="panel">
+<h3>Input</h3>
+<div class="input-items" id="input"></div>
+</div>
+</div>
+<div class="action" id="action-panel">
+<h3>Action</h3>
+<p id="action-text">Press "Step" to begin parsing.</p>
+</div>
+<div class="ast" id="ast-panel">
+<h3>Resulting AST</h3>
+<pre id="ast-text"></pre>
+</div>
+<script>
+var steps = [
+{stack: ["$"], input: ["a","+","b","*","c","$"], action: "Start: stack has $, input is a + b c $", detail: "Initial state"},
+{stack: ["$","a"], input: ["+","b","*","c","$"], action: "SHIFT a", detail: "Push 'a' onto stack"},
+{stack: ["$","F"], input: ["+","b","*","c","$"], action: "REDUCE F → id (rule 6)", detail: "Replace 'a' with F (a is an id)", reduce: true},
+{stack: ["$","T"], input: ["+","b","*","c","$"], action: "REDUCE T → F (rule 4)", detail: "Replace F with T", reduce: true},
+{stack: ["$","E"], input: ["+","b","*","c","$"], action: "REDUCE E → T (rule 2)", detail: "Replace T with E", reduce: true},
+{stack: ["$","E","+"], input: ["b","*","c","$"], action: "SHIFT +", detail: "Push '+' onto stack"},
+{stack: ["$","E","+","b"], input: ["*","c","$"], action: "SHIFT b", detail: "Push 'b' onto stack"},
+{stack: ["$","E","+","F"], input: ["*","c","$"], action: "REDUCE F → id (rule 6)", detail: "Replace 'b' with F", reduce: true},
+{stack: ["$","E","+","T"], input: ["*","c","$"], action: "REDUCE T → F (rule 4)", detail: "Replace F with T", reduce: true},
+{stack: ["$","E","+","T","*"], input: ["c","$"], action: "SHIFT *", detail: "Push '*' onto stack"},
+{stack: ["$","E","+","T","*","c"], input: ["$"], action: "SHIFT c", detail: "Push 'c' onto stack"},
+{stack: ["$","E","+","T","*","F"], input: ["$"], action: "REDUCE F → id (rule 6)", detail: "Replace 'c' with F", reduce: true},
+{stack: ["$","E","+","T"], input: ["$"], action: "REDUCE T → T * F (rule 3)", detail: "Replace 'T * F' with T (precedence: * binds tighter)", reduce: true},
+{stack: ["$","E"], input: ["$"], action: "REDUCE E → E + T (rule 1)", detail: "Replace 'E + T' with E. Parse complete!", reduce: true, done: true}
+];
+
+var current = 0;
+var autoTimer = null;
+
+function render() {
+  var s = steps[current];
+  // Stack
+  var stackEl = document.getElementById('stack');
+  stackEl.innerHTML = '';
+  for (var i = 0; i < s.stack.length; i++) {
+    var div = document.createElement('div');
+    div.className = 'stack-item' + (s.stack[i] !== '$' && s.stack[i] !== '+' && s.stack[i] !== '*' ? ' nt' : '');
+    div.textContent = s.stack[i];
+    stackEl.appendChild(div);
+  }
+  // Input
+  var inputEl = document.getElementById('input');
+  inputEl.innerHTML = '';
+  var fullInput = ["a","+","b","*","c","$"];
+  var consumed = fullInput.length - s.input.length;
+  for (var i = 0; i < fullInput.length; i++) {
+    var div = document.createElement('div');
+    div.className = 'input-item' + (i < consumed ? ' consumed' : '');
+    div.textContent = fullInput[i];
+    inputEl.appendChild(div);
+  }
+  // Action
+  document.getElementById('action-text').textContent = s.action + (s.detail ? " — " + s.detail : "");
+  // Counter
+  document.getElementById('counter').textContent = "Step " + current + " / " + (steps.length - 1);
+  // Buttons
+  document.getElementById('prev').disabled = (current === 0);
+  document.getElementById('next').disabled = (current === steps.length - 1);
+  // AST
+  var astPanel = document.getElementById('ast-panel');
+  if (s.done) {
+    astPanel.style.display = 'block';
+    document.getElementById('ast-text').textContent =
+      "    +\n" +
+      "   / \\\n" +
+      "  a   *\n" +
+      "     / \\\n" +
+      "    b   c";
+  } else {
+    astPanel.style.display = 'none';
+  }
+}
+
+document.getElementById('next').onclick = function() {
+  if (current < steps.length - 1) { current++; render(); }
+};
+document.getElementById('prev').onclick = function() {
+  if (current > 0) { current--; render(); }
+};
+document.getElementById('reset').onclick = function() {
+  stopAuto(); current = 0; render();
+};
+document.getElementById('auto').onclick = function() {
+  if (autoTimer) { stopAuto(); return; }
+  document.getElementById('auto').textContent = "Stop";
+  autoTimer = setInterval(function() {
+    if (current < steps.length - 1) { current++; render(); }
+    else { stopAuto(); }
+  }, 1200);
+};
+function stopAuto() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('auto').textContent = "Auto"; }
+}
+render();
+</script>
+</body>
+</html>
