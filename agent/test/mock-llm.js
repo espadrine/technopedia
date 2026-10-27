@@ -32,6 +32,10 @@ export const userLog = []; // every chat request, including tool-round continuat
 export const assistantReasoningLog = [];
 // response_format.type of each chat request (json mode).
 export const responseFormatLog = [];
+// tools / tool_choice of each chat request: the agent declares its tools
+// the standard way, and the model calls them with tool_calls.
+export const toolsLog = [];
+export const toolChoiceLog = [];
 export const searchLog = []; // every /search query it receives
 export const modelsLog = []; // every /v1/models request it receives
 // Test knobs: when set, the matching task fails (HTTP 500) so tests can
@@ -41,6 +45,11 @@ export const modelsLog = []; // every /v1/models request it receives
 // fixBreadcrumbs does the same for the fix-breadcrumbs task.
 export const flags = { failResumeEval: false, badMathCreation: false, fixLinkIntegrity: false, fixBreadcrumbs: false };
 
+// Tool calls are answered in the standard shape: the reply() fixtures return
+// tc(name, args), which the server translates into message.tool_calls.
+const tc = (name, args) => ({ __toolCall: { name, args } });
+let toolCallCount = 0;
+
 function reply(task, firstUser, messages) {
   // Interrupted-run test: every evaluation of the page carrying the RESUME
   // marker fails while the flag is set, so the client's internal retries are
@@ -48,9 +57,16 @@ function reply(task, firstUser, messages) {
   if (flags.failResumeEval && task === 'evaluate-explanation-page' && /RESUME marker\./.test(firstUser)) {
     throw new Error('simulated network failure');
   }
+  // Tool results arrive as tool messages (role "tool"), one per tool call.
   const toolResults = messages
-    .filter((m) => m.role === 'user' && m.content.startsWith('{"tool_result"'))
-    .map((m) => JSON.parse(m.content).tool_result);
+    .filter((m) => m.role === 'tool')
+    .map((m) => {
+      try {
+        return JSON.parse(m.content);
+      } catch {
+        return m.content;
+      }
+    });
   const pageMatch = firstUser.match(/<page>\n([\s\S]*?)\n<\/page>/);
   const page = (pageMatch?.[1] ?? '').trim();
   // Only the improvement-notes section itself: the surrounding task text now
@@ -67,11 +83,9 @@ function reply(task, firstUser, messages) {
   if (task === 'evaluate-explanation-page' && /EMPTYFIRST marker\./.test(firstUser)) {
     const ownCalls = callsLog.filter((t) => t === task).length;
     if (ownCalls === 1) return '';
-    if (ownCalls === 2) return { tool: 'read_file', args: { path: 'Manufacturing/Big.txt' } };
+    if (ownCalls === 2) return tc('read_file', { path: 'Manufacturing/Big.txt' });
     const lastToolResult =
-      [...messages]
-        .reverse()
-        .find((m) => m.role === 'user' && m.content.startsWith('{"tool_result"'))?.content ?? '';
+      [...messages].reverse().find((m) => m.role === 'tool')?.content ?? '';
     if (lastToolResult.includes('tool result truncated')) {
       return { notes: ['Handled the truncated result.'], score: 42, reasoning: 'mock' };
     }
@@ -84,50 +98,55 @@ function reply(task, firstUser, messages) {
       const pageFile =
         firstUser.match(/Page file \(edit this file with edit_file\): (\S+)/)?.[1] ??
         'Manufacturing/Readme.md';
-      return { tool: 'delete_file', args: { path: pageFile } };
+      return tc('delete_file', { path: pageFile });
     }
     return { done: true };
   }
   if (task === 'address-notes' && /loop tools/i.test(notesText)) {
-    if (messages.some((m) => m.content.includes('Tool round limit reached'))) {
+    if (
+      messages.some(
+        (m) => typeof m.content === 'string' && m.content.includes('Tool round limit reached'),
+      )
+    ) {
       return { done: true };
     }
-    return { tool: 'grep', args: { pattern: 'loop' } };
+    return tc('grep', { pattern: 'loop' });
   }
   if (task === 'address-notes' && /use tools/i.test(notesText)) {
     if (toolResults.length === 0) {
-      return { tool: 'read_file', args: { path: 'Manufacturing/Electronics.md' } };
+      return tc('read_file', { path: 'Manufacturing/Electronics.md' });
     }
     if (toolResults.length === 1) {
-      return {
-        tool: 'edit_file',
-        args: {
-          path: 'Manufacturing/Electronics.md',
-          lineno_start: 3,
-          lineno_end: 3,
-          new_content: 'Fixed by edit_file.',
-        },
-      };
+      return tc('edit_file', {
+        path: 'Manufacturing/Electronics.md',
+        lineno_start: 3,
+        lineno_end: 3,
+        new_content: 'Fixed by edit_file.',
+      });
     }
     if (toolResults.length === 2) {
-      return { tool: 'delete_file', args: { path: 'Manufacturing/Junk.md' } };
+      return tc('delete_file', { path: 'Manufacturing/Junk.md' });
     }
     return { done: true };
   }
   // Non-JSON recovery test: the first final answer is prose, the correction
   // user message must make the model reply with valid JSON.
   if (task === 'evaluate-explanation-page' && /BADJSON marker\./.test(firstUser)) {
-    if (messages.some((m) => m.content.startsWith('Your reply was not valid JSON'))) {
+    if (
+      messages.some(
+        (m) => typeof m.content === 'string' && m.content.startsWith('Your reply was not valid JSON'),
+      )
+    ) {
       return { notes: ['Recovered after the JSON correction.'], score: 42, reasoning: 'mock' };
     }
     return 'RAW:Now I have a clear picture. I need to:\n\n1. Create Graphics.md\n2. Update the Readme (this is not JSON at all).';
   }
   if (task === 'evaluate-explanation-page' && /TOOLCASE header\./.test(firstUser)) {
     if (toolResults.length === 0) {
-      return { tool: 'grep', args: { pattern: '^Raw\\.$' } };
+      return tc('grep', { pattern: '^Raw\\.$' });
     }
     if (toolResults.length === 1) {
-      return { tool: 'run_js', args: { code: 'return 6*7' } };
+      return tc('run_js', { code: 'return 6*7' });
     }
     return {
       notes: [
@@ -226,19 +245,16 @@ function reply(task, firstUser, messages) {
         if (!next) continue;
         const href = `./${posix.relative(posix.dirname(rel), next)}`;
         const ancestorName = rel.split('/').slice(-2, -1)[0] ?? rel.split('/').pop();
-        queue.push({
-          tool: 'edit_file',
-          args: {
-            path: rel,
-            lineno_start: 1,
-            lineno_end: 1,
-            new_content: `# ${ancestorName}\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[${childNameOf(next)}](${href})</td></tr>\n</table>\n`,
-          },
-        });
+        queue.push(tc('edit_file', {
+          path: rel,
+          lineno_start: 1,
+          lineno_end: 1,
+          new_content: `# ${ancestorName}\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[${childNameOf(next)}](${href})</td></tr>\n</table>\n`,
+        }));
       }
       for (const m of missingLinks) {
         const childHref = `./${posix.relative(posix.dirname(m.parent), m.rel)}`;
-        queue.push({ tool: 'read_file', args: { path: m.parent } });
+        queue.push(tc('read_file', { path: m.parent }));
         queue.push({ appendLink: { parent: m.parent, href: childHref, name: childNameOf(m.rel) } });
       }
       const fix = queue[toolResults.length];
@@ -247,15 +263,12 @@ function reply(task, firstUser, messages) {
         const read = toolResults[toolResults.length - 1];
         const lines = String(read?.content ?? '').split('\n');
         const last = Math.max(1, lines.length);
-        return {
-          tool: 'edit_file',
-          args: {
-            path: fix.appendLink.parent,
-            lineno_start: last,
-            lineno_end: last,
-            new_content: `${lines[last - 1] ?? ''}\n- [${fix.appendLink.name}](${fix.appendLink.href})`,
-          },
-        };
+        return tc('edit_file', {
+          path: fix.appendLink.parent,
+          lineno_start: last,
+          lineno_end: last,
+          new_content: `${lines[last - 1] ?? ''}\n- [${fix.appendLink.name}](${fix.appendLink.href})`,
+        });
       }
       return fix;
     }
@@ -288,32 +301,26 @@ function reply(task, firstUser, messages) {
       };
       const queue = [];
       for (const d of dead) {
-        queue.push({
-          tool: 'edit_file',
-          args: {
-            path: posix.normalize(posix.join(posix.dirname(d.file), d.href)),
-            lineno_start: 1,
-            lineno_end: 1,
-            new_content: '',
-          },
-        });
+        queue.push(tc('edit_file', {
+          path: posix.normalize(posix.join(posix.dirname(d.file), d.href)),
+          lineno_start: 1,
+          lineno_end: 1,
+          new_content: '',
+        }));
       }
       for (const u of unreachable) {
         const childHref = `./${posix.relative(posix.dirname(u.parent), u.rel)}`;
         const childName = childNameOf(u.rel);
         if (u.parentMissing) {
           const parentName = u.parent.split('/').slice(-2, -1)[0] ?? u.parent.split('/').pop();
-          queue.push({
-            tool: 'edit_file',
-            args: {
-              path: u.parent,
-              lineno_start: 1,
-              lineno_end: 1,
-              new_content: `# ${parentName}\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[${childName}](${childHref})</td></tr>\n</table>\n`,
-            },
-          });
+          queue.push(tc('edit_file', {
+            path: u.parent,
+            lineno_start: 1,
+            lineno_end: 1,
+            new_content: `# ${parentName}\n\n<table>\n<tr><th>Page</th></tr>\n<tr><td>[${childName}](${childHref})</td></tr>\n</table>\n`,
+          }));
         } else {
-          queue.push({ tool: 'read_file', args: { path: u.parent } });
+          queue.push(tc('read_file', { path: u.parent }));
           queue.push({ appendLink: { parent: u.parent, href: childHref, name: childName } });
         }
       }
@@ -323,15 +330,12 @@ function reply(task, firstUser, messages) {
         const read = toolResults[toolResults.length - 1];
         const lines = String(read?.content ?? '').split('\n');
         const last = Math.max(1, lines.length);
-        return {
-          tool: 'edit_file',
-          args: {
-            path: fix.appendLink.parent,
-            lineno_start: last,
-            lineno_end: last,
-            new_content: `${lines[last - 1] ?? ''}\n- [${fix.appendLink.name}](${fix.appendLink.href})`,
-          },
-        };
+        return tc('edit_file', {
+          path: fix.appendLink.parent,
+          lineno_start: last,
+          lineno_end: last,
+          new_content: `${lines[last - 1] ?? ''}\n- [${fix.appendLink.name}](${fix.appendLink.href})`,
+        });
       }
       return fix;
     }
@@ -351,15 +355,13 @@ function reply(task, firstUser, messages) {
       const simBlock = firstUser.match(/<simulation>\n([\s\S]*?)\n<\/simulation>/)?.[1] ?? '';
       const pageLines = page.split('\n');
       const lastLine = Math.max(1, pageLines.length);
-      const appendMarker = (marker) => ({
-        tool: 'edit_file',
-        args: {
+      const appendMarker = (marker) =>
+        tc('edit_file', {
           path: pageFile,
           lineno_start: lastLine,
           lineno_end: lastLine,
           new_content: `${pageLines[lastLine - 1] ?? ''}\n${marker}`,
-        },
-      });
+        });
       // If the review saw the author note in its context, its marker note
       // ends up here: surface it on the page so the test can observe it.
       const marker = notesText.includes('Author note was in context')
@@ -368,17 +370,14 @@ function reply(task, firstUser, messages) {
       if (hasSimulation || wantsSimulation) {
         if (toolResults.length === 0) return appendMarker(marker);
         if (toolResults.length === 1) {
-          return {
-            tool: 'edit_file',
-            args: {
-              path: simFile,
-              lineno_start: 1,
-              lineno_end: Math.max(1, simBlock.split('\n').length),
-              new_content: `<!DOCTYPE html>\n<html><body>${
-                hasSimulation ? '<!-- simulation improved -->' : '<button>Simulate</button>'
-              }</body></html>`,
-            },
-          };
+          return tc('edit_file', {
+            path: simFile,
+            lineno_start: 1,
+            lineno_end: Math.max(1, simBlock.split('\n').length),
+            new_content: `<!DOCTYPE html>\n<html><body>${
+              hasSimulation ? '<!-- simulation improved -->' : '<button>Simulate</button>'
+            }</body></html>`,
+          });
         }
         return { done: true };
       }
@@ -440,20 +439,23 @@ export function startMockServer(port = 39999) {
       req.on('end', () => {
         const bodyJson = JSON.parse(body);
         responseFormatLog.push(bodyJson.response_format?.type ?? null);
+        toolsLog.push(bodyJson.tools ?? null);
+        toolChoiceLog.push(bodyJson.tool_choice ?? null);
         const messages = bodyJson.messages;
         assistantReasoningLog.push(
           messages.filter((m) => m.role === 'assistant').map((m) => m.reasoning_content ?? null),
         );
         const users = messages.filter((m) => m.role === 'user');
-        // The task lives in the first user message; the last one may be a
-        // {"tool_result": ...} continuation of a tool round-trip.
+        // The task lives in the first user message; the last messages may be
+        // tool messages continuing a tool round-trip.
         const firstUser = users[0]?.content ?? '';
         userLog.push(firstUser);
         const task = firstUser.match(/TASK: ([\w-]+)/)?.[1] ?? 'unknown';
         // Log only the first request of a task instance: tool-round
-        // continuations repeat the same task and would inflate the counts.
+        // continuations (which carry tool messages) repeat the same task
+        // and would inflate the counts.
         callsLog.push(task);
-        if (!messages.some((m) => m.content.startsWith('{"tool_result"'))) {
+        if (!messages.some((m) => m.role === 'tool')) {
           requestLog.push(task);
         }
         let answer;
@@ -463,17 +465,40 @@ export function startMockServer(port = 39999) {
           send(500, { error: { message: String(err.message ?? err) } });
           return;
         }
-        // '' is an empty completion; 'RAW:' prefixes verbatim (non-JSON) text.
-        const content =
-          answer === ''
-            ? ''
-            : typeof answer === 'string' && answer.startsWith('RAW:')
-              ? answer.slice(4)
-              : JSON.stringify(answer);
+        let message;
+        if (answer !== null && typeof answer === 'object' && answer.__toolCall) {
+          // A tool call, in the standard shape: the model asks for a tool
+          // with tool_calls; the client answers with a tool message.
+          toolCallCount += 1;
+          message = {
+            role: 'assistant',
+            content: '',
+            reasoning_content: 'mock reasoning',
+            tool_calls: [
+              {
+                id: `call_${toolCallCount}`,
+                type: 'function',
+                function: {
+                  name: answer.__toolCall.name,
+                  arguments: JSON.stringify(answer.__toolCall.args ?? {}),
+                },
+              },
+            ],
+          };
+        } else {
+          // '' is an empty completion; 'RAW:' prefixes verbatim (non-JSON) text.
+          const content =
+            answer === ''
+              ? ''
+              : typeof answer === 'string' && answer.startsWith('RAW:')
+                ? answer.slice(4)
+                : JSON.stringify(answer);
+          message = { role: 'assistant', content, reasoning_content: 'mock reasoning' };
+        }
         send(200, {
           choices: [
             {
-              message: { role: 'assistant', content, reasoning_content: 'mock reasoning' },
+              message,
               finish_reason: 'stop',
             },
           ],

@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { requestLog, callsLog, modelsLog, searchLog, startMockServer, flags, assistantReasoningLog, responseFormatLog, userLog } from './mock-llm.js';
+import { requestLog, callsLog, modelsLog, searchLog, startMockServer, flags, assistantReasoningLog, responseFormatLog, userLog, toolsLog, toolChoiceLog } from './mock-llm.js';
 import { pickModelAndBudget, LlmClient } from '../llm.js';
 import { runAgent } from '../agent.js';
 import { loadConfig } from '../config.js';
@@ -662,6 +662,7 @@ await startMockServer(PORT);
 // -- Phase 6d: the agent uses its tools ---------------------------------------
 {
   requestLog.length = 0; callsLog.length = 0; assistantReasoningLog.length = 0;
+  toolsLog.length = 0; toolChoiceLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p6d');
   seed(
     contentDir,
@@ -702,6 +703,16 @@ await startMockServer(PORT);
     JSON.stringify(assistantReasoningLog),
   );
   check(
+    'p6d: tool requests declare the tools and tool_choice to the model',
+    toolsLog.some(
+      (specs) =>
+        Array.isArray(specs) &&
+        specs.length === 9 &&
+        specs.every((s) => s.type === 'function' && typeof s.function?.name === 'string'),
+    ) && toolChoiceLog.some((choice) => choice === 'auto'),
+    JSON.stringify({ requests: toolsLog.length, choices: [...new Set(toolChoiceLog)] }),
+  );
+  check(
     'p6d: the author note persists (author notes are never deleted)',
     content(notesFile).includes('Use tools to fix the header'),
   );
@@ -726,6 +737,7 @@ await startMockServer(PORT);
 // -- Phase 6e: hitting the tool round limit forces the answer, not a failure -
 {
   requestLog.length = 0; callsLog.length = 0;
+  toolsLog.length = 0; toolChoiceLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p6e');
   seed(
     contentDir,
@@ -757,6 +769,11 @@ await startMockServer(PORT);
     'p6e: the wrapped-up answer still completed the work',
     r.stdout.includes('3 resolved') &&
       content(path.join(authorNotesDir, 'Manufacturing__Electronics.md')).includes('Loop tools here'),
+  );
+  check(
+    'p6e: the wrap-up request forbids further tool calls (tool_choice none)',
+    toolChoiceLog.some((choice) => choice === 'none'),
+    JSON.stringify([...new Set(toolChoiceLog)]),
   );
 }
 

@@ -1,8 +1,9 @@
 // The tools the agent has access to (README: "The agent has access to the
-// following tools in order to perform its duties"). Tools run in a JSON
-// round-trip with the LLM: the model replies with {"tool": ..., "args": ...},
-// the agent executes the tool and sends the result back as
-// {"tool_result": ...}, until the model replies with the final answer.
+// following tools in order to perform its duties"). Tools are declared to
+// the model with the standard OpenAI-compatible tools/tool_choice request
+// parameters (TOOL_SPECS): the model calls them with tool_calls, the agent
+// executes the calls and sends each result back as a tool message, until
+// the model replies with the final answer.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -21,11 +22,173 @@ export const TOOLS_GUIDE = `You have access to the following tools in order to p
 - delete_file(path): deletes the file at the given path.
 - rename_file(path, new_path): changes the name of the file or its location in the hierarchy: moves the file or folder to new_path, creating the folders of new_path as needed. new_path must not exist yet.
 
-To use a tool, reply with exactly {"tool": "<name>", "args": {...}} and nothing
-else. The result is sent back to you as {"tool_result": ...} in the next
+Call tools as many times as needed; each result comes back to you as a tool
 message. Large results are truncated to fit: narrow your next query instead
-of re-reading the same large content. Use tools as many times as needed,
-then reply with the final JSON answer described in the task.`;
+of re-reading the same large content. When you are done, reply with the
+final JSON answer described in the task.`;
+
+// The same tools, declared to the model with the standard OpenAI-compatible
+// tools request parameter: function specs with JSON Schema parameters. The
+// descriptions mirror TOOLS_GUIDE.
+export const TOOL_SPECS = [
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description:
+        'Searches the Web for the query and returns a list of relevant links and snippets.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The search query.' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'web_fetch',
+      description: 'Fetches the content of the given URL and returns it as text.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'The URL to fetch.' },
+        },
+        required: ['url'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_js',
+      description:
+        'Runs the given JavaScript code in isolated-vm and returns the result. It only has the base JS syntax: it does not have require() etc. Use it only to do quick accurate computation, but you cannot access the file system with it. The value of the last expression is returned; "return" statements are also accepted.',
+      parameters: {
+        type: 'object',
+        properties: {
+          code: { type: 'string', description: 'The JavaScript code to run.' },
+        },
+        required: ['code'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'grep',
+      description:
+        'Searches the content (or the given folder, relative to the content folder, when provided) for a given regular expression and returns the matching files and lines (with line number, 1-indexed).',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', description: 'The regular expression to search for.' },
+          folder: {
+            type: 'string',
+            description: 'A subfolder of the content folder to search in, instead of the whole content.',
+          },
+        },
+        required: ['pattern'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'find_files',
+      description:
+        'Searches the content (or the given folder, relative to the content folder, when provided) for files whose path (including the filename or parent folder name) matches the given pattern. Returns the matching files.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', description: 'The pattern file paths are matched against.' },
+          folder: {
+            type: 'string',
+            description: 'A subfolder of the content folder to search in, instead of the whole content.',
+          },
+        },
+        required: ['pattern'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_file',
+      description:
+        'Reads the content of the file at the given path and returns it as text. The path is relative to the content folder.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'The path of the file, relative to the content folder.' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_file',
+      description:
+        'Edits the file at the given path, replacing the content from lineno_start to lineno_end (both included, 1-indexed) with new_content. If lineno_start is omitted, it defaults to 1. If lineno_end is omitted, it defaults to the last line of the file. A file that does not exist yet is created by an edit at line 1 (lineno_start=1, lineno_end=1): new_content becomes the whole file. After each edit of a .md file, the result is checked for known invalid LaTeXMarkdown math (broken $`...`$ forms, $$ display math, math inside raw HTML). If any is found, the tool returns an error listing the offending lines: fix them with another edit_file.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'The path of the file, relative to the content folder.' },
+          new_content: { type: 'string', description: 'The new content of the replaced lines.' },
+          lineno_start: {
+            type: 'integer',
+            description: 'The first replaced line, 1-indexed. Defaults to 1.',
+          },
+          lineno_end: {
+            type: 'integer',
+            description: 'The last replaced line, 1-indexed. Defaults to the last line of the file.',
+          },
+        },
+        required: ['path', 'new_content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_file',
+      description: 'Deletes the file at the given path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'The path of the file, relative to the content folder.' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'rename_file',
+      description:
+        'Changes the name of the file or its location in the hierarchy: moves the file or folder to new_path, creating the folders of new_path as needed. new_path must not exist yet.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description: 'The current path of the file or folder, relative to the content folder.',
+          },
+          new_path: {
+            type: 'string',
+            description: 'The new path, relative to the content folder. Must not exist yet.',
+          },
+        },
+        required: ['path', 'new_path'],
+      },
+    },
+  },
+];
 
 const GREP_LIMIT = 100;
 const READ_LIMIT = 50000;
@@ -345,6 +508,8 @@ export function createTools({ config, store, logger = () => {} }) {
   };
 
   return {
+    // The function specs sent to the model as the tools request parameter.
+    specs: TOOL_SPECS,
     has(name) {
       return Object.hasOwn(tools, name);
     },

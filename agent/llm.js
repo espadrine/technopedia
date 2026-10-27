@@ -210,7 +210,10 @@ export class LlmClient {
     }
   }
 
-  async chat(messages, { temperature, maxTokens, label, json = false } = {}) {
+  async chat(
+    messages,
+    { temperature, maxTokens, label, json = false, toolSpecs = null, toolChoice = 'auto' } = {},
+  ) {
     await this.resolveModel();
     const body = {
       messages,
@@ -223,6 +226,13 @@ export class LlmClient {
     // the grammar of the content, so the final answer is always valid JSON.
     if (json) {
       body.response_format = { type: 'json_object' };
+    }
+    // Tool use, the standard OpenAI-compatible way: the tools are declared
+    // in the request, the model calls them with tool_calls, and each result
+    // is sent back as a tool message (see chatJson).
+    if (toolSpecs) {
+      body.tools = toolSpecs;
+      body.tool_choice = toolChoice;
     }
     if (this.model && !this.omitModel) body.model = this.model;
     const tokens = maxTokens ?? this.config.maxTokens ?? this.autoMaxTokens;
@@ -257,10 +267,13 @@ export class LlmClient {
         // mistral-large-4, which reasons by default) as thinking chunks in
         // a content list. splitMessage normalizes both shapes.
         const { content, reasoning, chunks } = splitMessage(message);
+        const toolCalls = Array.isArray(message?.tool_calls) ? message.tool_calls : null;
         this.lastFinishReason = finishReason;
         this.lastUsage = usage;
         this.lastReasoning = reasoning;
-        if (typeof content !== 'string' || content.trim() === '') {
+        // A reply that only calls tools carries no text; that is a normal
+        // tool request, not an empty response.
+        if ((typeof content !== 'string' || content.trim() === '') && toolCalls === null) {
           this.transcribe({
             kind: 'empty-response',
             label: label ?? null,
@@ -283,8 +296,11 @@ export class LlmClient {
           usage,
           reasoning,
           response: content,
+          ...(toolCalls === null
+            ? {}
+            : { toolCalls: toolCalls.map((c) => c?.function?.name ?? '?') }),
         });
-        return { content, reasoning, chunks, finishReason, usage };
+        return { content, reasoning, chunks, toolCalls, finishReason, usage };
       } catch (err) {
         if (err instanceof LlmError) {
           lastError = err;
@@ -302,11 +318,11 @@ export class LlmClient {
 
   // Chat call that must return a JSON object; tolerates code fences and
   // surrounding prose, which local models often emit. When `tools` is given,
-  // the model may perform tool round-trips first: a reply of the shape
-  // {"tool": "<name>", "args": {...}} executes the tool and sends
-  // {"tool_result": ...} back, until the model returns the final JSON.
-  // When the tool round limit is reached, the final answer is forced instead
-  // of failing the task (the tool work already done is kept).
+  // they are declared to the model (tools/tool_choice): the model may call
+  // them any number of times, each result coming back as a tool message,
+  // until it returns the final JSON. When the tool round limit is reached,
+  // the final answer is forced (tool_choice "none") instead of failing the
+  // task (the tool work already done is kept).
   async chatJson(messages, opts = {}) {
     const tools = opts.tools ?? null;
     const maxToolRounds = this.config.maxToolRounds ?? 100;
@@ -315,72 +331,100 @@ export class LlmClient {
     let parseRetries = 0;
     let forced = false;
     for (;;) {
-      const reply = await this.chat(convo, { ...opts, json: true });
+      const reply = await this.chat(convo, {
+        ...opts,
+        json: true,
+        toolSpecs: tools?.specs ?? null,
+        toolChoice: forced ? 'none' : 'auto',
+      });
       const raw = reply.content;
+      const toolCalls = reply.toolCalls;
+      const callsTools = tools !== null && Array.isArray(toolCalls) && toolCalls.length > 0;
+      if (callsTools && !forced) {
+        if (rounds >= maxToolRounds) {
+          this.logger(
+            `tool round limit (${maxToolRounds}) reached; forcing the final answer`,
+          );
+          this.transcribe({ kind: 'wrap-up', label: opts.label ?? null, rounds });
+          forced = true;
+          convo.push(this.assistantMessage(reply));
+          for (const call of toolCalls) {
+            convo.push({
+              role: 'tool',
+              tool_call_id: call.id,
+              content:
+                'Tool round limit reached. Do not use any more tools; reply with the final JSON answer now.',
+            });
+          }
+          continue;
+        }
+        convo.push(this.assistantMessage(reply));
+        for (const call of toolCalls) {
+          const name = call?.function?.name;
+          const rawArgs = call?.function?.arguments;
+          let args = null;
+          if (typeof rawArgs === 'string') {
+            try {
+              args = JSON.parse(rawArgs);
+            } catch {
+              args = null;
+            }
+          } else if (rawArgs !== null && typeof rawArgs === 'object') {
+            args = rawArgs;
+          }
+          let value;
+          if (args === null) {
+            value = JSON.stringify({
+              error: `could not parse the arguments of the ${String(name)} tool call`,
+            });
+          } else if (!tools.has(name)) {
+            value = JSON.stringify({ error: `unknown tool call: ${String(name)}` });
+          } else {
+            value = JSON.stringify(await tools.exec(name, args));
+          }
+          if (value.length > MAX_TOOL_RESULT_CHARS) {
+            value = JSON.stringify(
+              `${value.slice(0, MAX_TOOL_RESULT_CHARS)}\n... (tool result truncated to fit; narrow your next query)`,
+            );
+          }
+          this.transcribe({
+            kind: 'tool',
+            label: opts.label ?? null,
+            round: rounds + 1,
+            tool: name,
+            args,
+            result: value,
+          });
+          convo.push({ role: 'tool', tool_call_id: call.id, content: value });
+        }
+        rounds += 1;
+        continue;
+      }
+      if (callsTools) {
+        // The model still calls tools after the wrap-up: nudge it again,
+        // bounded, so a looping model cannot grow the conversation forever.
+        if (parseRetries >= MAX_PARSE_RETRIES) {
+          throw new LlmError('the model kept calling tools after the forced wrap-up', {
+            kind: 'parse',
+          });
+        }
+        parseRetries += 1;
+        convo.push(this.assistantMessage(reply));
+        for (const call of toolCalls) {
+          convo.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: 'Do not use any more tools; reply with the final JSON answer now.',
+          });
+        }
+        continue;
+      }
       let parsed = null;
       let parseError = null;
       try {
         parsed = extractJson(raw);
       } catch (err) {
         parseError = err;
-      }
-      const isToolRequest =
-        tools !== null &&
-        parsed !== null &&
-        typeof parsed === 'object' &&
-        !Array.isArray(parsed) &&
-        typeof parsed.tool === 'string' &&
-        tools.has(parsed.tool);
-      if (isToolRequest) {
-        if (!forced && rounds >= maxToolRounds) {
-          this.logger(
-            `tool round limit (${maxToolRounds}) reached; forcing the final answer`,
-          );
-          this.transcribe({ kind: 'wrap-up', label: opts.label ?? null, rounds });
-          forced = true;
-          convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
-          convo.push({
-            role: 'user',
-            content:
-              'Tool round limit reached. Do not use any more tools; reply with the final JSON answer now.',
-          });
-          continue;
-        }
-        if (forced) {
-          // The model still asks for a tool after the wrap-up: nudge it again,
-          // bounded, so a looping model cannot grow the conversation forever.
-          if (parseRetries >= MAX_PARSE_RETRIES) {
-            throw new LlmError('the model kept requesting tools after the forced wrap-up', {
-              kind: 'parse',
-            });
-          }
-          parseRetries += 1;
-          convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
-          convo.push({
-            role: 'user',
-            content: 'Do not use any more tools; reply with the final JSON answer now.',
-          });
-          continue;
-        }
-        const result = await tools.exec(parsed.tool, parsed.args);
-        let value = JSON.stringify(result);
-        if (value.length > MAX_TOOL_RESULT_CHARS) {
-          value = JSON.stringify(
-            `${value.slice(0, MAX_TOOL_RESULT_CHARS)}\n... (tool result truncated to fit; narrow your next query)`,
-          );
-        }
-        this.transcribe({
-          kind: 'tool',
-          label: opts.label ?? null,
-          round: rounds + 1,
-          tool: parsed.tool,
-          args: parsed.args,
-          result: value,
-        });
-        convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
-        convo.push({ role: 'user', content: `{"tool_result": ${value}}` });
-        rounds += 1;
-        continue;
       }
       if (parsed !== null) return parsed;
       // The final answer was not valid JSON: give the error back to the model
@@ -400,7 +444,7 @@ export class LlmClient {
           rawLength: raw.length,
           raw,
         });
-        convo.push(this.assistantTurn(raw, reply.reasoning, reply.chunks));
+        convo.push(this.assistantMessage(reply));
         convo.push({
           role: 'user',
           content: `Your reply was not valid JSON (${String(parseError?.message ?? parseError)}). It must be exactly the JSON object the task describes, with no text before or after it. Reply with the JSON now.`,
@@ -411,20 +455,19 @@ export class LlmClient {
     }
   }
 
-  // The assistant turn replayed in a tool round-trip keeps the model's own
-  // reasoning, so the next call continues the chain of thought instead of
-  // starting it from scratch: as reasoning_content for llama.cpp (servers
-  // that do not preserve it simply ignore the field), or as the original
-  // thinking chunks for Mistral's reasoning models, which want them echoed
-  // back in their own shape.
-  assistantTurn(raw, reasoning = null, chunks = null) {
-    if (chunks !== null) {
-      return { role: 'assistant', content: chunks };
-    }
+  // The assistant turn replayed into the conversation keeps the model's own
+  // reasoning and its tool calls, so the next call continues the chain of
+  // thought instead of starting it from scratch: as reasoning_content for
+  // llama.cpp (servers that do not preserve it simply ignore the field), or
+  // as the original thinking chunks for Mistral's reasoning models, which
+  // want them echoed back in their own shape.
+  assistantMessage(reply) {
+    const { content, reasoning, chunks, toolCalls } = reply;
     return {
       role: 'assistant',
-      content: raw,
-      ...(reasoning === null ? {} : { reasoning_content: reasoning }),
+      content: chunks ?? (content === '' || content == null ? null : content),
+      ...(toolCalls === null ? {} : { tool_calls: toolCalls }),
+      ...(chunks === null && reasoning !== null ? { reasoning_content: reasoning } : {}),
     };
   }
 
