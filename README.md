@@ -165,3 +165,7 @@ showcasing each agent step (reasoning, tool call request and response, and answe
 The improvement notes are not part of the page (they should not be published, nor appear in the static content!).
 They are on a separate folder, indexed so that the agent finds it easily for a specific page:
 under notes/ for agent notes, and under author-notes/ for author notes.
+
+You can execute the agent using a local LLM with `npm run agent`, or with an LLM API:
+
+    TECHNOPEDIA_API_KEY=$MISTRAL_API_KEY TECHNOPEDIA_HOST=https://api.mistral.ai TECHNOPEDIA_MODEL=mistral-large-4 TECHNOPEDIA_REASONING_EFFORT=high npm run agent -- --debug
