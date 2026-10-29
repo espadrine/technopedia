@@ -75,6 +75,7 @@ import {
   findTableRuleViolations,
   parsePageLinks,
   parseSubtopicLinks,
+  segmentsOf,
   slug,
 } from './store.js';
 
@@ -139,12 +140,6 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
     await store.savePagesDb(db);
   };
 
-  // 'Manufacturing/Electronics/Readme.md' -> ['Manufacturing', 'Electronics'],
-  // 'Manufacturing/Batteries.md' -> ['Manufacturing', 'Batteries'].
-  const segmentsOf = (rel) =>
-    /(^|\/)Readme\.md$/i.test(rel)
-      ? rel.split('/').slice(0, -1)
-      : rel.split('/').map((part) => part.replace(/\.md$/i, ''));
   const fileOf = (rel) => path.join(config.contentDir, rel);
 
   const writeIfMissing = async (rel, content) => {

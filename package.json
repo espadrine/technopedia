@@ -7,7 +7,7 @@
     "agent": "node agent/index.js",
     "author-note": "node agent/author-note.js",
     "build": "node build.js",
-    "test": "node agent/test/selftest.js"
+    "test": "node --test agent/test/store.test.js && node agent/test/selftest.js"
   },
   "engines": {
     "node": ">=18"

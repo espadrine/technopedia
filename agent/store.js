@@ -27,6 +27,15 @@ export function slug(name) {
   );
 }
 
+// The page chain of a page, from its path relative to the content folder:
+// 'Manufacturing/Electronics/Readme.md' -> ['Manufacturing', 'Electronics'],
+// 'Manufacturing/Batteries.md' -> ['Manufacturing', 'Batteries'].
+export function segmentsOf(rel) {
+  return /(^|\/)Readme\.md$/i.test(rel)
+    ? rel.split('/').slice(0, -1)
+    : rel.split('/').map((part) => part.replace(/\.md$/i, ''));
+}
+
 // Subtopic candidates are read from the links of a topic page. Only relative
 // links following the page link conventions are considered.
 export function parseSubtopicLinks(markdown) {
@@ -75,6 +84,41 @@ export function parsePageLinks(markdown) {
     const href = match[2].split('#')[0].trim();
     if (!href.startsWith('./') || !/\.md$/i.test(href)) continue;
     links.push({ name: match[1].trim(), href: href.slice(2) });
+  }
+  return links;
+}
+
+// Every relative iframe link of a page, as [{ title, src }]. Iframes embed
+// a self-contained simulation (<iframe src="./<Page>.simulation.html"
+// title="..."></iframe>) next to the page, that must exist like a page does.
+export function parseIframeLinks(markdown) {
+  const links = [];
+  const re = /<iframe\b[^>]*>/gi;
+  let match;
+  while ((match = re.exec(String(markdown)))) {
+    const tag = match[0];
+    const attr = (name) => {
+      const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*["']([^"']*)["']`, 'i'));
+      return m ? m[1].trim() : '';
+    };
+    const src = attr('src');
+    if (!src.startsWith('./')) continue;
+    links.push({ title: attr('title'), src: src.slice(2) });
+  }
+  return links;
+}
+
+// Every relative image link of a page, as [{ alt, src }]. Images are inline
+// media (diagrams, ...) referenced relatively like page links.
+export function parseImageLinks(markdown) {
+  const links = [];
+  const re = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = re.exec(String(markdown)))) {
+    const alt = match[1].trim();
+    const src = match[2].split('#')[0].trim();
+    if (!src.startsWith('./')) continue;
+    links.push({ alt, src: src.slice(2) });
   }
   return links;
 }
@@ -445,13 +489,19 @@ export class Store {
   async findBrokenLinks(file, content) {
     const dir = path.dirname(file);
     const broken = [];
-    for (const link of parsePageLinks(content)) {
-      const target = path.resolve(dir, link.href);
+    // Combine page links, image links, and iframe links.
+    const links = [
+      ...parsePageLinks(content).map((link) => link.href),
+      ...parseIframeLinks(content).map((link) => link.src),
+      ...parseImageLinks(content).map((link) => link.src),
+    ];
+    for (const link of links) {
+      const target = path.resolve(dir, link);
       const insideContent = !path
         .relative(this.contentDir, target)
         .startsWith('..');
       if (insideContent && (await readIfPresent(target)) === null) {
-        broken.push(link.href);
+        broken.push(link);
       }
     }
     return broken;
