@@ -227,7 +227,7 @@ await startMockServer(PORT);
 {
   requestLog.length = 0; callsLog.length = 0;
   searchLog.length = 0;
-  responseFormatLog.length = 0;
+  responseFormatLog.length = 0; toolChoiceLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p2');
   seed(
     contentDir,
@@ -238,9 +238,12 @@ await startMockServer(PORT);
   console.log(`\n--- phase 2 (review then edit) exit=${r.status} ---\n${r.stdout}${r.stderr}`);
 
   check(
-    'p2: every task request asks for JSON output (response_format json_object)',
-    responseFormatLog.length > 0 && responseFormatLog.every((type) => type === 'json_object'),
-    JSON.stringify(responseFormatLog),
+    'p2: response_format json_object is never combined with tools under tool_choice auto (llama.cpp rejects that grammar)',
+    responseFormatLog.length > 0 &&
+      responseFormatLog.every(
+        (type, i) => type === (toolChoiceLog[i] === 'auto' ? null : 'json_object'),
+      ),
+    JSON.stringify({ responseFormatLog, toolChoiceLog }),
   );
 
   check(
@@ -737,7 +740,7 @@ await startMockServer(PORT);
 // -- Phase 6e: hitting the tool round limit forces the answer, not a failure -
 {
   requestLog.length = 0; callsLog.length = 0;
-  toolsLog.length = 0; toolChoiceLog.length = 0;
+  toolsLog.length = 0; toolChoiceLog.length = 0; responseFormatLog.length = 0;
   const { contentDir, notesDir, authorNotesDir } = freshDirs('p6e');
   seed(
     contentDir,
@@ -774,6 +777,11 @@ await startMockServer(PORT);
     'p6e: the wrap-up request forbids further tool calls (tool_choice none)',
     toolChoiceLog.some((choice) => choice === 'none'),
     JSON.stringify([...new Set(toolChoiceLog)]),
+  );
+  check(
+    'p6e: the wrap-up request still asks for JSON output (response_format json_object)',
+    toolChoiceLog.some((choice, i) => choice === 'none' && responseFormatLog[i] === 'json_object'),
+    JSON.stringify({ responseFormatLog, toolChoiceLog }),
   );
 }
 

@@ -221,7 +221,13 @@ export class LlmClient {
     if (this.config.reasoningEffort) body.reasoning_effort = this.config.reasoningEffort;
     // JSON mode (llama.cpp response_format json_object): the server constrains
     // the grammar of the content, so the final answer is always valid JSON.
-    if (json) {
+    // The constraint is not combined with tools under tool_choice "auto":
+    // llama.cpp then merges the tool-call and JSON grammars into one it fails
+    // to parse and rejects the request ("Failed to initialize samplers:
+    // failed to parse grammar", HTTP 400; seen on build 11574). The wrap-up
+    // round (tool_choice "none") keeps it, and extractJson tolerates the
+    // prose local models wrap around their JSON in the meantime.
+    if (json && !(toolSpecs && toolChoice === 'auto')) {
       body.response_format = { type: 'json_object' };
     }
     // Tool use, the standard OpenAI-compatible way: the tools are declared
