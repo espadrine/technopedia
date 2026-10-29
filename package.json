@@ -5,6 +5,7 @@
   "description": "An encyclopedia focused on technologies, with an AI contributor agent.",
   "scripts": {
     "agent": "node agent/index.js",
+    "agent-note": "node agent/agent-note.js",
     "author-note": "node agent/author-note.js",
     "build": "node build.js",
     "test": "node --test agent/test/store.test.js && node agent/test/selftest.js"
