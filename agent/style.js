@@ -98,6 +98,7 @@ export const STYLE_GUIDE = [
   '   There should be plenty of graphs, diagrams, interactive animations.',
   '   Use either SVG or HTML + JS for diagrams; never ASCII art.',
   '   Each diagram describes a single concept: do not use tabs in a diagram to switch between concepts.',
+  '   However, you may reuse code library files between widgets.',
   '5. After the explanation, a folded quizz section with an example problem, and a folded section on how to solve it,',
   '   that the reader can unfold.',
   'No dead links: All links must correspond to a page that really exists.',

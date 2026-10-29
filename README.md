@@ -54,7 +54,7 @@ An explanation page must have:
 No dead links: All links must correspond to a page that really exists.
 No unreachable pages: All explanation pages must be referenced in a parent topic page.
 
-The system should reuse widgets and code when possible.
+The system should reuse widgets and code libraries when possible.
 For instance, code for an interactive electronics schematics should be reused for all related pages.
 Same for the system that links to authoritative sources, for the foldable explanation sections, ...
 
