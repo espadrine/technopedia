@@ -123,6 +123,27 @@ export function parseImageLinks(markdown) {
   return links;
 }
 
+// Every relative <a href> link of a page, as [{ text, href }] (href without
+// the leading "./"). HTML anchors are used where markdown link syntax is
+// inconvenient (inside tables, formatted text, ...).
+export function parseAnchorLinks(markdown) {
+  const links = [];
+  const re = /<a\b[^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = re.exec(String(markdown)))) {
+    const tag = match[0];
+    const attr = (name) => {
+      const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*["']([^"']*)["']`, 'i'));
+      return m ? m[1].trim() : '';
+    };
+    const href = attr('href').split('#')[0];
+    if (!href.startsWith('./')) continue;
+    const text = match[1].replace(/<[^>]*>/g, '').trim();
+    links.push({ text, href: href.slice(2) });
+  }
+  return links;
+}
+
 // README: "all subtopics must be listed in a table; there must be no
 // subtopic that is not part of the categorization." Returns the hrefs of
 // subtopic links that live outside every categorization table.
@@ -489,11 +510,12 @@ export class Store {
   async findBrokenLinks(file, content) {
     const dir = path.dirname(file);
     const broken = [];
-    // Combine page links, image links, and iframe links.
+    // Combine page links, image links, iframe links, and <a href> links.
     const links = [
       ...parsePageLinks(content).map((link) => link.href),
       ...parseIframeLinks(content).map((link) => link.src),
       ...parseImageLinks(content).map((link) => link.src),
+      ...parseAnchorLinks(content).map((link) => link.href),
     ];
     for (const link of links) {
       const target = path.resolve(dir, link);

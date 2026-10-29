@@ -1,5 +1,5 @@
 // Unit tests for the store's structural checks (agent/store.js):
-// findBrokenLinks (every kind of relative link: page, image, iframe) and
+// findBrokenLinks (every kind of relative link: page, image, iframe, <a href>) and
 // checkParentReference (topic and explanation pages), plus the segmentsOf
 // helper they rely on.
 //
@@ -68,6 +68,15 @@ test('findBrokenLinks: iframe links', async (t) => {
   assert.deepEqual(await brokenLinksOf(store, 'Physics/Readme.md'), ['Gone.simulation.html']);
 });
 
+test('findBrokenLinks: <a href> links', async (t) => {
+  const { store } = await makeStore(t, {
+    'Physics/Readme.md':
+      '# Physics\n\n<a href="./Kinematics.md">Kinematics</a>\n\n<a href="./Gone.md">Gone</a>\n',
+    'Physics/Kinematics.md': '# Kinematics\n',
+  });
+  assert.deepEqual(await brokenLinksOf(store, 'Physics/Readme.md'), ['Gone.md']);
+});
+
 test('findBrokenLinks: every relative link kind is checked together', async (t) => {
   const { store } = await makeStore(t, {
     'Physics/Readme.md': [
@@ -79,6 +88,8 @@ test('findBrokenLinks: every relative link kind is checked together', async (t) 
       '![gone](./img/gone.png)',
       '<iframe src="./Demo.simulation.html" title="Demo"></iframe>',
       '<iframe src="./Gone.simulation.html" title="Gone"></iframe>',
+      '<a href="./Kinematics.md">Kinematics</a>',
+      '<a href="./Gone.md">Gone</a>',
       '',
     ].join('\n'),
     'Physics/Kinematics.md': '# Kinematics\n',
@@ -89,6 +100,7 @@ test('findBrokenLinks: every relative link kind is checked together', async (t) 
     'Missing.md',
     'Gone.simulation.html',
     'img/gone.png',
+    'Gone.md',
   ]);
 });
 
@@ -100,10 +112,13 @@ test('findBrokenLinks: non-relative and external targets are ignored', async (t)
       '[web](https://example.com/page.md)',
       '![web](https://example.com/pic.png)',
       '<iframe src="https://example.com/embed.html" title="Web"></iframe>',
+      '<a href="https://example.com/page.md">Web</a>',
       '[anchor](#section)',
       '[mail](mailto:someone@example.com)',
+      '<a href="#section">Anchor</a>',
       '[root](/Physics/Readme.md)',
       '[up](../outside.md)',
+      '<a href="../outside.md">Up</a>',
       '',
     ].join('\n'),
   });
@@ -112,10 +127,38 @@ test('findBrokenLinks: non-relative and external targets are ignored', async (t)
 
 test('findBrokenLinks: anchors on relative links resolve to the target', async (t) => {
   const { store } = await makeStore(t, {
-    'Physics/Readme.md': '# Physics\n\n[Kinematics](./Kinematics.md#position)\n[Missing](./Missing.md#part)\n',
+    'Physics/Readme.md':
+      '# Physics\n\n[Kinematics](./Kinematics.md#position)\n[Missing](./Missing.md#part)\n',
     'Physics/Kinematics.md': '# Kinematics\n',
   });
   assert.deepEqual(await brokenLinksOf(store, 'Physics/Readme.md'), ['Missing.md']);
+});
+
+test('findBrokenLinks: anchors on relative <a href> links resolve to the target', async (t) => {
+  const { store } = await makeStore(t, {
+    'Physics/Readme.md':
+      '# Physics\n\n<a href="./Kinematics.md#position">Kinematics</a>\n<a href="./Gone.md#part">Gone</a>\n',
+    'Physics/Kinematics.md': '# Kinematics\n',
+  });
+  assert.deepEqual(await brokenLinksOf(store, 'Physics/Readme.md'), ['Gone.md']);
+});
+
+test('findBrokenLinks: <a> attribute forms', async (t) => {
+  const { store } = await makeStore(t, {
+    'Physics/Readme.md': [
+      '# Physics',
+      '',
+      `<a class="ref" href='./Ok.md'>Ok</a>`,
+      '<a href="./Spaced.md" target="_blank">Spaced</a>',
+      '<a href="./Nested.md"><code>Nested</code></a>',
+      '<a name="anchor">No href</a>',
+      '',
+    ].join('\n'),
+    'Physics/Ok.md': '# Ok\n',
+    'Physics/Spaced.md': '# Spaced\n',
+    'Physics/Nested.md': '# Nested\n',
+  });
+  assert.deepEqual(await brokenLinksOf(store, 'Physics/Readme.md'), []);
 });
 
 test('findBrokenLinks: iframe attribute forms', async (t) => {
