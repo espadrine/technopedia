@@ -12,3 +12,16 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ./content:/app/content:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.technopedia.rule=Host(`technopedia.organisons.com`)
+      - traefik.http.routers.technopedia.entrypoints=websecure
+      - traefik.http.routers.technopedia.tls.certresolver=letsencrypt
+      - traefik.http.services.technopedia.loadbalancer.server.port=8080
+    networks:
+      - proxy-tier
+
+networks:
+  proxy-tier:
+    name: proxy-tier
+    external: true
