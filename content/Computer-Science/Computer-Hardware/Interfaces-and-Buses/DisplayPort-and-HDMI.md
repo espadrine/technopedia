@@ -37,7 +37,7 @@ The budget has only four levers, and every product decision about display links 
 1. **Fewer pixels** (lower resolution or refresh) — what "dynamic resolution scaling" and reduced-blanking timings do.
 2. **Fewer bits per pixel** — 8 bpc instead of 10, or 4:2:2/4:2:0 chroma subsampling (why "HDR on HDMI 2.0" often silently means 4:2:2).
 3. **More link bandwidth** — more lanes, a faster link rate, or a more efficient line code.
-4. **Compression** — DSC ([see Compression](../Information-Theory/Compression.md)), which is *visually lossless* and compresses roughly 3×, at the cost of a line-width latency of a few microseconds.
+4. **Compression** — DSC ([see Compression](../../Information-Theory/Compression.md)), which is *visually lossless* and compresses roughly 3×, at the cost of a line-width latency of a few microseconds.
 
 Because the stream is constant-rate, there is no "burst" trick: if the required rate exceeds the payload, the mode simply does not display (or the source silently falls back to one of the levers above — which is why a monitor sometimes drops to 30 Hz or 4:2:2 after you connect it with the wrong cable).
 

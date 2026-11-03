@@ -1,6 +1,6 @@
 # Ethernet over copper (twisted pair)
 
-Twisted-pair Ethernet is the physical layer of the wired LAN: four balanced copper pairs in a jacket, carrying 1–10 Gb/s over up to 100 m (and 25–40 Gb/s over 30 m). It is relevant whenever devices that are *peers* — computers, switches, access points, cameras — must be networked reliably and cheaply within a building. The layers above the wire (framing, MAC, switching, IP, TCP) are covered in [Networks](../Distributed-Systems/Networks.md); this page is about the wire itself.
+Twisted-pair Ethernet is the physical layer of the wired LAN: four balanced copper pairs in a jacket, carrying 1–10 Gb/s over up to 100 m (and 25–40 Gb/s over 30 m). It is relevant whenever devices that are *peers* — computers, switches, access points, cameras — must be networked reliably and cheaply within a building. The layers above the wire (framing, MAC, switching, IP, TCP) are covered in [Networks](../../Distributed-Systems/Networks.md); this page is about the wire itself.
 
 > **Authoritative sources**
 > - [IEEE 802.3 (Ethernet)](https://standards.ieee.org/standard/802_3-2022.html)
@@ -102,7 +102,7 @@ Three reasons. First, the *channel* is cable plus connectors plus patch panels: 
 
 **Definition.** 1000BASE-T (802.3ab, 1999) uses 4D-PAM5: five voltage levels on each of 4 pairs, 125 MBd per pair, 8 bits per 4-pair symbol. 10GBASE-T (802.3an, 2006) uses PAM16 (16 levels) on each pair at 800 MBd, with two consecutive levels on a pair forming one 2-D symbol drawn from the **DSQ128** constellation (128 of the 16×16 possible pairs of levels), plus Tomlinson–Harashima precoding and LDPC FEC. 2.5/5GBASE-T (802.3bz, 2016) reuse the 10GBASE-T PHY at lower code rates so they can run on old cable.
 
-How much information a noisy channel of bandwidth $`B` and signal-to-noise ratio can carry is bounded by Shannon's capacity formula — see [Communication](../Information-Theory/Communication.md) for the derivation; the example problem below applies it to one twisted pair.
+How much information a noisy channel of bandwidth $`B` and signal-to-noise ratio can carry is bounded by Shannon's capacity formula — see [Communication](../../Information-Theory/Communication.md) for the derivation; the example problem below applies it to one twisted pair.
 
 <div style="max-width:820px">
 <svg viewBox="0 0 820 320" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:#fafafa;border:1px solid #ccc">

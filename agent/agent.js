@@ -39,11 +39,11 @@
 //    4. Explanation page: if it is empty, create its content. If it has over
 //       10 sections, split it into 2 group pages added to the parent topic
 //       page. Then address the notes.
-//    5. Make sure there are no dead links nor unreachable pages in the whole
-//       encyclopedia, handling them as needed: a mechanical scan finds the
-//       violations, the model handles them with its tools, and whatever
-//       remains is logged (the reviewer flags the same violations per page
-//       on its next visit of the affected pages).
+//    5. Make sure there are no dead links, unreachable pages, nor layout
+//       violations in the whole encyclopedia, handling them as needed: a
+//       mechanical scan finds the violations, the model handles them with
+//       its tools, and whatever remains is logged (the reviewer flags the
+//       same violations per page on its next visit of the affected pages).
 //    6. Reset the page's score to null and stamp its edit timestamp.
 //
 // The agent logs every step of the loop it is on (eg. "1.2", "2.3.3"),
@@ -765,22 +765,33 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
   };
 
   // 2.5: after the editor's work on a page, make sure there are no dead
-  // links nor unreachable pages, handling them as needed. The mechanical
-  // scan covers the whole encyclopedia (the editor's own work may have
-  // created or deleted pages); the model handles the findings with its
-  // tools (create the missing page, fix or remove the link, reference the
-  // page in its parent topic page, move it with rename_file, delete it when
-  // it should not exist). Whatever the handling leaves behind is logged:
-  // the reviewer flags the same violations per page on its next visit.
+  // links, unreachable pages, nor layout violations, handling them as
+  // needed. The mechanical scan covers the whole encyclopedia (the editor's
+  // own work may have created or deleted pages): findBrokenLinks over every
+  // page, checkParentReference for reachability, and checkDiskLayout for
+  // the on-disk layout rule (subfolders with their own Readme.md, slug
+  // directory names, no stray files); the model handles the findings with
+  // its tools (create the missing page, fix or remove the link, reference
+  // the page in its parent topic page, move it with rename_file, delete it
+  // when it should not exist). Whatever the handling leaves behind is
+  // logged: the reviewer flags the same violations per page on its next
+  // visit.
   const ensureLinkIntegrity = async (segments, task) => {
-    const before = await scanLinkIntegrity();
-    const total = (s) => s.deadLinks.length + s.unreachable.length;
+    const before = {
+      ...(await scanLinkIntegrity()),
+      layout: await store.checkDiskLayout(),
+    };
+    const total = (s) =>
+      s.deadLinks.length + s.unreachable.length + s.layout.length;
     if (total(before) === 0) {
-      task.step('2.5', 'no dead links nor unreachable pages');
+      task.step('2.5', 'no dead links, unreachable pages, nor layout violations');
       return;
     }
     summary.actions.push('fix-links');
-    task.step('2.5', `found ${before.deadLinks.length} dead link(s) and ${before.unreachable.length} unreachable page(s); handling them`);
+    task.step(
+      '2.5',
+      `found ${before.deadLinks.length} dead link(s), ${before.unreachable.length} unreachable page(s), and ${before.layout.length} layout violation(s); handling them`,
+    );
     for (const d of before.deadLinks) {
       task.step('2.5', `dead link: ${d.file} links to ${d.href} (the page does not exist)`);
     }
@@ -792,6 +803,9 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
           : `unreachable page: ${u.rel} is not referenced in its parent topic page ${u.parent}`,
       );
     }
+    for (const v of before.layout) {
+      task.step('2.5', `layout violation: ${v}`);
+    }
     if (config.dryRun) {
       task.step('2.5', 'dry run: the violations are logged, not handled');
       return;
@@ -801,9 +815,12 @@ export async function runAgent({ config, store, llm, logger, rng, topic, state =
       tools: task.tools,
       label: 'fix-link-integrity',
     });
-    const after = await scanLinkIntegrity();
+    const after = {
+      ...(await scanLinkIntegrity()),
+      layout: await store.checkDiskLayout(),
+    };
     if (total(after) === 0) {
-      task.step('2.5', 'handled: no dead links nor unreachable pages remain');
+      task.step('2.5', 'handled: no dead links, unreachable pages, nor layout violations remain');
     } else {
       task.step(
         '2.5',

@@ -22,6 +22,12 @@ A topic page must be very simple, giving:
 - links to the corresponding topics which are either all explanation pages, or all topic pages.
 - all subtopics must be listed in a table, with one link per row, and each row is a distinct link corresponding to one of the categories.
   The first column of the table is "Page", and contains the title of the subpage, which links to it.
+- On disk, under content/, topic pages should contain only Readme.md,
+  and either a `.md` file for each subtopic if all subtopics are explanation pages,
+  or, if all subtopics are topic pages, subfolders for each subtopic,
+  which contain their own Readme.md.
+  along with optional simulation pages as `<Simulation-name>.simulation.html`
+  for either the topic page or the subtopic explanation pages.
 - all links to a subtopic must correspond to a page that really exists.
 - all topic pages must be referenced in a parent topic page.
 

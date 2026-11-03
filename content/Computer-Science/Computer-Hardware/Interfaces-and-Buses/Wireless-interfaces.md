@@ -2,7 +2,7 @@
 
 Wireless interfaces use electromagnetic waves in free space to carry data between devices. They are relevant whenever a physical cable is impractical: mobile phones, laptops, sensors, satellites. At the cm–10⁴ km scale, the dominant physics is path loss, multipath, and diffraction; the design disciplines are RF/antenna design, spectrum management, and MIMO/OFDM signal processing. All five interface families below are applications of the same link-budget physics, so start with [Wireless link fundamentals](#wireless-link-fundamentals) before diving into a specific family.
 
-The protocol stacks above the physical layer (association, IP, TCP, HTTP, TLS) are covered once, here, by [Networks](../Distributed-Systems/Networks.md); the Shannon-capacity limit that bounds every link's data rate is covered by [Communication](../Information-Theory/Communication.md), and the underlying wave physics by [Electromagnetism](../../Physics/Interactions/Electromagnetism/Readme.md) and [Wave propagation](../../Physics/Mechanics/Oscillations/Wave-Propagation.md).
+The protocol stacks above the physical layer (association, IP, TCP, HTTP, TLS) are covered once, here, by [Networks](../../Distributed-Systems/Networks.md); the Shannon-capacity limit that bounds every link's data rate is covered by [Communication](../../Information-Theory/Communication.md), and the underlying wave physics by [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md) and [Wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md).
 
 > **Authoritative sources**
 > - [IEEE 802.11 (Wi-Fi 6/6E/7: 802.11ax, 802.11be)](https://www.ieee802.org/11/)
@@ -21,7 +21,7 @@ and the received power is $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}` (
 
 <details><summary>Details</summary>
 
-**Step 1 — The link budget.** A transmitter radiates power $`P_{tx}`; the wave spreads over a sphere of radius $`d`, so the power density falls as $`1/d^2` (the inverse-square law of [wave propagation](../../Physics/Mechanics/Oscillations/Wave-Propagation.md)). Antennas focus the energy: a gain $`G_{tx}` on the transmit side and $`G_{rx}` on the receive side. Collecting the terms in decibels gives the link budget: $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}`. The Friis equation behind the FSPL formula also carries a $`20\log_{10}(f)` term: at higher frequencies, the same aperture antenna captures less power, which is why mmWave links are short-range.
+**Step 1 — The link budget.** A transmitter radiates power $`P_{tx}`; the wave spreads over a sphere of radius $`d`, so the power density falls as $`1/d^2` (the inverse-square law of [wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md)). Antennas focus the energy: a gain $`G_{tx}` on the transmit side and $`G_{rx}` on the receive side. Collecting the terms in decibels gives the link budget: $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}`. The Friis equation behind the FSPL formula also carries a $`20\log_{10}(f)` term: at higher frequencies, the same aperture antenna captures less power, which is why mmWave links are short-range.
 
 **Step 2 — A worked example.** A Wi-Fi access point at 2.4 GHz, 1 m from a laptop: FSPL = 32.44 + 20·log₁₀(0.001) + 20·log₁₀(2400) = 32.44 − 60 + 67.6 ≈ 60 dB. With P_tx = 20 dBm (100 mW) and 0 dB gains, the receiver gets −40 dBm — comfortably above a typical −80 dBm sensitivity. At 100 m the path loss is 80 dB and the received power −60 dBm: still workable, but with much less margin.
 
@@ -56,7 +56,7 @@ and the received power is $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}` (
 
 <iframe src="./Wireless-interfaces.simulation.html" title="Wireless link budget simulator: path loss, SNR and data rate versus distance for five wireless interfaces"></iframe>
 
-**Step 6 — Sources and limits.** The Shannon bound $`C = B\log_2(1+\mathrm{SNR})` is derived in [Communication](../Information-Theory/Communication.md); the wave phenomena (reflection, diffraction, inverse-square spreading) in [Wave propagation](../../Physics/Mechanics/Oscillations/Wave-Propagation.md) and [Electromagnetism](../../Physics/Interactions/Electromagnetism/Readme.md).
+**Step 6 — Sources and limits.** The Shannon bound $`C = B\log_2(1+\mathrm{SNR})` is derived in [Communication](../../Information-Theory/Communication.md); the wave phenomena (reflection, diffraction, inverse-square spreading) in [Wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md) and [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md).
 
 <details><summary>Example problem</summary>
 
@@ -404,7 +404,7 @@ Raw division gives 100 MHz / 30 kHz ≈ 3333, but the resource grid is quantised
 
 **Step 2 — Path loss and Doppler.** At 12 GHz over a 1200 km LEO slant range, FSPL = 32.44 + 20·log₁₀(1200) + 20·log₁₀(12000) ≈ 169.6 dB; at 20 GHz over 550 km it is ≈ 173 dB. Both ends answer with high-gain antennas: the Starlink user terminal is a phased array (~1280 elements) that steers its beam electronically as satellites cross the sky. A LEO satellite moves at ~7.5 km/s, so the Doppler shift is Δf = v·f/c = 7500 × 20×10⁹ / 3×10⁸ ≈ **500 kHz** at 20 GHz — three orders of magnitude beyond a terrestrial mobile cell's Doppler, and the terminal must track and compensate it continuously.
 
-**Step 3 — Latency and TCP.** LEO one-way is ~4–6 ms of pure propagation per hop (20–60 ms end-to-end with multiple hops and processing); GEO is ~119 ms one-way, so a single-hop echo (terminal → satellite → gateway) round-trips in ~238 ms, and a user-to-user connection across two GEO hops sees ~480–600 ms RTT. Long RTT inflates the bandwidth-delay product, so TCP needs large windows (or satellite-specific proxies) to keep the pipe full — see [Networks](../Distributed-Systems/Networks.md).
+**Step 3 — Latency and TCP.** LEO one-way is ~4–6 ms of pure propagation per hop (20–60 ms end-to-end with multiple hops and processing); GEO is ~119 ms one-way, so a single-hop echo (terminal → satellite → gateway) round-trips in ~238 ms, and a user-to-user connection across two GEO hops sees ~480–600 ms RTT. Long RTT inflates the bandwidth-delay product, so TCP needs large windows (or satellite-specific proxies) to keep the pipe full — see [Networks](../../Distributed-Systems/Networks.md).
 
 **Step 4 — Worked example.** A Starlink user terminal links to a LEO satellite in Ku-band: downlink 10.7–12.7 GHz, uplink 14.0–14.5 GHz (the Ka-band 20/30 GHz links connect satellites to the gateways). The phased array (~1280 elements) hands the beam from satellite to satellite every few minutes as LEO satellites pass overhead; per-user downlink rates are ~50–250 Mbps.
 

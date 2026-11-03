@@ -2,7 +2,7 @@
 
 On-chip interconnects are the metallic or polysilicon wires that carry signals between functional units within a single silicon die. They are relevant whenever a processor or SoC must move data between its own components: between a core and its L1 cache, between cores in a multicore chip, or between a CPU and an on-die memory controller. At the µm–mm scale, the dominant physics is RC delay, and the design discipline is transistor-level timing closure.
 
-This page covers the three canonical topologies in increasing order of scale and complexity — **shared bus**, **crossbar**, **network-on-chip** — plus the innermost interconnect of all, the **register file**. The consumer of these wires on the core side (pipelines, renaming, out-of-order execution) is described in [CPU Architecture](../Computer-Hardware/CPU-Architecture.md); the latency and bandwidth context that motivates the whole design is in [Memory Hierarchy](../Computer-Hardware/Memory-Hierarchy.md); and the boundary where an "interconnect" stops being on-chip (chiplets, package substrates, PCB traces) is covered in [Board-level electrical interconnects](./Board-level-interconnects.md).
+This page covers the three canonical topologies in increasing order of scale and complexity — **shared bus**, **crossbar**, **network-on-chip** — plus the innermost interconnect of all, the **register file**. The consumer of these wires on the core side (pipelines, renaming, out-of-order execution) is described in [CPU Architecture](../../Computer-Hardware/CPU-Architecture.md); the latency and bandwidth context that motivates the whole design is in [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md); and the boundary where an "interconnect" stops being on-chip (chiplets, package substrates, PCB traces) is covered in [Board-level electrical interconnects](./Board-level-interconnects.md).
 
 ## The physics: RC delay
 
@@ -295,9 +295,9 @@ The diameter of a 4×4 mesh is 6 hops (corner to opposite corner: 3 + 3). A 4×4
 
 <details><summary>Details</summary>
 
-A register file is not a bus in the traditional sense, but it is where all on-chip interconnect begins: the ALU reads two registers and writes one result per cycle, and the "interconnect" is the metal routing from the execution units to the register file, typically 10–100 µm. In the [memory hierarchy](../Computer-Hardware/Memory-Hierarchy.md) it is the top level — and structurally it is *not* an SRAM array: SRAM optimises density with few ports, while a register file needs many ports, so it is built from flip-flop/latch bit-cells with dedicated access paths per port.
+A register file is not a bus in the traditional sense, but it is where all on-chip interconnect begins: the ALU reads two registers and writes one result per cycle, and the "interconnect" is the metal routing from the execution units to the register file, typically 10–100 µm. In the [memory hierarchy](../../Computer-Hardware/Memory-Hierarchy.md) it is the top level — and structurally it is *not* an SRAM array: SRAM optimises density with few ports, while a register file needs many ports, so it is built from flip-flop/latch bit-cells with dedicated access paths per port.
 
-**Example.** The x86-64 architectural register file has 16 general-purpose registers (64 bits each). Out-of-order cores keep a much larger *physical* register file to support register renaming — how and why is covered in [CPU Architecture](../Computer-Hardware/CPU-Architecture.md); the interconnect-relevant fact is simply that many execution units must each read two registers and write one every cycle, so the port count, not the capacity, dominates the design.
+**Example.** The x86-64 architectural register file has 16 general-purpose registers (64 bits each). Out-of-order cores keep a much larger *physical* register file to support register renaming — how and why is covered in [CPU Architecture](../../Computer-Hardware/CPU-Architecture.md); the interconnect-relevant fact is simply that many execution units must each read two registers and write one every cycle, so the port count, not the capacity, dominates the design.
 
 The design constraint is access time: a register file must be readable and writable in a single clock cycle (~0.3 ns at 3 GHz). Each additional read port adds a full set of word-lines and bit-lines spanning the whole array, so area grows roughly quadratically in port count while capacity grows linearly. This limits the size to a few hundred entries; beyond that, the array becomes too large (and its wires too long, per the RC-delay section) to access in one cycle.
 
@@ -317,7 +317,7 @@ Capacity: $`32 \times 64 = 2048` bit-cells. Each bit-cell needs one access path 
 
 ## The package boundary: die-to-die
 
-When the "interconnect" crosses from one silicon die to another inside a single package — chiplets linked by UCIe, AMD's Infinity Fabric, Intel's EMIB — the engineering regime changes: the distances (1–10 mm) and the bump/TSV parasitics belong to packaging, not to on-die RC design. That subject is treated in [Board-level electrical interconnects](./Board-level-interconnects.md), and the fabrication side (TSV formation, microbump placement, CoWoS assembly) in [Interconnect and packaging](../../Manufacturing/Electronics/Interconnect-and-packaging.md).
+When the "interconnect" crosses from one silicon die to another inside a single package — chiplets linked by UCIe, AMD's Infinity Fabric, Intel's EMIB — the engineering regime changes: the distances (1–10 mm) and the bump/TSV parasitics belong to packaging, not to on-die RC design. That subject is treated in [Board-level electrical interconnects](./Board-level-interconnects.md), and the fabrication side (TSV formation, microbump placement, CoWoS assembly) in [Interconnect and packaging](../../../Manufacturing/Electronics/Interconnect-and-packaging.md).
 
 ## Scaling summary
 

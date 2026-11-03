@@ -2,7 +2,7 @@
 
 An interface or bus is the physical and logical pathway by which information travels between two or more components of a computing system. Every transfer of data—from a register to an ALU, from a CPU to a memory chip, from a laptop to the internet—crosses at least one interface. Understanding interfaces and buses is essential whenever you are designing, debugging, or selecting hardware; choosing between DDR5 and LPDDR5, between PCIe Gen 6 and CXL, between USB4 and Thunderbolt 5, all reduce to questions about the underlying interface.
 
-This page covers the **physical layer** of each interface: the medium, the signalling, the bandwidth limits, and the topology. The logical/protocol layer (framing, arbitration, error correction) is treated within each physical class below. Higher-level protocol stacks (IP, TCP, HTTP, TLS) are covered by [Networks](../Distributed-Systems/Networks.md), and the information-theoretic limits that bound every medium (Shannon capacity, error correction) are covered by [Communication](../Information-Theory/Communication.md).
+This page covers the **physical layer** of each interface: the medium, the signalling, the bandwidth limits, and the topology. The logical/protocol layer (framing, arbitration, error correction) is treated within each physical class below. Higher-level protocol stacks (IP, TCP, HTTP, TLS) are covered by [Networks](../../Distributed-Systems/Networks.md), and the information-theoretic limits that bound every medium (Shannon capacity, error correction) are covered by [Communication](../../Information-Theory/Communication.md).
 
 ## Brief history
 
@@ -28,7 +28,7 @@ Each class above has one explanation page per family. The cabled-external class 
 
 The boundary between "board-level" and "cabled external" is not a physics boundary—both are copper transmission lines governed by the same Maxwell equations—but a **system/packaging boundary**: on-board traces are designed as part of a PCB stackup (controlled impedance, ground planes, via transitions), while off-board cables are designed as discrete assemblies (connector pinout, shielding, hot-plug, EMI compliance). The dominant loss mechanism also shifts: dielectric loss at the cm scale gives way to conductor loss and radiation at the m scale.
 
-Memory interfaces (DDR5, HBM3, LPDDR5) appear in the board-level row, but the reader looking for latency and bandwidth context in the full memory hierarchy should consult [Memory Hierarchy](../Computer-Hardware/Memory-Hierarchy.md).
+Memory interfaces (DDR5, HBM3, LPDDR5) appear in the board-level row, but the reader looking for latency and bandwidth context in the full memory hierarchy should consult [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md).
 
 Die-to-die and chiplet interconnects (UCIe, AMD Infinity Fabric, Intel EMIB) operate at 1–10 mm distances through TSVs, microbumps, or organic substrate. They are subsumed under the board-level row in this table but are treated explicitly in [Board-level electrical interconnects](./Board-level-interconnects.md).
 
@@ -54,10 +54,10 @@ The reason the physical medium is the right first-principles axis is that each r
 
 ## Related topics
 
-- [Networks](../Distributed-Systems/Networks.md) covers the protocol layers (IP, TCP, HTTP, TLS) that sit above the physical interfaces described here. A reader looking for "how does Ethernet work" should start here for the PHY and signalling, then move to Networks for framing, addressing, and routing.
-- [Communication](../Information-Theory/Communication.md) provides the Shannon capacity and error-correction limits that bound every physical medium.
-- [Memory Hierarchy](../Computer-Hardware/Memory-Hierarchy.md) gives the latency and bandwidth context for the memory interfaces (DDR5, HBM3) that appear in the board-level row.
-- [Interconnect and packaging](../../Manufacturing/Electronics/Interconnect-and-packaging.md) covers the fabrication side (wire bonding, flip-chip, TSVs, CoWoS) of the same physical interconnects studied electrically here.
-- [Electromagnetism](../../Physics/Interactions/Electromagnetism/Readme.md) is the foundational physics: skin effect, attenuation, dispersion, and diffraction are all consequences of Maxwell's equations applied to different geometries.
+- [Networks](../../Distributed-Systems/Networks.md) covers the protocol layers (IP, TCP, HTTP, TLS) that sit above the physical interfaces described here. A reader looking for "how does Ethernet work" should start here for the PHY and signalling, then move to Networks for framing, addressing, and routing.
+- [Communication](../../Information-Theory/Communication.md) provides the Shannon capacity and error-correction limits that bound every physical medium.
+- [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md) gives the latency and bandwidth context for the memory interfaces (DDR5, HBM3) that appear in the board-level row.
+- [Interconnect and packaging](../../../Manufacturing/Electronics/Interconnect-and-packaging.md) covers the fabrication side (wire bonding, flip-chip, TSVs, CoWoS) of the same physical interconnects studied electrically here.
+- [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md) is the foundational physics: skin effect, attenuation, dispersion, and diffraction are all consequences of Maxwell's equations applied to different geometries.
 
 When selecting an interface for a new design, start by identifying which physical domain your signal must traverse, then consult the corresponding subpage for protocol options and trade-offs.

@@ -27,7 +27,7 @@ Computer hardware sits between programming and distributed systems: it takes the
 <tr><th>Page</th><th>Core object</th><th>Key metric</th><th>Boundary</th></tr>
 <tr><td><a href='./CPU-Architecture.md'>CPU architecture</a></td><td>Instruction set, pipeline, ALU, FPU, registers</td><td>IPC, clock speed, energy per instruction</td><td>How a single core executes instructions; does not model the memory hierarchy or the OS</td></tr>
 <tr><td><a href='./Memory-Hierarchy.md'>Memory hierarchy</a></td><td>Caches, RAM, disk, TLB</td><td>Latency, bandwidth, capacity</td><td>How data is stored and accessed at each level; does not model the instruction pipeline</td></tr>
-<tr><td><a href='../Interfaces-and-Buses/Readme.md'>Interfaces and buses</a></td><td>PCIe, USB, SATA, NVMe, Ethernet, WiFi</td><td>Bandwidth, latency, power</td><td>How components communicate; does not model the protocol stack or the application</td></tr>
+<tr><td><a href='./Interfaces-and-Buses/Readme.md'>Interfaces and buses</a></td><td>PCIe, USB, SATA, NVMe, Ethernet, WiFi</td><td>Bandwidth, latency, power</td><td>How components communicate; does not model the protocol stack or the application</td></tr>
 <tr><td><a href='./Operating-System.md'>Operating system</a></td><td>Processes, threads, virtual memory, file systems, drivers</td><td>Context-switch cost, page fault rate, I/O throughput</td><td>How the OS mediates between programs and hardware; does not model the physical layout of the hardware</td></tr>
 </table>
 

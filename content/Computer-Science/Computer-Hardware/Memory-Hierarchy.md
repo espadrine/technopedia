@@ -418,7 +418,7 @@ A common anti-pattern: allocating a large array on node 0 (because the allocatin
 
 **HDD anatomy**: platters (magnetic storage), actuator arm (positions the read/write head), spindle motor (spins the platter at 5400–15000 RPM). **Seek time** (5–10 ms) dominates; **rotational latency** (2.5–4 ms) is the wait for the sector to rotate under the head.
 
-**SSD**: NAND flash cells store 1–4 bits each (SLC, MLC, TLC, QLC). **Wear leveling**: distribute writes evenly across cells to prevent premature failure. **Garbage collection**: erase and rewrite blocks to free space. **Write amplification**: the ratio of bytes written to NAND vs. bytes written by the host. SSDs connect via [NVMe over PCIe](../Interfaces-and-Buses/Readme.md), which reduces protocol overhead compared to SATA.
+**SSD**: NAND flash cells store 1–4 bits each (SLC, MLC, TLC, QLC). **Wear leveling**: distribute writes evenly across cells to prevent premature failure. **Garbage collection**: erase and rewrite blocks to free space. **Write amplification**: the ratio of bytes written to NAND vs. bytes written by the host. SSDs connect via [NVMe over PCIe](./Interfaces-and-Buses/Readme.md), which reduces protocol overhead compared to SATA.
 
 </details>
 

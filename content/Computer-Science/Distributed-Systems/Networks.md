@@ -24,7 +24,7 @@ The TCP/IP stack is a set of layers, each providing a service to the layer above
 
 A web request `GET /api/data` becomes: HTTP request → TCP segment (ports 54321→443) → IP packet (192.168.1.10→93.184.216.34) → Ethernet frame (MAC AA:BB→MAC CC:DD). Each router strips the Ethernet frame, reads the IP header to decide the next hop, and re-encapsulates with a new Ethernet frame.
 
-The physical and link layers (Ethernet, Wi-Fi, [Interfaces and Buses](../Interfaces-and-Buses/Readme.md)) carry frames between directly connected nodes. Everything above the link layer is the subject of this page.
+The physical and link layers (Ethernet, Wi-Fi, [Interfaces and Buses](../Computer-Hardware/Interfaces-and-Buses/Readme.md)) carry frames between directly connected nodes. Everything above the link layer is the subject of this page.
 
 ## DNS
 

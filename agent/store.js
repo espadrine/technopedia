@@ -540,4 +540,41 @@ export class Store {
     const href = `./${slug(segments[segments.length - 1])}${kind === 'topic' ? '/Readme.md' : '.md'}`;
     return parentContent.includes(href);
   }
+
+  // README: "On disk, under content/, topic pages should contain only
+  // Readme.md, and either a `.md` file for each subtopic if all subtopics are
+  // explanation pages, or, if all subtopics are topic pages, subfolders for
+  // each subtopic, which contain their own Readme.md, along with optional
+  // simulation pages as `<Simulation-name>.simulation.html` for either the
+  // topic page or the subtopic explanation pages."
+  // The content root is not itself a topic page (it holds the build assets:
+  // style.css, icon.svg, technopedia.svg) and is exempt.
+  async checkDiskLayout() {
+    const violations = [];
+    const walk = async (dir) => {
+      const entries = await fs.readdir(dir, { withFileTypes: true });
+      if (dir !== this.contentDir && !entries.some(
+        (entry) => entry.isFile() && /^readme\.md$/i.test(entry.name),
+      )) {
+        violations.push(`${this.rel(dir)}/: subfolder without its own Readme.md`);
+      }
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const file = path.join(dir, entry.name);
+          if (entry.name !== slug(entry.name)) {
+            violations.push(
+              `${this.rel(file)}/: directory name is not its slug (${slug(entry.name)})`,
+            );
+          }
+          await walk(file);
+        } else if (dir !== this.contentDir && !/\.(md|simulation\.html)$/i.test(entry.name)) {
+          violations.push(
+            `${this.rel(path.join(dir, entry.name))}: neither a page, nor a simulation, nor a folder`,
+          );
+        }
+      }
+    };
+    await walk(this.contentDir);
+    return violations.sort();
+  }
 }

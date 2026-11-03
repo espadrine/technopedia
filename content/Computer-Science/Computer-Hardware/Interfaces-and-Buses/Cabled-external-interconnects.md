@@ -268,7 +268,7 @@ Ethernet's topology is the opposite of USB's: **peers**, joined through switches
 </svg>
 </div>
 
-The protocol layers above the PHY (framing, MAC, switching, IP, TCP) are covered in [Networks](../Distributed-Systems/Networks.md). For runs beyond 100 m, or between buildings, the same Ethernet frames move to fibre — see [Optical interconnects](./Optical-interconnects.md) (10GBASE-R vs. 10GBASE-T).
+The protocol layers above the PHY (framing, MAC, switching, IP, TCP) are covered in [Networks](../../Distributed-Systems/Networks.md). For runs beyond 100 m, or between buildings, the same Ethernet frames move to fibre — see [Optical interconnects](./Optical-interconnects.md) (10GBASE-R vs. 10GBASE-T).
 
 The full treatment — the cable-category table (bandwidths, shielding, certified 10GBASE-T reach per category), the PAM5 → PAM16/DSQ128 signalling story, echo/NEXT/FEXT cancellation, autonegotiation and link training, the copper-vs-fibre crossover, and the Shannon-capacity worked example for one twisted pair — is on the [Ethernet over copper](./Ethernet-copper.md) page, together with an interactive link-budget simulator.
 
@@ -338,5 +338,5 @@ A building is wired wall-to-wall with Cat 6 cable, and the longest run is 70 m. 
 - [Board-level interconnects](./Board-level-interconnects.md) — the PCIe and NVMe links that USB4 tunnels and SATA drives contain; the same transmission-line physics at centimetre scale.
 - [Optical interconnects](./Optical-interconnects.md) — what takes over when copper's length limit is hit (fibre Ethernet, 10GBASE-R).
 - [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md) — the skin effect, radiation, and crosstalk from first principles.
-- [Networks](../Distributed-Systems/Networks.md) — the protocol layers (Ethernet MAC, IP, TCP) that ride on the copper PHY.
+- [Networks](../../Distributed-Systems/Networks.md) — the protocol layers (Ethernet MAC, IP, TCP) that ride on the copper PHY.
 - [Communication](../../Information-Theory/Communication.md) — Shannon capacity and error correction, which set the SNR budgets used above.

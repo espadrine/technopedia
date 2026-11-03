@@ -450,7 +450,7 @@ SIMD parallelizes within one core. The next level of parallelism is across multi
 
 **Step 2 — Worked example.** A program takes 100 s single-threaded. 80% is parallelizable. With 8 cores: $`S = 1/(0.2 + 0.8/8) = 1/0.3 \approx 3.33`. New time: $`100/3.33 \approx 30` s.
 
-**Step 3 — L1 bandwidth.** A 3 GHz Intel Golden Cove (Alder Lake) core has two 32-byte load ports, giving 64 B/cycle L1 read bandwidth → $`3 \times 10^9 \times 64 = 192` GB/s per core. Older cores (Skylake client) have two 16-byte load ports → 32 B/cycle → 96 GB/s. DRAM bandwidth is shared across all cores and is much lower (typically 50–100 GB/s for dual-channel DDR4); see [Memory Hierarchy](./Memory-Hierarchy.md) for the full memory bandwidth picture and [Interfaces and Buses](../Interfaces-and-Buses/Readme.md) for bus bandwidth.
+**Step 3 — L1 bandwidth.** A 3 GHz Intel Golden Cove (Alder Lake) core has two 32-byte load ports, giving 64 B/cycle L1 read bandwidth → $`3 \times 10^9 \times 64 = 192` GB/s per core. Older cores (Skylake client) have two 16-byte load ports → 32 B/cycle → 96 GB/s. DRAM bandwidth is shared across all cores and is much lower (typically 50–100 GB/s for dual-channel DDR4); see [Memory Hierarchy](./Memory-Hierarchy.md) for the full memory bandwidth picture and [Interfaces and Buses](./Interfaces-and-Buses/Readme.md) for bus bandwidth.
 
 **Step 4 — Cache coherence.** In a multicore system, the **MESI** protocol (Modified, Exclusive, Shared, Invalid) ensures that all cores see a consistent view of shared memory. Each cache line tracks its coherence state; a write by one core invalidates the line in other cores' caches. See [Memory Hierarchy](./Memory-Hierarchy.md).
 

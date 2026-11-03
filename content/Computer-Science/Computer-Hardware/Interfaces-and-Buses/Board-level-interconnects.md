@@ -51,7 +51,7 @@ HBM3 (2020) stacks DRAM dies vertically using TSVs (through-silicon vias). The 1
 
 LPDDR5 (2019) is the mobile variant: 16-bit channel, lower voltage (1.05 V), and a smaller pin count for battery-powered devices.
 
-The reader looking for where these interfaces sit in the full memory hierarchy (latency, capacity, bandwidth trade-offs) should consult [Memory Hierarchy](../Computer-Hardware/Memory-Hierarchy.md).
+The reader looking for where these interfaces sit in the full memory hierarchy (latency, capacity, bandwidth trade-offs) should consult [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md).
 
 <details><summary>Example problem</summary>
 
@@ -312,7 +312,7 @@ The chiplet revolution (AMD EPYC 2017, Intel 2023) made die-to-die links a major
 
 The engineering regime is intermediate: the distance (1–10 mm) is too long for on-chip RC-delay modelling but too short for full transmission-line design. The dominant concern is bump/TSV parasitics and package-level crosstalk.
 
-See [Interconnect and packaging](../../Manufacturing/Electronics/Interconnect-and-packaging.md) for the fabrication side.
+See [Interconnect and packaging](../../../Manufacturing/Electronics/Interconnect-and-packaging.md) for the fabrication side.
 
 <details><summary>Example problem</summary>
 

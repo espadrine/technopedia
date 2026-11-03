@@ -188,7 +188,7 @@ DCI is the dominant application of optical interconnects in computing. A hypersc
 
 **FEC matters here.** Coherent 100G-per-lambda links (400ZR / Open ROADM class) use ~20% soft-decision FEC (SD-FEC) or open FEC (oFEC) to survive the low OSNR of 80–120 km amplified spans. Do not confuse this with the 7% RS(544,514) FEC of IEEE 802.3 Clause 74/KR4, which protects *electrical* NRZ/PAM4 lanes inside a transceiver or on a PCB — a different layer of the same stack.
 
-The protocol stack above the optical PHY (Ethernet framing, IP, TCP) is covered by [Networks](../Distributed-Systems/Networks.md). The information-theoretic limits (Shannon capacity, FEC overhead) are covered by [Communication](../Information-Theory/Communication.md). The copper side of the 100 m crossover — where a DCI link degrades into an ordinary copper Ethernet run — is covered in [Ethernet over copper](./Ethernet-copper.md).
+The protocol stack above the optical PHY (Ethernet framing, IP, TCP) is covered by [Networks](../../Distributed-Systems/Networks.md). The information-theoretic limits (Shannon capacity, FEC overhead) are covered by [Communication](../../Information-Theory/Communication.md). The copper side of the 100 m crossover — where a DCI link degrades into an ordinary copper Ethernet run — is covered in [Ethernet over copper](./Ethernet-copper.md).
 
 **Authoritative sources**
 

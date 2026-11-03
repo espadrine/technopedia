@@ -300,9 +300,10 @@ Reply: {"done": true}`,
   ];
 }
 
-// README 2.5: after the editor's work on a page, make sure there are no dead
-// links nor unreachable pages. The findings come from a mechanical scan of
-// the whole encyclopedia; the model handles them with its tools.
+// README 2.5: after the editor's work on a page, make sure there are no
+// dead links, unreachable pages, nor layout violations (the on-disk layout
+// rule). The findings come from a mechanical scan of the whole encyclopedia;
+// the model handles them with its tools.
 export function fixLinkIntegrityPrompt(segments, findings) {
   const deadLinks = findings.deadLinks
     .map((d) => `- ${d.file} links to ${d.href} (the page does not exist)`)
@@ -315,13 +316,16 @@ export function fixLinkIntegrityPrompt(segments, findings) {
       return `- ${u.rel} ${where}${u.empty ? ' (empty page)' : ''}`;
     })
     .join('\n');
+  const layout = (findings.layout ?? [])
+    .map((v) => `- ${v}`)
+    .join('\n');
   return [
     sysTools('You are the autonomous contributor agent of Technopedia, fixing link integrity violations.'),
     user(
       `TASK: fix-link-integrity
 
 The editor just worked on the page "${segments.join(' / ')}". A mechanical scan
-of the whole encyclopedia found these violations of the link integrity rules:
+of the whole encyclopedia found these violations of the structural rules:
 
 Dead links (links to pages that do not exist):
 ${deadLinks || '(none)'}
@@ -329,9 +333,16 @@ ${deadLinks || '(none)'}
 Unreachable pages (pages no parent topic page references):
 ${unreachable || '(none)'}
 
+Layout violations (the on-disk rule for topic pages):
+${layout || '(none)'}
+
 The rules (from the style guide):
 - No dead links: All links must correspond to a page that really exists.
 - No unreachable pages: All explanation pages must be referenced in a parent topic page.
+- On-disk layout: under content/, a topic page contains only Readme.md, and
+  either a \`.md\` file for each subtopic if all subtopics are explanation
+  pages, or subfolders for each subtopic which contain their own Readme.md,
+  plus optional <Name>.simulation.html simulation pages.
 
 Handle every violation, as needed:
 - A dead link: create the missing page, or remove or fix the link. Create the
@@ -347,6 +358,16 @@ Handle every violation, as needed:
   or delete it with delete_file when it should not exist (eg. an empty
   leftover). When the parent topic page itself is missing, create it with
   edit_file at line 1 of its Readme.md, with a link to the page.
+- A layout violation:
+  - a subfolder without its own Readme.md: create the Readme.md with
+    edit_file at line 1 (leave it empty when you have nothing to write yet),
+    or delete the whole subfolder with delete_file when it is a leftover
+    that should not exist,
+  - a directory whose name is not its slug: move it with rename_file to the
+    slug name, then fix the references to the old path (find them with grep),
+  - a file that is neither a page, nor a simulation, nor a folder: move it
+    next to the page it belongs to with rename_file, or delete it with
+    delete_file when it should not exist.
 - Do not change anything else: never break a link or a reference that is not
   listed above.
 

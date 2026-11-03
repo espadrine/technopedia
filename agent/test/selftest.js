@@ -272,7 +272,8 @@ await startMockServer(PORT);
     'p2: the link-integrity check runs after the edit (2.5) and logs what remains',
     r.stdout.includes('step 2.5:') &&
       r.stdout.includes('unreachable page: Manufacturing/Electronics.md has no parent topic page') &&
-      r.stdout.includes('1 violation(s) remain'),
+      r.stdout.includes('layout violation: Manufacturing/: subfolder without its own Readme.md') &&
+      r.stdout.includes('2 violation(s) remain'),
     r.stdout.slice(-400),
   );
   check(
@@ -1145,8 +1146,8 @@ await startMockServer(PORT);
       'p6l: the link-integrity step ran after the edit and handled the findings',
       r.status === 0 &&
         taskCount('fix-link-integrity') === 1 &&
-        r.stdout.includes('step 2.5: found 1 dead link(s) and 2 unreachable page(s); handling them') &&
-        r.stdout.includes('handled: no dead links nor unreachable pages remain'),
+        r.stdout.includes('step 2.5: found 1 dead link(s), 2 unreachable page(s), and 0 layout violation(s); handling them') &&
+        r.stdout.includes('handled: no dead links, unreachable pages, nor layout violations remain'),
       requestLog.join(','),
     );
     check(
@@ -1213,7 +1214,7 @@ await startMockServer(PORT);
         taskCount('fix-link-integrity') === 1 &&
         parent.includes('<table>') &&
         parent.includes('[Electronics](./Electronics.md)') &&
-        r.stdout.includes('handled: no dead links nor unreachable pages remain'),
+        r.stdout.includes('handled: no dead links, unreachable pages, nor layout violations remain'),
       parent,
     );
     check(
