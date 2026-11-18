@@ -2,7 +2,7 @@
 
 Probability is the mathematics of uncertainty. It assigns numbers to possible outcomes, events, and random variables so that uncertainty can be compared, combined, and optimized. It is relevant whenever outcomes are not known in advance: sampling, measurement noise, risk, queues, communication errors, biological variation, physical diffusion, and probabilistic models in machine learning.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A useful mental model is probability as mass. A sample space is a set of possible outcomes, an event is a collection of outcomes, and a probability measure assigns mass to events. The basic axioms require nonnegative mass, total mass one, and additivity for disjoint events: $`P(\Omega)=1` and $`P(\bigcup_i A_i)=\sum_i P(A_i)` when the $`A_i` are disjoint.
 

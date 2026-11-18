@@ -82,7 +82,7 @@ A patterned mask is illuminated with UV light; the light passes through the tran
   <text x="360" y="110" text-anchor="middle" font-size="10" fill="#666">Light path: source → condenser → mask → projection optics → wafer</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Wavelengths and generations:**
 
@@ -181,7 +181,7 @@ A patterned mask is illuminated with UV light; the light passes through the tran
 
 A focused electron beam writes the pattern directly onto the resist, without a mask. Because electrons have a de Broglie wavelength of picometers at typical beam energies (100 keV → $`\lambda_e \approx 0.004` nm), diffraction is negligible and resolution is set by beam spot size and scattering.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Resolution**: < 10 nm (down to ~1 nm with advanced tools). Used for mask fabrication and R&D.
 - **Throughput**: very slow (serial writing). A single 300 mm mask can take hours to days.
@@ -226,7 +226,7 @@ Beyond optical and electron-beam lithography, several distinct techniques comple
 
 The naive Rayleigh criterion assumes a perfect mask and ideal optics. In practice, modern fabs push well beyond the "first-order" limit using a suite of **Resolution Enhancement Techniques** that modify the mask, the illumination, or both. These techniques are a major part of what makes lithography the most expensive and complex step in the fab.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Optical Proximity Correction (OPC)**: The mask geometry is deliberately distorted (serifs, hammerheads, line-end extensions) so that the *image* on the wafer matches the intended pattern. OPC compensates for the fact that isolated lines, dense lines, and corners all diffract differently. Computed by rigorous electromagnetic simulation of the optical system.
 
@@ -244,7 +244,7 @@ The naive Rayleigh criterion assumes a perfect mask and ideal optics. In practic
 
 Photoresist is the light-sensitive (or particle-sensitive) polymer that records the pattern. It is a consumable material used in photolithography, EBL, and other exposure-based methods—not a lithography technique itself.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Positive resist**: exposed regions become soluble in developer and are washed away. Most common in IC manufacturing (e.g., chemically amplified resists based on polycaprolactone).
 - **Negative resist**: exposed regions cross-link and become insoluble. Used for high-resolution or high-aspect-ratio structures (e.g., SU-8 for MEMS).

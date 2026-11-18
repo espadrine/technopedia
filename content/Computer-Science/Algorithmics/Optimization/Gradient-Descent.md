@@ -17,7 +17,7 @@ where $`\eta > 0` is the learning rate. For $`f` $`\mu`-strongly convex and $`L`
 
 **Definition**: batch GD uses the full dataset: $`\nabla f = \frac{1}{n}\sum_i \nabla \ell_i(\theta)`. One pass over the data is an **epoch**. Cost per step: $`O(nd)`. For $`\mu`-strongly convex, $`L`-smooth $`f`, the convergence rate is $`f(\theta_t) - f^* \leq (1 - \mu/L)^t (f(\theta_0) - f^*)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The learning rate**: the step size $`\eta` controls the tradeoff between speed and stability.
 - $`\eta` too large: the iteration overshoots the minimum and diverges (violates the contraction condition $`\eta < 2/L`).
@@ -38,8 +38,8 @@ Minimize $`f(x, y) = x^2 + 10y^2` by batch gradient descent from $`(x_0, y_0) = 
 
 $`\nabla f = (2x, 20y)`.
 
-- Step 1: $`(x_1, y_1) = (1 - 0.1 \times 2, 1 - 0.1 \times 20) = (0.8, -1)`
-- Step 2: $`(x_2, y_2) = (0.8 - 0.1 \times 1.6, -1 - 0.1 \times (-20)) = (0.64, 1)`
+1. $`(x_1, y_1) = (1 - 0.1 \times 2, 1 - 0.1 \times 20) = (0.8, -1)`
+2. $`(x_2, y_2) = (0.8 - 0.1 \times 1.6, -1 - 0.1 \times (-20)) = (0.64, 1)`
 
 The $`y`-coordinate oscillates (sign flips each step) because $`\eta = 0.1` is at the boundary of stability for the $`y`-direction ($`L_y = 20`, so $`\eta < 2/20 = 0.1` is required; $`\eta = 0.1` is exactly at the boundary). The $`x`-direction converges smoothly. This **ill-conditioning** (ratio $`L/\mu = 10`) is the bottleneck: the narrow valley in the $`y`-direction forces a small step, which slows progress in the $`x`-direction. Momentum (below) addresses this.
 
@@ -53,7 +53,7 @@ The $`y`-coordinate oscillates (sign flips each step) because $`\eta = 0.1` is a
 
 **Definition**: minibatch stochastic gradient descent (SGD) uses a random subset of size $`b`: $`\hat{\nabla} = \frac{1}{b}\sum_{i \in B} \nabla \ell_i(\theta)`. The gradient is unbiased but noisy; the noise acts as a regularizer and helps escape sharp minima and saddle points.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why noise helps**: in high-dimensional non-convex landscapes, saddle points dominate local minima (Dauphin et al., 2014). The stochastic noise in SGD provides the perturbation needed to escape saddle points, which deterministic GD cannot do (it gets stuck at any critical point).
 
@@ -89,7 +89,7 @@ The total FLOPs per epoch are the same (you still touch every example once). The
 
 **Definition**: momentum (Polyak, 1964) maintains a velocity $`v_t = \beta v_{t-1} + (1-\beta)\nabla f(\theta_t)` and updates $`\theta_{t+1} = \theta_t - \eta v_t`. It damps oscillations in narrow valleys and accelerates progress in consistent directions.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Intuition**: imagine a ball rolling in a landscape. Without momentum, the ball stops at every small bump. With momentum, the ball builds up speed in consistent directions and plows through small bumps. In a narrow valley (high curvature in one direction, low in another), the oscillations in the high-curvature direction cancel out (the velocity averages to zero), while the progress in the low-curvature direction accumulates.
 
@@ -107,8 +107,8 @@ Minimize $`f(x) = 5x^2` from $`x_0 = 1` with momentum $`\beta = 0.9` and $`\eta 
 
 $`\nabla f(x) = 10x`.
 
-- Step 1: $`v_1 = 0.9 \times 0 + 0.1 \times 10 = 1`. $`x_1 = 1 - 0.2 \times 1 = 0.8`.
-- Step 2: $`v_2 = 0.9 \times 1 + 0.1 \times 8 = 1.7`. $`x_2 = 0.8 - 0.2 \times 1.7 = 0.46`.
+1. $`v_1 = 0.9 \times 0 + 0.1 \times 10 = 1`. $`x_1 = 1 - 0.2 \times 1 = 0.8`.
+2. $`v_2 = 0.9 \times 1 + 0.1 \times 8 = 1.7`. $`x_2 = 0.8 - 0.2 \times 1.7 = 0.46`.
 
 Without momentum ($`\beta = 0`), the same $`\eta = 0.2` would give: $`x_1 = 1 - 0.2 \times 10 = -1` (diverges! The stability condition is $`\eta < 2/L = 0.2`, and $`\eta = 0.2` is at the boundary). With momentum, the effective step is damped in the oscillatory direction, so the iteration remains stable and converges.
 
@@ -122,7 +122,7 @@ Without momentum ($`\beta = 0`), the same $`\eta = 0.2` would give: $`x_1 = 1 - 
 
 **Definition**: Adam (Kingma & Ba, 2015) maintains a first moment $`m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t` and a second moment $`v_t = \beta_2 v_{t-1} + (1-\beta_2) g_t^2`, then updates $`\theta_{t+1} = \theta_t - \eta \, \hat{m}_t / (\sqrt{\hat{v}_t} + \varepsilon)` where $`\hat{m}_t = m_t/(1-\beta_1^t)` and $`\hat{v}_t = v_t/(1-\beta_2^t)` are bias-corrected estimates. The per-coordinate adaptive step size makes Adam robust to sparse gradients.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why adaptive step sizes help**: in neural networks, different parameters have very different gradient scales. Embedding table entries for rare tokens have sparse, large gradients; bias terms have small, dense gradients. Adam normalizes each coordinate by its historical gradient magnitude, so all parameters receive comparable step sizes.
 
@@ -130,7 +130,7 @@ Without momentum ($`\beta = 0`), the same $`\eta = 0.2` would give: $`x_1 = 1 - 
 
 **Convergence**: Adam does not converge for all problems (Reddi et al., 2018 showed a counterexample). In practice, it works well for non-convex deep learning objectives. For convex problems, SGD with a proper learning rate schedule is often preferable.
 
-**Connection to [Neural Networks](../Learning-Paradigms-and-Models.md)**: Adam is the default optimizer for training neural networks. The compute section of that page covers how the gradients are computed (backpropagation) and how they are applied in parallel on GPUs.
+**Connection to [Neural Networks](./Neural-Networks.md)**: Adam is the default optimizer for training neural networks. The compute section of that page covers how the gradients are computed (backpropagation) and how they are applied in parallel on GPUs.
 
 **Example problem**:
 
@@ -156,7 +156,7 @@ For a constant gradient, Adam reduces to plain gradient descent with step size $
 
 **Definition**: for non-convex $`f`, the landscape has saddle points, local minima, and plateaus. In high dimensions, saddle points dominate local minima, so SGD's noise helps escape them. The geometry of the loss landscape determines which optimizer and learning rate schedule will work.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Convex vs. non-convex**: for convex $`f`, every local minimum is global, and gradient descent with $`\eta = 1/L` converges linearly. For non-convex $`f` (neural networks), the landscape is complex:
 - **Saddle points**: points where the gradient is zero but the Hessian has both positive and negative eigenvalues. In high dimensions, these are far more common than local minima.
@@ -165,7 +165,7 @@ For a constant gradient, Adam reduces to plain gradient descent with step size $
 
 **The valley structure**: in ill-conditioned problems (large $`L/\mu` ratio), the loss landscape has narrow valleys. Gradient descent oscillates across the valley while slowly descending. Momentum and adaptive methods (Adam) address this by damping the oscillatory component.
 
-<iframe src="../Optimization-and-Differentiation.simulation.html" title="Interactive gradient descent on a 2D loss landscape with adjustable learning rate and momentum"></iframe>
+<iframe src="./Optimization.simulation.html" title="Interactive gradient descent on a 2D loss landscape with adjustable learning rate and momentum"></iframe>
 
 **Example problem**:
 

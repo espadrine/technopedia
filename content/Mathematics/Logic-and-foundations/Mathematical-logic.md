@@ -15,7 +15,7 @@ Mathematical logic is the formal study of reasoning itself: it defines precise l
 
 The starting point is a **language**: a set of symbols with a grammar for **well-formed formulas (wffs)**. **Propositional logic** builds formulas from atomic propositions using **connectives** ($`\wedge` and, $`\vee` or, $`\neg` not, $`\to` implication, $`\leftrightarrow` biconditional). **Predicate (first-order) logic** adds **variables**, **function symbols**, **predicate symbols**, and the **quantifiers** $`\forall` (for all) and $`\exists` (there exists), so formulas can talk about the internal structure of objects.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Why formalize?** Natural-language arguments are ambiguous: "some", "and", "if" shift meaning with context. A formal language removes the ambiguity. A formula is a finite string of symbols, and "provable" becomes a precise, mechanically checkable relation. This is the foundation every later section builds on.
 
@@ -54,7 +54,7 @@ Work through the truth table. The formula is true only when both implications ho
 
 A **formal system** is a set of symbols, a grammar for well-formed formulas, a set of **axioms**, and **inference rules**. A **proof** is a finite sequence of formulas where each is an axiom or follows from earlier ones by an inference rule. Nothing in a formal proof depends on meaning: it is pure symbol manipulation, which is what makes proofs checkable by machine.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The four ingredients.** A formal system is fully specified by (i) an **alphabet** of symbols, (ii) a **grammar** deciding which strings are well-formed formulas, (iii) a set of **axioms** (wffs taken as true without proof), and (iv) **inference rules** (patterns that turn earlier formulas into new ones). For example, modus ponens is the rule: from $`A` and $`A \to B` infer $`B`.
 
@@ -105,7 +105,7 @@ Yes. Line 1: $`P` (assumption). Line 2: $`P \to Q` (axiom). Line 3: $`Q` (modus 
 - **Compactness theorem**: if every finite subset of a set of axioms has a model, the whole set has a model. Consequence: first-order logic cannot pin down the natural numbers up to isomorphism (non-standard models exist).
 - **Löwenheim–Skolem theorem**: if a first-order theory has an infinite model, it has models of every infinite cardinality. First-order logic cannot control the size of its models.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — What a structure is.** A structure for a language $`\mathcal{L}` is a set $`D` (the **domain**) together with an interpretation of every symbol: each constant is an element of $`D`, each $`n`-ary function is a map $`D^n \to D`, each $`n`-ary predicate is a subset of $`D^n`. The diagram below shows a structure with domain $`\{a, b, c\}`, a constant $`c`, a unary function $`f`, and a unary predicate $`P`:
 
@@ -156,7 +156,7 @@ Check each element. $`f(a) = b` and $`b \notin P`, while $`a \in P`. So $`x = a`
 
 **Proof theory** studies proofs as mathematical objects. Its central technique is **cut elimination** (Gentzen): every proof using lemmas can be mechanically transformed into a direct, lemma-free proof. Consequences include **consistency proofs** (Gentzen proved the consistency of arithmetic using transfinite induction up to the ordinal $`\varepsilon_0`) and **ordinal analysis**, which measures the strength of a theory by the ordinal needed to prove its consistency.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Proofs as objects.** In proof theory a proof is a tree whose leaves are axioms and whose internal nodes are rule applications. The **cut rule** lets you reason through a lemma $`L`: from $`A \vdash L` and $`L \vdash C` infer $`A \vdash C`. Cuts make proofs short and readable, but they introduce an intermediate formula $`L` that is not forced by the conclusion.
 
@@ -223,7 +223,7 @@ Gödel's **incompleteness theorems** (1931) are the landmark results of the fiel
 
 The proofs use computability techniques (encoding statements about provability inside arithmetic itself) — see [Computability and decidability](./Computability-and-decidability.md) for the machinery of arithmetization and the halting problem. The theorems are statements about formal systems, so they belong to Mathematical logic; the computability angle is the proof technique and the interpretive lens.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Arithmetization.** The key move is to encode syntax as arithmetic. Every formula and proof is assigned a natural number (its **Gödel number**), and "x is the Gödel number of a proof of y" becomes an ordinary, primitive-recursive relation on natural numbers. This is where the [Computability and decidability](./Computability-and-decidability.md) machinery enters: provability is a computable (indeed decidable) relation.
 

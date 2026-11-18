@@ -6,7 +6,7 @@ Measurement and uncertainty describe how the abstract quantum state connects to 
 
 **Definition.** If a system in state $`|\psi\rangle` is measured with a projective measurement $`\{\hat{P}_i\}` (orthogonal projectors summing to $`\hat{I}`), the outcome $`i` occurs with probability $`p_i = \langle\psi|\hat{P}_i|\psi\rangle`, and the post-measurement state is $`|\psi_i\rangle = \hat{P}_i|\psi\rangle / \sqrt{p_i}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From state to outcome
 
@@ -47,7 +47,7 @@ If outcome is 0: post-measurement state is $`|0\rangle`.
 
 **Definition.** A positive-operator-valued measure (POVM) is a set $`\{\hat{E}_k\}` of positive semi-definite operators with $`\sum_k \hat{E}_k = \hat{I}`. The probability of outcome $`k` is $`p_k = \text{Tr}(\hat{\rho}\,\hat{E}_k)`. POVMs generalize projective measurements to include inefficient detectors, indirect measurements, and measurements on subsystems of entangled states.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why go beyond projective measurements?
 
@@ -93,7 +93,7 @@ Check: $`p_1 + p_2 + p_3 = 1`. ✓
 
 **Definition.** For any two observables $`\hat{A}, \hat{B}` with standard deviations $`\Delta A, \Delta B` in state $`|\psi\rangle`: $`\Delta A \cdot \Delta B \geq \frac{1}{2}|\langle[\hat{A},\hat{B}]\rangle|`. For position and momentum: $`\Delta x \cdot \Delta p \geq \hbar/2`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From commutators to uncertainty
 
@@ -142,7 +142,7 @@ This is much less than 511 keV, so the non-relativistic treatment is valid. The 
 
 **Definition.** Decoherence is the loss of coherence (off-diagonal terms in the density matrix) of a system due to entanglement with its environment. It explains why macroscopic superpositions are not observed: the environment continuously "measures" the system, selecting a preferred basis (the pointer basis) and suppressing interference between branches.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From unitary evolution to apparent collapse
 

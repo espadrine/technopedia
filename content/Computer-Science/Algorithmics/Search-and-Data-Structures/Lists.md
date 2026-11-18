@@ -11,12 +11,12 @@ The progression through this page follows the natural evolution of the idea: **a
   <circle cx="210" cy="55" r="6" fill="#e94560"/>
   <circle cx="70" cy="255" r="6" fill="#e94560"/>
   <circle cx="350" cy="255" r="6" fill="#e94560"/>
-  <text x="210" y="30" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Random-access speed</text>
-  <text x="210" y="46" text-anchor="middle" fill="#a0a0c0" font-size="12">favors arrays</text>
-  <text x="70" y="278" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Insertion / deletion</text>
-  <text x="70" y="294" text-anchor="middle" fill="#a0a0c0" font-size="12">favors linked lists</text>
-  <text x="350" y="278" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="bold">Space overhead</text>
-  <text x="350" y="294" text-anchor="middle" fill="#a0a0c0" font-size="12">favors arrays</text>
+  <text x="210" y="30" text-anchor="middle" fill="#1a2a4a" font-size="14" font-weight="bold">Random-access speed</text>
+  <text x="210" y="46" text-anchor="middle" fill="#555555" font-size="12">favors arrays</text>
+  <text x="70" y="278" text-anchor="middle" fill="#1a2a4a" font-size="14" font-weight="bold">Insertion / deletion</text>
+  <text x="70" y="294" text-anchor="middle" fill="#555555" font-size="12">favors linked lists</text>
+  <text x="350" y="278" text-anchor="middle" fill="#1a2a4a" font-size="14" font-weight="bold">Space overhead</text>
+  <text x="350" y="294" text-anchor="middle" fill="#555555" font-size="12">favors arrays</text>
 </svg>
 
 
@@ -24,15 +24,29 @@ The progression through this page follows the natural evolution of the idea: **a
 > - [Introduction to Algorithms (CLRS), Ch. 10](https://mitpress.mit.edu/9780262033848/introduction-to-algorithms/)
 > - [The Art of Computer Programming, Vol. 1: Fundamental Algorithms](https://www-cs-faculty.stanford.edu/~knuth/taocp.html)
 
-## Arrays
+## Index-to-value mapping
+
+Mapping an index to a value is the most basic access pattern. The comparison table below summarizes the trade-offs:
+
+<table>
+<tr><th>Structure</th><th>Random access</th><th>Append</th><th>Insert</th><th>Cache behavior</th></tr>
+<tr><td>Array</td><td><i>O</i>(1)</td><td>— (fixed size)</td><td><i>O</i>(<i>n</i>)</td><td>Excellent (contiguous)</td></tr>
+<tr><td>Vector</td><td><i>O</i>(1)</td><td><i>O</i>(1) amortized</td><td><i>O</i>(<i>n</i>)</td><td>Excellent (contiguous)</td></tr>
+<tr><td>Linked list</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(1) at tail</td><td><i>O</i>(1) at known node</td><td>Poor (pointer chasing)</td></tr>
+<tr><td>Rope</td><td><i>O</i>(log <i>n</i>)</td><td><i>O</i>(1)</td><td><i>O</i>(log <i>n</i>)</td><td>Good (leaf chunks)</td></tr>
+</table>
+
+
+### Arrays
 
 An array of $`n` elements in contiguous memory supports:
 - Random access by index: $`O(1)`
 - Search by value: $`O(n)`
 - Insertion / deletion at position $`i`: $`O(n)` (shift)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
+<iframe src="./Array.simulation.html" title="Interactive Array simulation"></iframe>
 **How it works.** An array is a block of $`n \times w` bytes (where $`w` is the element width) allocated contiguously. Element $`i` lives at address $`\text{base} + i \cdot w`, so the CPU computes the address with a single multiply-and-add. No pointer chasing is needed.
 
 <svg viewBox="0 0 440 130" width="100%" style="max-width:470px;display:block;margin:8px auto" xmlns="http://www.w3.org/2000/svg" font-family="monospace">
@@ -57,8 +71,8 @@ An array of $`n` elements in contiguous memory supports:
   <text x="230" y="49" fill="#fff" font-size="10" text-anchor="middle">8</text>
   <text x="334" y="49" fill="#fff" font-size="10" text-anchor="middle">12</text>
   <text x="412" y="49" fill="#fff" font-size="10" text-anchor="middle">15</text>
-  <text x="22" y="76" fill="#a0a0c0" font-size="9" text-anchor="middle">0x1000</text>
-  <text x="412" y="76" fill="#a0a0c0" font-size="9" text-anchor="middle">0x103C</text>
+  <text x="22" y="76" fill="#555555" font-size="9" text-anchor="middle">0x1000</text>
+  <text x="412" y="76" fill="#555555" font-size="9" text-anchor="middle">0x103C</text>
   <line x1="10" y1="90" x2="424" y2="90" stroke="#4ecdc4" stroke-width="2"/>
   <line x1="10" y1="90" x2="10" y2="96" stroke="#4ecdc4" stroke-width="2"/>
   <line x1="424" y1="90" x2="424" y2="96" stroke="#4ecdc4" stroke-width="2"/>
@@ -96,12 +110,13 @@ Each `int64` is 8 bytes. 1000 × 8 = 8000 bytes total. 8000 ÷ 64 = 125 cache li
 
 </details>
 
-## Vectors (growable arrays)
+### Vectors (growable arrays)
 
 A vector amortizes $`O(1)` append by growing capacity geometrically. Over $`n` insertions, the underlying array is reallocated $`O(\log n)` times; total work is $`O(n)` (amortized $`O(1)` per insertion).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
+<iframe src="./Vector.simulation.html" title="Interactive Vector simulation"></iframe>
 **How it works.** A vector maintains two numbers: *size* (number of elements) and *capacity* (number of allocated slots). When `size == capacity`, the vector allocates a new block of $`c \times \text{capacity}` bytes, copies all elements, and frees the old block. The amortized cost per insertion is $`\frac{1}{1 - 1/c}` element-copies.
 
 **Growth factor.** Any constant factor $`c > 1` gives $`O(1)` amortized per insertion. For example, $`c = 1.5` gives amortized cost 3 per insertion; $`c = 2` gives amortized cost 2. The factor $`c = 2` minimizes the number of reallocations ($`\log_2 n`), while smaller factors reduce peak memory waste. Peak memory usage is at most $`c \cdot n` elements (just before a shrink, if supported).
@@ -143,7 +158,7 @@ Reallocations happen at sizes 1, 2, 4, 8, …, 512. Copies: 1+2+4+…+512 = 1023
 
 </details>
 
-## Linked lists
+### Linked lists
 
 A singly linked list stores elements in nodes with a `next` pointer. A doubly linked list adds a `prev` pointer.
 
@@ -151,15 +166,16 @@ A singly linked list stores elements in nodes with a `next` pointer. A doubly li
 - Insertion / deletion at a known node: $`O(1)`
 - Space: $`O(n)` + pointer overhead per node (8 bytes for `next`, 16 bytes for `next`+`prev` on 64-bit)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
+<iframe src="./Linked-list.simulation.html" title="Interactive Linked List simulation"></iframe>
 **How it works.** Each node is a separate heap allocation containing the element and one or two pointers. To insert after node $`p`, allocate a new node, set its `next` to $`p.\text{next}`, then set $`p.\text{next}` to the new node. No existing elements move.
 
 <svg viewBox="0 0 480 130" width="100%" style="max-width:500px;display:block;margin:8px auto" xmlns="http://www.w3.org/2000/svg" font-family="monospace">
   <defs>
     <marker id="llR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e94560"/></marker>
     <marker id="llL" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4ecdc4"/></marker>
-    <marker id="llG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#a0a0c0"/></marker>
+    <marker id="llG" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#555555"/></marker>
   </defs>
   <rect x="40" y="50" width="80" height="40" fill="#0f3460" stroke="#e94560" stroke-width="2"/>
   <text x="80" y="75" fill="#fff" font-size="14" text-anchor="middle">3</text>
@@ -175,10 +191,10 @@ A singly linked list stores elements in nodes with a `next` pointer. A doubly li
   <line x1="360" y1="80" x2="282" y2="80" stroke="#4ecdc4" stroke-width="2" marker-end="url(#llL)"/>
   <text x="159" y="96" fill="#4ecdc4" font-size="10" text-anchor="middle">prev</text>
   <text x="319" y="96" fill="#4ecdc4" font-size="10" text-anchor="middle">prev</text>
-  <text x="6" y="75" fill="#a0a0c0" font-size="11">head</text>
+  <text x="6" y="75" fill="#555555" font-size="11">head</text>
   <line x1="34" y1="70" x2="38" y2="70" stroke="#a0a0c0" stroke-width="1.5" marker-end="url(#llG)"/>
   <line x1="440" y1="70" x2="446" y2="70" stroke="#a0a0c0" stroke-width="1.5" marker-end="url(#llG)"/>
-  <text x="448" y="75" fill="#a0a0c0" font-size="11">NULL</text>
+  <text x="448" y="75" fill="#555555" font-size="11">NULL</text>
 </svg>
 
 
@@ -215,7 +231,40 @@ Doubly: still $`O(n)` to *find* position 500 (no random access), but once you ha
 
 </details>
 
-## Stacks, Queues, and Deques
+### Rope
+
+A **rope** is a binary tree whose leaves are chunks of the sequence (for example, pieces of a long string). Indexing, insertion, and deletion navigate the tree by cumulative leaf lengths, so they cost $`O(\log n)` without moving the other chunks. Ropes are the standard structure for editable text buffers (text editors) and very large strings, where splicing a plain array would copy $`O(n)` data.
+
+## Searching by value
+
+**Binary search** finds an element by value in a *sorted* list in $`O(\log n)`: compare the target with the middle element, discard the half that cannot contain it, and repeat. It requires the list to be sorted — which is why sorting is the gateway operation for search by value.
+
+<details><summary>EXPLANATION</summary>
+
+**Why sorted order enables binary search.** In a sorted list, comparing the target with the middle element tells you which half must contain it: everything on one side is smaller (or larger) by the ordering. Halving the search space per comparison gives $`\log_2 n` comparisons — versus $`n` for a linear scan.
+
+**The comparison-based sorting algorithms.**
+
+<table>
+<tr><th>Algorithm</th><th>Worst case</th><th>Amortized</th><th>Space</th><th>Stable</th><th>In-place</th></tr>
+<tr><td>Merge sort</td><td><i>O</i>(<i>n</i> log <i>n</i>)</td><td><i>O</i>(<i>n</i> log <i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td>Yes</td><td>No</td></tr>
+<tr><td>Quick sort</td><td><i>O</i>(<i>n</i>²)</td><td><i>O</i>(<i>n</i> log <i>n</i>)</td><td><i>O</i>(log <i>n</i>)</td><td>No</td><td>Yes</td></tr>
+<tr><td>Heap sort</td><td><i>O</i>(<i>n</i> log <i>n</i>)</td><td><i>O</i>(<i>n</i> log <i>n</i>)</td><td><i>O</i>(1)</td><td>No</td><td>Yes</td></tr>
+</table>
+
+- **Merge sort**: split in half, sort each half recursively, merge the two sorted halves. Stable and predictably $`O(n \log n)`, at the cost of $`O(n)` auxiliary space.
+- **Quick sort**: pick a pivot, partition the list around it, recurse on both sides. $`O(n \log n)` amortized and in-place, but $`O(n^2)` worst case on bad pivots — avoided with randomization or median-of-three.
+- **Heap sort**: build a max-heap in place, then repeatedly move the maximum to the end of the array. $`O(n \log n)` worst case with $`O(1)` extra space, but not stable.
+
+
+</details>
+
+## Data structures using lists
+
+These structures restrict the access pattern to the ends of an underlying list (or array), and each exposes a small interface whose operations have a known cost.
+
+
+### Stacks, Queues, and Deques
 
 These are *restricted access patterns* layered on top of any of the structures above. They expose only the ends of the sequence, giving $`O(1)` for every operation regardless of the underlying representation.
 
@@ -226,8 +275,10 @@ These are *restricted access patterns* layered on top of any of the structures a
 <tr><td>Deque</td><td>Both ends</td><td><i>O</i>(1)</td><td><i>O</i>(1)</td><td><i>O</i>(1)</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
+<iframe src="./Stack.simulation.html" title="Interactive Stack simulation"></iframe>
+<iframe src="./Queue.simulation.html" title="Interactive Queue simulation"></iframe>
 **Stack (LIFO).** The most recent element is the first removed. Implementations: an array with a `top` index (push = write at `top`, pop = read and decrement), or a singly linked list where the head is the top. Typical uses: call-stack management, expression evaluation, DFS traversal (see [Graphs](./Graphs.md)), undo/redo buffers.
 
 **Worked example (stack).** Push 3, 7, 1; pop; push 9; pop:
@@ -276,7 +327,7 @@ Maintain `in_stack` and `out_stack`. `enqueue(x)`: push onto `in_stack`. `dequeu
 
 </details>
 
-## Bloom filters
+### Bloom filters
 
 A Bloom filter is a space-efficient *probabilistic* set-membership test built on a bit array (a list of bits). It answers "is element $`x` in the set?" with no false negatives but a tunable false-positive rate.
 
@@ -288,8 +339,9 @@ A Bloom filter repurposes the simplest list — a bit array — as a probabilist
 - False positive rate: $`\varepsilon \approx (1 - e^{-kn/m})^k`.
 - No false negatives. No deletion (unless using a counting Bloom filter).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
+<iframe src="./Bloom-filter.simulation.html" title="Interactive Bloom Filter simulation"></iframe>
 **How it works.** Each element is hashed $`k` times, producing $`k` bit positions in the array. Insertion sets those bits. A query checks whether all $`k` positions are set. As more elements are inserted, bits collide and the false-positive rate rises.
 
 <svg viewBox="0 0 440 132" width="100%" style="max-width:470px;display:block;margin:8px auto" xmlns="http://www.w3.org/2000/svg" font-family="monospace">
@@ -324,14 +376,14 @@ A Bloom filter repurposes the simplest list — a bit array — as a probabilist
   <rect x="348" y="90" width="24" height="26" fill="#e94560" stroke="#e94560"/>
   <rect x="374" y="90" width="24" height="26" fill="#1a1a2e" stroke="#333"/>
   <rect x="400" y="90" width="24" height="26" fill="#1a1a2e" stroke="#333"/>
-  <text x="22" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">0</text>
-  <text x="74" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">2</text>
-  <text x="126" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">4</text>
-  <text x="204" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">7</text>
-  <text x="256" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">9</text>
-  <text x="308" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">11</text>
-  <text x="360" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">13</text>
-  <text x="412" y="130" fill="#a0a0c0" font-size="9" text-anchor="middle">15</text>
+  <text x="22" y="130" fill="#555555" font-size="9" text-anchor="middle">0</text>
+  <text x="74" y="130" fill="#555555" font-size="9" text-anchor="middle">2</text>
+  <text x="126" y="130" fill="#555555" font-size="9" text-anchor="middle">4</text>
+  <text x="204" y="130" fill="#555555" font-size="9" text-anchor="middle">7</text>
+  <text x="256" y="130" fill="#555555" font-size="9" text-anchor="middle">9</text>
+  <text x="308" y="130" fill="#555555" font-size="9" text-anchor="middle">11</text>
+  <text x="360" y="130" fill="#555555" font-size="9" text-anchor="middle">13</text>
+  <text x="412" y="130" fill="#555555" font-size="9" text-anchor="middle">15</text>
 </svg>
 
 
@@ -395,22 +447,9 @@ Total: **≈ 120 MB** for 100M URLs, versus 6.4 GB for storing the full URLs. Th
 
 </details>
 
-## Comparison
+### Heap
 
-<table>
-<tr><th>Structure</th><th>Random access</th><th>Search by value</th><th>Insert at pos <i>i</i></th><th>Delete at pos <i>i</i></th><th>Space overhead</th><th>Cache behavior</th></tr>
-<tr><td>Array</td><td><i>O</i>(1)</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td>None</td><td>Excellent (contiguous)</td></tr>
-<tr><td>Vector</td><td><i>O</i>(1)</td><td><i>O</i>(<i>n</i>) / <i>O</i>(log <i>n</i>) sorted</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td>≤ <i>c</i>·<i>n</i> (capacity)</td><td>Excellent (contiguous)</td></tr>
-<tr><td>Linked list</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(1) at known node</td><td><i>O</i>(1) at known node</td><td>8–16 B/node (pointers)</td><td>Poor (pointer chasing)</td></tr>
-<tr><td>Stack</td><td><i>O</i>(1) top only</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(1) top</td><td><i>O</i>(1) top</td><td>Depends on backing</td><td>Depends on backing</td></tr>
-<tr><td>Queue</td><td><i>O</i>(1) ends only</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(1) tail</td><td><i>O</i>(1) head</td><td>Depends on backing</td><td>Depends on backing</td></tr>
-<tr><td>Deque</td><td><i>O</i>(1) ends only</td><td><i>O</i>(<i>n</i>)</td><td><i>O</i>(1) either end</td><td><i>O</i>(1) either end</td><td>Depends on backing</td><td>Depends on backing</td></tr>
-<tr><td>Bloom filter</td><td><i>O</i>(1) per bit</td><td><i>O</i>(<i>k</i>) membership</td><td><i>O</i>(<i>k</i>)</td><td>Not supported (counting: <i>O</i>(<i>k</i>))</td><td><i>m</i> bits (no element storage)</td><td>Good (bit array)</td></tr>
-</table>
-
-## Interactive simulation
-
-<iframe src="./Lists.simulation.html" title="Interactive visualization of list data structures"></iframe>
+A **heap** (binary heap) is a complete binary tree stored in an array, where every parent is ≤ its children (min-heap) or ≥ its children (max-heap). Interface: `insert(x)`, `peek()` (read the min/max), `extract()` (remove the min/max). `peek` is $`O(1)`; `insert` and `extract` are $`O(\log n)`; space is $`O(n)`. Heaps are the backbone of priority queues and of heap sort.
 
 ## Quizz
 

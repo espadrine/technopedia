@@ -40,7 +40,7 @@ Hierarchy: $`L^p \Rightarrow P \Rightarrow d` and a.s. $`\Rightarrow P`. None of
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Convergence in distribution is the weakest: it only requires the CDFs to converge, not the random variables themselves. It is the natural mode for the CLT because it captures the shape of the limiting law without requiring joint construction.
 
@@ -79,7 +79,7 @@ $$`\bar{X}_n = \frac{1}{n}\sum_{i=1}^n X_i \xrightarrow{P} \mu`
 
 **Strong LLN.** If $`\mathbb{E}[|X_1|] < \infty`, then $`\bar{X}_n \to \mu` almost surely.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The weak LLN follows from Chebyshev's inequality when $`\operatorname{Var}(X_1) < \infty`: $`P(|\bar{X}_n - \mu| > \varepsilon) \leq \sigma^2/(n\varepsilon^2) \to 0` (see [Random variables and expectation](./Random-variables-and-expectation.md)).
 
@@ -107,7 +107,7 @@ $$`\frac{\bar{X}_n - \mu}{\sigma / \sqrt{n}} \xrightarrow{d} Z \sim \mathcal{N}(
 
 Equivalently: $`\sqrt{n}(\bar{X}_n - \mu) \xrightarrow{d} \mathcal{N}(0, \sigma^2)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The CLT says that the sum of many independent, identically distributed, finite-variance random variables, properly normalized, converges in distribution to a normal. The normal is the unique stable distribution with finite variance (up to location and scale).
 
@@ -166,7 +166,7 @@ Equivalently: $`\limsup_{n \to \infty} \dfrac{|S_n|}{\sigma \sqrt{2n \log \log n
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The LIL refines the LLN by giving the exact rate at which the sample average approaches the mean. While the CLT says the typical deviation is $`O(1/\sqrt{n})`, the LIL says the largest deviations (over all $`n` up to $`N`) are of order $`\sqrt{2 \log \log N / N}`.
 

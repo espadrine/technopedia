@@ -23,7 +23,7 @@ Part of [Electromagnetism](./Readme.md); the static limit of [Electrodynamics](.
 
 where $`\hat{\mathbf{r}}_{12}` points from charge 1 toward charge 2 and $`k \equiv 1/(4\pi\varepsilon_0) \approx 8.99\times10^9\ \text{N·m}^2/\text{C}^2`. The force is central (along the line joining the charges), repulsive for like signs and attractive for opposite signs, and it obeys Newton's third law ($`\mathbf{F}_{12} = -\mathbf{F}_{21}`).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -106,7 +106,7 @@ For a point charge $`q` at the origin, $`\mathbf{E} = \frac{1}{4\pi\varepsilon_0
 
 The potential difference between two points is the work per unit charge, $`V_a - V_b = -\int_b^a \mathbf{E}\cdot d\boldsymbol{\ell}`. For a point charge (with $`V\to 0` at infinity), $`V = \frac{1}{4\pi\varepsilon_0}\frac{q}{r}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -189,7 +189,7 @@ Drag the charges and switch between the electric field (arrows, coloured by stre
 
 Gauss's law is one of Maxwell's equations — the integral form of the divergence of the field. It is exact for any closed surface, but it is a *calculation* tool only when the charge distribution has enough symmetry.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -258,7 +258,7 @@ The field points radially outward (positive line charge) and falls as $`1/r`.
 
 **Definition.** In a conductor in electrostatic equilibrium: (i) the electric field **inside the conducting material is zero**; (ii) any net charge resides **on the surface**; (iii) the conductor is an **equipotential**; (iv) the field just outside the surface is **perpendicular** to it, with magnitude $`E = \sigma_s/\varepsilon_0` (where $`\sigma_s` is the local surface charge density). A closed conducting shell shields its interior from external static fields — the **Faraday cage**.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -349,7 +349,7 @@ C = \frac{\varepsilon_0 A}{d}
 
 The energy stored is $`U = \tfrac{1}{2}CV^2 = \tfrac{1}{2}QV = Q^2/(2C)`, and it resides in the electric field between the plates.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 

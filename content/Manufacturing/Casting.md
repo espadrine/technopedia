@@ -21,7 +21,7 @@ Start with the physics that every process shares, then read the processes as dif
 
 Regardless of whether the mold is sand, ceramic, or steel, the same cooling-rate-driven microstructure and defect mechanisms apply. Every process section below builds on this one.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step-by-step tutorial.**
 
@@ -107,7 +107,7 @@ Aluminum shrinks ~1.3–1.8 % in volume on solidification. The ingot solidifies 
 
 A pattern is used to form a sand mold; molten metal is poured in, solidified, and the sand is broken away.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Variants (cheatsheet).**
 
@@ -165,7 +165,7 @@ No. Green sand on a 150 mm dimension sits around CT9–CT11, roughly ±1–2 mm 
 
 A wax pattern is coated in ceramic slurry, the wax is melted out, and molten metal is poured into the ceramic shell.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Cheatsheet.** Surface finish Ra 1.6–6 µm (specialized processes reach ~0.8 µm); dimensional accuracy ±0.1 mm. Used for turbine blades, jewelry, surgical instruments, and complex aerospace parts. The ceramic shell must withstand the pour temperature and thermal shock.
 
@@ -215,7 +215,7 @@ Two reasons. (1) Material: Inconel-type superalloys melt around 1300–1400 °C 
 
 Molten metal (typically aluminum, zinc, magnesium) is forced into a steel die at high pressure.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Variants (cheatsheet).**
 
@@ -281,7 +281,7 @@ Hot-chamber HPDC with a zinc alloy (Zamak 3). Zinc's low melting point (~420 °C
 
 An expanded polystyrene (EPS) pattern is placed in a sand mold and molten metal is poured directly over it; the foam vaporizes and is consumed during pouring. No core or pattern removal is needed. Increasingly used for engine blocks, cylinder heads, and complex automotive parts where near-net-shape geometry reduces machining.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step-by-step tutorial.**
 
@@ -330,7 +330,7 @@ Lost-foam casting: the EPS pattern includes the water jacket geometry, so no cor
 
 Molten metal is poured into a rotating mold; centrifugal force (typically 60–100 times gravity) presses the metal against the mold wall, so the bore of a tube, pipe, or ring forms without any core.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Cheatsheet.** The effective acceleration is $`G = \omega^2 r / g`; foundries run 60–100 g so the metal forms a uniform annulus regardless of gravity. Dimensional accuracy ±0.2–0.5 mm on the outside diameter (the bore is set by the poured metal volume); surface finish Ra 3–12 µm; cycle minutes; metal or graphite mold, reusable for thousands of pours.
 
@@ -391,7 +391,7 @@ Continuous casting is the upstream stock-production route: molten metal is poure
 
 Modern casting design rarely relies on trial pours alone: numerical simulation of mold filling, solidification, and residual stress predicts defects before the first physical trial.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **What is simulated**: transient mold filling (velocity fields, air entrapment, oxide-film folding), heat transfer and solidification (temperature fields, solidification-time maps, feeding criteria such as the Niyama criterion for shrinkage porosity), and thermo-mechanical behavior (distortion, hot-tear risk, residual stress).
 - **Commercial tools**: MAGMASOFT, ProCAST (ESI Group), AnyCasting, FLOW-3D CAST.

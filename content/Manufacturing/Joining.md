@@ -28,7 +28,7 @@ A single product usually combines several of these mechanisms in sequence. Consi
 
 The base metal at the joint is melted (with or without a filler) and the molten pool solidifies into a continuous joint.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The mechanism.** A concentrated heat source (arc, beam, flame, or resistive) raises the base metal at the joint above its melting point. The molten pool, optionally fed with a filler wire, wets the edges of the two parts; as the source moves on, the pool solidifies into a single continuous piece of metal. The region of base metal that was heated but not melted is the heat-affected zone (HAZ), whose microstructure and strength differ from both the weld and the untouched base metal.
 
@@ -82,7 +82,7 @@ GTAW (TIG). Both stainless and titanium are reactive at high temperature and nee
 
 A filler metal with a lower melting point than the base metal is drawn into the joint by capillary action; the base metal is not melted.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The mechanism.** The joint is heated above the filler's melting point but below the base metal's melting point. The molten filler wets the clean surfaces and is pulled into the narrow gap by capillary action (surface tension). On cooling, the filler solidifies, bonding the parts while the base metal has never melted — so there is no HAZ and the parts keep their original properties.
 
@@ -121,7 +121,7 @@ Braise. The 450 °C threshold is a process definition, not a service limit: the 
 
 A polymer or inorganic adhesive cures between two surfaces to create a bond.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The mechanism.** A liquid or semi-liquid adhesive is applied to the prepared surfaces, the parts are clamped, and the adhesive cures (by cross-linking, evaporation, or heat) into a solid that transfers load across the whole overlap area. Unlike a weld, the bond is a *layer* of material, so it carries load in shear and peel over a large area rather than through a narrow line.
 
@@ -157,7 +157,7 @@ Peel and shear at the ends of the overlap. In a lap joint the adhesive is loaded
 
 A physical connector (bolt, rivet, pin, clip) clamps or interlocks two parts. Load-bearing, permanent fasteners (rivets) are the joining-side concern; disassemblable bolts, screws, and clips that arrange finished components into a product are covered in [Assembly](./Assembly.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The mechanism.** A fastener transfers load by bearing and clamp force rather than by a metallurgical bond. A rivet is permanently deformed so it cannot be removed; a bolt is loaded in tension to clamp the parts together, and the clamp force (preload) is what keeps the joint from separating under external load.
 
@@ -195,7 +195,7 @@ Welding steel to aluminum forms brittle intermetallic compounds and requires dis
 
 The base metal is plastically deformed or diffused at the interface **without melting**. No filler is required (or only a thin interlayer).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The mechanism.** The two surfaces are brought into intimate contact and bonded by plastic deformation or atomic diffusion, all below the melting point. Because nothing melts, there is no HAZ, no solidification cracking, and no porosity from a cooling pool — the joint is often as strong as the base metal.
 
@@ -229,7 +229,7 @@ Superalloys are prone to solidification cracking and coarse, brittle grain growt
 
 The geometry, gap, and inspection of a joint determine whether the chosen mechanism actually produces a sound, load-carrying connection.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Joint geometry sets the load path.** The geometry of the joint determines load path, stress concentration, and which joining process can be applied. The four basic geometries are the lap, butt, T, and corner joints.
 

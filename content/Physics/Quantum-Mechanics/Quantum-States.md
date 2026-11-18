@@ -6,7 +6,7 @@ Quantum states are the mathematical objects that encode everything knowable abou
 
 **Definition.** A quantum state is a ray (equivalence class of vectors up to a global phase) in a complex Hilbert space $`\mathcal{H}`. A general state is a superposition $`|\psi\rangle = \sum_i c_i |i\rangle` where $`\sum_i |c_i|^2 = 1`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From classical to quantum states
 
@@ -75,7 +75,7 @@ The phase matters: without the $`i`, the x-probability would be $`(1/2 + \sqrt{3
 
 **Definition.** An observable is a self-adjoint (Hermitian) operator $`\hat{A}` on $`\mathcal{H}`. Its eigenvalues are the possible measurement outcomes; its eigenvectors form a complete orthonormal basis. The expectation value in state $`|\psi\rangle` is $`\langle\psi|\hat{A}|\psi\rangle`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why Hermitian operators?
 
@@ -121,7 +121,7 @@ For $`\lambda = -1`: $`b = -a`, so $`|-_x\rangle = \frac{1}{\sqrt{2}}(1,-1)^T`.
 
 **Definition.** A composite system in state $`|\Psi\rangle \in \mathcal{H}_A \otimes \mathcal{H}_B` is entangled if it cannot be written as $`|\psi\rangle_A \otimes |\phi\rangle_B`. Entangled states exhibit correlations stronger than any classical (local hidden-variable) model allows.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why entanglement is non-classical
 
@@ -164,7 +164,7 @@ Therefore $`|\Phi^+\rangle = \frac{1}{\sqrt{2}}(|+_x+_x\rangle + |-_-x\rangle)`.
 
 **Definition.** Angular momentum in quantum mechanics is quantized: $`\hat{J}^2 |j,m\rangle = \hbar^2 j(j+1)|j,m\rangle` and $`\hat{J}_z |j,m\rangle = \hbar m |j,m\rangle` where $`j = 0, \frac{1}{2}, 1, \ldots` and $`m = -j, -j+1, \ldots, j`. Spin is the intrinsic angular momentum with no classical analogue.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Quantization of angular momentum
 

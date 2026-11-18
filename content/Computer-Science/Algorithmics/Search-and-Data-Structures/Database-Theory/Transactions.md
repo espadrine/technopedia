@@ -68,7 +68,7 @@ A transaction passes through a sequence of states. The lifecycle determines *whe
 - **Aborted**: the transaction has been rolled back; all effects undone via the undo log.
 - **Terminated**: the final state, reached after commit or after abort.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Atomicity mechanism**: the **undo log** (or rollback segment) records before-images of modified data. On abort, the undo log is applied in reverse to restore the pre-transaction state.
 
@@ -76,47 +76,66 @@ A transaction passes through a sequence of states. The lifecycle determines *whe
 
 **Consistency**: the application defines the invariants (e.g., "account balance ≥ 0", "exactly one doctor on call"). The database enforces them via schema constraints (foreign keys, CHECK, NOT NULL) and triggers. If a transaction would violate a constraint, the database rejects it — but the *definition* of consistency belongs to the application, not the database engine.
 
-**Isolation**: the strongest guarantee. Implemented via locking or MVCC (see below). The SQL standard defines four levels (see next section).
+**Isolation**: concurrent transactions do not interfere. Implemented via locking or MVCC (see below); the SQL standard defines four levels (see the isolation sections below).
+
+</details>
+
+## Anomalies: why isolation is needed
+
+Without isolation, concurrent transactions interfere in characteristic ways. Each **anomaly** is a pattern of interference:
+
+- **Dirty read**: T1 reads a value T2 wrote but has not committed; if T2 aborts, T1 read a value that never existed.
+- **Non-repeatable read**: T1 reads a row, T2 updates and commits it, T1 re-reads and sees a different value.
+- **Phantom read**: T1 runs a range query, T2 inserts a row in that range and commits, T1 re-runs the query and sees the new row.
+- **Lost update**: T1 and T2 both read the same row, both compute a new value, both write — one write overwrites the other.
+- **Write skew**: T1 and T2 read overlapping *sets* of rows (not the same row), each makes a decision based on what it read, both commit, and the combined result violates an invariant (see [MVCC](#mvcc) for the classic two-doctors-on-call example).
+
+<details><summary>EXPLANATION</summary>
+
+**Walkthrough: lost update.** T1 and T2 both run `SELECT balance FROM accounts WHERE id = 1` and read 500. T1 computes 500 − 100 and writes 400; T2 computes 500 − 200 and writes 300. The final value is 300: T1's debit was lost, because both transactions based their write on the same stale read. The fixes: read with a lock (`SELECT ... FOR UPDATE`), write atomically (`UPDATE ... SET balance = balance - 100`), or run at an isolation level that detects the conflict (Serializable).
+
+**Walkthrough: dirty read.** T2 runs `UPDATE accounts SET balance = 600 ...` but has not committed. T1 reads balance and sees 600, then makes a business decision on it. T2 aborts — the 600 never existed, and T1's decision was based on a ghost. Read Committed and above prevent this by only letting readers see committed data.
 
 </details>
 
 ## Isolation levels
 
-The SQL standard defines four isolation levels, weakest to strongest:
+The SQL standard defines four **isolation levels**, weakest to strongest. Each level is defined by which anomalies it allows:
 
-- **Read Uncommitted**: dirty reads possible (reading another transaction's uncommitted data).
-- **Read Committed**: no dirty reads; non-repeatable reads possible (re-reading a row may yield a different value).
-- **Repeatable Read**: no non-repeatable reads; phantoms possible (a re-query may return new rows).
-- **Serializable**: full isolation; no anomalies. Equivalent to some serial execution order.
+<table>
+<tr><th>Level</th><th>Dirty read</th><th>Non-repeatable read</th><th>Phantom</th><th>Snapshot semantics</th></tr>
+<tr><td>Read Uncommitted</td><td>allowed</td><td>allowed</td><td>allowed</td><td>may even read uncommitted data</td></tr>
+<tr><td>Read Committed</td><td>blocked</td><td>allowed</td><td>allowed</td><td>fresh snapshot per statement</td></tr>
+<tr><td>Repeatable Read</td><td>blocked</td><td>blocked</td><td>allowed</td><td>one snapshot per transaction</td></tr>
+<tr><td>Serializable</td><td>blocked</td><td>blocked</td><td>blocked</td><td>one snapshot + conflict detection (SSI)</td></tr>
+</table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Anomalies**:
-- *Dirty read*: T1 reads a value that T2 wrote but has not yet committed. If T2 aborts, T1 read a value that never existed.
-- *Non-repeatable read*: T1 reads a row, T2 updates and commits it, T1 re-reads and gets a different value.
-- *Phantom read*: T1 executes a range query, T2 inserts a new row in that range and commits, T1 re-executes and sees the new row.
-- *Lost update*: T1 and T2 both read the same row, both write, and one write is lost.
+**How each level is implemented** (mechanisms in [MVCC](#mvcc) and [Serializability](#serializability)): Read Committed takes a fresh snapshot at each statement; Repeatable Read fixes a single snapshot at the transaction's first read; Serializable runs on snapshot isolation plus **SSI** — conflicts are detected at commit time and the offending transaction is aborted and retried.
 
-**PostgreSQL**: default is Read Committed. Serializable uses **SSI** (Serializable Snapshot Isolation), which detects conflicts at commit time and aborts the offending transaction.
+**What real databases default to**:
 
-**MySQL InnoDB**: default is Repeatable Read (stronger than the SQL standard default). Uses MVCC with next-key locking to prevent phantoms.
+<table>
+<tr><th>Database</th><th>Default level</th><th>Serializable via</th></tr>
+<tr><td>PostgreSQL</td><td>Read Committed</td><td>SSI (Serializable Snapshot Isolation)</td></tr>
+<tr><td>MySQL (InnoDB)</td><td>Repeatable Read (stronger than the SQL standard default)</td><td>MVCC + next-key locking</td></tr>
+<tr><td>Oracle</td><td>Read Committed</td><td>version-based conflict detection</td></tr>
+</table>
 
-**Trade-off**: stronger isolation → more conflict detection → more aborts → lower throughput. In practice, Read Committed is the sweet spot for most OLTP workloads.
+**The trade-off**: stronger isolation → more conflict detection → more aborts and retries → lower throughput. Read Committed is the sweet spot for most OLTP workloads; reserve Serializable for cases where correctness demands it (e.g. financial transfers).
 
 <details><summary>Example problem</summary>
 
-T1 executes `SELECT balance FROM accounts WHERE id = 1` (reads 500), then T2 executes `UPDATE accounts SET balance = 600 WHERE id = 1` and commits. T1 then re-reads the same row.
-
-At which isolation levels does T1 see 500 both times? At which does it see 500 then 600?
+T1 executes `SELECT balance FROM accounts WHERE id = 1` (reads 500), then T2 executes `UPDATE accounts SET balance = 600 WHERE id = 1` and commits. T1 then re-reads the same row. At which isolation levels does T1 see 500 both times? At which does it see 500 then 600?
 
 <details><summary>Solution</summary>
 
-- **Read Uncommitted**: T1 may see 500 then 600 (or even T2's uncommitted 600 before T2 commits).
-- **Read Committed**: T1 sees 500 then 600 (non-repeatable read). Each read takes a fresh snapshot.
-- **Repeatable Read**: T1 sees 500 both times. The snapshot is fixed at the first read.
-- **Serializable**: T1 sees 500 both times (same as Repeatable Read, plus no phantoms).
+- **Read Uncommitted**: 500 then 600 possible (or even T2's uncommitted 600 — a dirty read).
+- **Read Committed**: 500 then 600 (non-repeatable read; fresh snapshot per statement).
+- **Repeatable Read** and **Serializable**: 500 both times (one snapshot per transaction).
 
-The key distinction: Read Committed takes a *new* snapshot per statement; Repeatable Read and Serializable take a *single* snapshot for the whole transaction.
+</details>
 
 </details>
 
@@ -170,7 +189,7 @@ Concurrency control sits on a spectrum between **pessimistic** (locking: assume 
   <text x="350" y="20" text-anchor="middle" fill="#555" font-size="12">Version chain for row "account B"</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why MVCC over locking?** Locking (two-phase locking) blocks readers when a writer holds an exclusive lock. MVCC eliminates read-write blocking: readers always see a consistent snapshot, writers always proceed. The cost is extra storage (multiple versions) and periodic cleanup.
 
@@ -188,7 +207,7 @@ This anomaly is invisible to snapshot isolation because T1 and T2 read *differen
 
 **WAL integration**: in PostgreSQL, each transaction's changes are first written to the WAL (for durability), then applied to the data pages. The WAL also records the transaction's start and commit/abort, which MVCC uses to determine visibility.
 
-**Distributed generalization**: in a distributed database, MVCC extends to multiple nodes. Linearizability (see [Consensus and Consistency](../../../Distributed-Systems/Robustness/Consensus-and-Consistency.md)) replaces the single-node snapshot guarantee.
+**Distributed generalization**: in a distributed database, MVCC extends to multiple nodes. Linearizability (see [Consistency](../../../Distributed-Systems/Robustness/Consistency.md)) replaces the single-node snapshot guarantee.
 
 </details>
 
@@ -225,7 +244,7 @@ This anomaly is invisible to snapshot isolation because T1 and T2 read *differen
   <text x="200" y="105" text-anchor="middle" fill="#d9534f" font-size="13" font-weight="bold">DEADLOCK</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Lock granularity**: row-level (fine-grained, high concurrency), page-level, table-level (coarse-grained, low overhead). Most databases use row-level locks for DML and table-level locks for DDL.
 
@@ -268,13 +287,13 @@ A schedule of concurrent transactions is **serializable** if it is equivalent to
   <text x="250" y="180" text-anchor="middle" fill="#5cb85c" font-size="13" font-weight="bold">✓ Acyclic → equivalent to T1, T2</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Testing serializability**: build the conflict graph. If it has a cycle, the schedule is not conflict-serializable. Example: T1 writes A, T2 writes A, T1 reads A → cycle T1→T2→T1 → not serializable.
 
 **SSI (PostgreSQL)**: instead of preventing conflicts during execution, SSI lets transactions run under snapshot isolation and detects conflicts at commit time. If a conflict is detected, the transaction is aborted and retried. This is more efficient than pessimistic locking for workloads with low conflict rates.
 
-**Distributed serializability**: in a multi-node system, serializability requires a global order of transactions. Achieved via consensus (Paxos, Raft) or timestamp ordering. See [Consensus and Consistency](../../../Distributed-Systems/Robustness/Consensus-and-Consistency.md).
+**Distributed serializability**: in a multi-node system, serializability requires a global order of transactions. Achieved via consensus (Paxos, Raft) or timestamp ordering. See [Consistency](../../../Distributed-Systems/Robustness/Consistency.md).
 
 <details><summary>Example problem</summary>
 
@@ -294,6 +313,8 @@ Conflicts (same data item, at least one write, in order):
 - T1 W(B) before T2 R(B): edge T1→T2
 
 All edges go T1→T2. The graph is acyclic. The schedule is conflict-serializable, equivalent to the serial order T1 then T2.
+
+</details>
 
 </details>
 
@@ -336,7 +357,7 @@ The **Write-Ahead Log** (WAL) is a sequential log of all changes, written *befor
   <text x="210" y="310" text-anchor="middle" fill="#555" font-size="11">Recovery: redo T1 (committed), undo T2 (uncommitted)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Checkpoint**: a periodic snapshot of the database state. The WAL before the checkpoint can be truncated. Recovery starts from the last checkpoint, not from the beginning of the WAL.
 
@@ -344,7 +365,7 @@ The **Write-Ahead Log** (WAL) is a sequential log of all changes, written *befor
 
 **WAL vs. binlog**: in MySQL, the **binlog** (binary log) is a logical log of SQL statements or row changes, used for replication. The **redo log** (InnoDB) is the physical WAL, used for crash recovery. They serve different purposes.
 
-**Distributed replication**: in a distributed database, the WAL is replicated to other nodes (streaming replication, quorum writes). See [Fault Tolerance](../../../Distributed-Systems/Robustness/Fault-Tolerance.md) for the distributed replication of WAL.
+**Distributed replication**: in a distributed database, the WAL is replicated to other nodes (streaming replication, quorum writes). See [Durability](../../../Distributed-Systems/Robustness/Durability.md) for the distributed replication of WAL.
 
 </details>
 
@@ -355,7 +376,7 @@ The **Write-Ahead Log** (WAL) is a sequential log of all changes, written *befor
 - **InnoDB**: purge threads perform the same function. Additionally, InnoDB can **defragment** pages (merge free space) and **shrink** files.
 - **Table bloat**: if VACUUM falls behind, dead tuples accumulate and the table grows. This degrades scan performance (more pages to read) and index performance (more entries to traverse).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **HOT (Heap-Only Tuple) updates**: if an update does not modify any indexed columns, PostgreSQL creates a new tuple in the same page and links it to the old one. The index is not updated, and VACUUM can compact the chain without touching the index.
 

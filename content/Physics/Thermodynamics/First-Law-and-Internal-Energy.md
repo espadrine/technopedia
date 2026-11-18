@@ -20,7 +20,7 @@ where $`U` is internal energy, $`Q` is heat added to the system, and $`W` is wor
 dU = \delta Q - \delta W
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Sign convention.** The convention above (engineering / physics) takes $`W > 0` when the system does work on the surroundings. IUPAC (chemistry) uses the opposite sign: $`dU = \delta Q + \delta W` where $`W` is work done *on* the system. Always check the convention.
 
@@ -48,7 +48,7 @@ Other work terms (shaft work, electrical work, surface work) are added as needed
 \delta W = P\,dV + \delta W_{\text{other}}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **$`P\,dV` work.** For a quasi-static (reversible) expansion, the system pressure equals the external pressure at every instant, and the work is the area under the $`P`–$`V` curve:
 
@@ -72,7 +72,7 @@ U = U(T, V, N, \ldots)
 
 For an ideal gas: $`U = U(T)` only (independent of volume).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Ideal gas.** For a monatomic ideal gas, $`U = \tfrac{3}{2}Nk_B T`. For a diatomic ideal gas (at moderate $`T`), $`U = \tfrac{5}{2}Nk_B T`. The key point: $`U` depends only on $`T`, not on $`V` or $`P`.
 
@@ -96,7 +96,7 @@ Heat capacities used below: $`C_V = (\partial U/\partial T)_V` (at constant volu
 
 <iframe src="./First-Law-and-Internal-Energy.simulation.html" title="P-V diagram of special thermodynamic processes"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Adiabatic relation.** For a reversible adiabatic process of an ideal gas:
 
@@ -120,7 +120,7 @@ For a control volume with steady mass flow, the first law becomes the steady-flo
 
 where $`h = u + Pv` is specific enthalpy. See [Thermodynamic Potentials and Equilibrium](./Thermodynamic-Potentials-and-Equilibrium.md) for the definition of enthalpy.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 This equation is the workhorse of turbomachinery (turbines, compressors, nozzles) and heat exchangers. When kinetic and potential energy changes are negligible (common in heat exchangers), it reduces to $`\dot{Q} - \dot{W} = \dot{m}(h_{\text{out}} - h_{\text{in}})`.
 

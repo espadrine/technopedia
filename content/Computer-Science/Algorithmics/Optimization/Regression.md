@@ -19,7 +19,7 @@
 
 This is the **normal equation**. It requires $`O(nd^2)` to form $`X^T X` and $`O(d^3)` to invert (or $`O(nd^2)` via QR decomposition) and is exact: no iteration needed.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation**: the objective is $`\mathcal{L}(\theta) = (X\theta - y)^T(X\theta - y)`. Taking the gradient and setting it to zero:
 
@@ -64,7 +64,7 @@ When $`d > n` the normal equation has infinitely many solutions; when $`d` is la
 
 **Definition**: the fitted values of least squares are $`\hat{y} = H y` where $`H = X X^+` is the **hat matrix** ($`X^+` is the Moore–Penrose pseudoinverse; when $`X` has full column rank, $`H = X(X^T X)^{-1} X^T`). $`H` is symmetric and idempotent ($`H^2 = H`), so its trace $`\text{tr}(H) = \text{rank}(X) = \min(n, d)` is the **effective number of parameters** of the fit. When $`d \geq n` the model can interpolate the training data exactly (zero training loss) — it has enough degrees of freedom to fit the noise.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why tr(H) counts parameters**: $`H` is the orthogonal projection onto the column space of $`X`. An idempotent matrix has only eigenvalues $`0` and $`1`, so $`\text{tr}(H)` — the sum of the eigenvalues — counts the $`1`s, i.e. the dimension of the column space. Each of those dimensions can absorb one independent direction of noise: the more of them, the more noise the fit can memorize.
 
@@ -81,7 +81,7 @@ When $`d > n` the normal equation has infinitely many solutions; when $`d` is la
 
 <svg viewBox="0 0 720 400" width="100%" style="max-width:720px;font-family:system-ui,sans-serif;" role="img" aria-label="Training and validation MSE over 120 iterations: training loss keeps falling while validation loss bottoms out and then rises"><g stroke="#e8e8e8" stroke-width="1"><line x1="60.0" y1="350.0" x2="60.0" y2="20.0"/><line x1="166.7" y1="350.0" x2="166.7" y2="20.0"/><line x1="273.3" y1="350.0" x2="273.3" y2="20.0"/><line x1="380.0" y1="350.0" x2="380.0" y2="20.0"/><line x1="486.7" y1="350.0" x2="486.7" y2="20.0"/><line x1="593.3" y1="350.0" x2="593.3" y2="20.0"/><line x1="700.0" y1="350.0" x2="700.0" y2="20.0"/><line x1="60.0" y1="350.0" x2="700.0" y2="350.0"/><line x1="60.0" y1="290.0" x2="700.0" y2="290.0"/><line x1="60.0" y1="230.0" x2="700.0" y2="230.0"/><line x1="60.0" y1="170.0" x2="700.0" y2="170.0"/><line x1="60.0" y1="110.0" x2="700.0" y2="110.0"/><line x1="60.0" y1="50.0" x2="700.0" y2="50.0"/></g><g stroke="#333" stroke-width="1.5"><line x1="60.0" y1="350.0" x2="700.0" y2="350.0"/><line x1="60.0" y1="350.0" x2="60.0" y2="20.0"/></g><g fill="#333" font-size="12"><text x="52.0" y="350.0">0</text><text x="158.7" y="350.0">20</text><text x="265.3" y="350.0">40</text><text x="372.0" y="350.0">60</text><text x="478.7" y="350.0">80</text><text x="585.3" y="350.0">100</text><text x="692.0" y="350.0">120</text><text x="26.0" y="350.0">0.0</text><text x="26.0" y="290.0">0.2</text><text x="26.0" y="230.0">0.4</text><text x="26.0" y="170.0">0.6</text><text x="26.0" y="110.0">0.8</text><text x="26.0" y="50.0">1.0</text></g><text x="340.0" y="388.0" font-size="13" fill="#333">training iterations</text><text x="14" y="185.0" font-size="13" fill="#333" transform="rotate(-90 14 185.0)">MSE</text><polyline points="60.0,50.0 113.3,115.0 166.7,165.7 220.0,205.1 273.3,235.9 326.7,259.8 380.0,278.4 433.3,292.9 486.7,304.2 540.0,313.0 593.3,319.9 646.7,325.2 700.0,329.4" fill="none" stroke="#0b62b4" stroke-width="2.5"/><polyline points="60.0,50.0 113.3,112.4 166.7,159.7 220.0,195.0 273.3,220.6 326.7,238.3 380.0,249.8 433.3,256.1 486.7,258.0 540.0,256.4 593.3,251.6 646.7,244.2 700.0,234.4" fill="none" stroke="#b4530b" stroke-width="2.5"/><line x1="486.7" y1="350.0" x2="486.7" y2="258.0" stroke="#b4530b" stroke-width="1" stroke-dasharray="4 4"/><circle cx="486.7" cy="258.0" r="4.5" fill="#b4530b"/><text x="497.3" y="248.0" font-size="13" fill="#b4530b">best generalization (stop here)</text><text x="566.7" y="125.0" font-size="13" fill="#b4530b">overfitting</text><g font-size="13"><rect x="80" y="30" width="14" height="3" fill="#0b62b4"/><text x="100" y="35" fill="#333">training MSE</text><rect x="210" y="30" width="14" height="3" fill="#b4530b"/><text x="230" y="35" fill="#333">validation MSE</text></g></svg>
 
-The train/validation split and these diagnostics are general machine-learning concepts; see [Learning Paradigms and Models](../Learning-Paradigms-and-Models.md) for their treatment in the context of neural networks.
+The train/validation split and these diagnostics are general machine-learning concepts; see [Neural Networks](./Neural-Networks.md) for their treatment in the context of neural networks.
 
 **Example problem**:
 
@@ -111,7 +111,7 @@ A linear model with $`d = 500` features is fit to $`n = 100` samples whose rows 
 - **Lasso** (L1): $`\min_\theta \|X\theta - y\|^2 + \lambda \|\theta\|_1` — no closed form; solved by coordinate descent or LARS; produces sparse solutions.
 - **Elastic net**: $`\min_\theta \|X\theta - y\|^2 + \lambda\left(\alpha \|\theta\|_1 + \tfrac{1-\alpha}{2}\|\theta\|^2\right)` — interpolates between the two.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Ridge**: with orthonormal features, each coefficient shrinks smoothly: $`\beta_j(\lambda) = \beta_j^{OLS} / (1 + \lambda / \sigma_j^2)`. The effective number of parameters becomes $`\text{tr}(H_\lambda) = \sum_j \sigma_j^2 / (\sigma_j^2 + \lambda) < d` — regularization literally reduces the degrees of freedom the model can use to fit noise. Ridge is the same L2 penalty used as weight decay in neural network training.
 
@@ -148,7 +148,7 @@ A model has 500 features. The true signal depends on only 12 of them; the remain
 - **k-fold cross-validation**: split the data into $`k` folds; train on $`k - 1` folds, evaluate on the held-out fold; average over all $`k` rotations.
 - **Split protocol**: **train** (fit the model), **validation** (choose hyperparameters), **test** (one final unbiased estimate).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why R² lies**: $`R^2` is computed on the training data. When $`d \geq n`, interpolation gives $`\text{SS}_{res} = 0` and $`R^2 = 1` no matter how much of the fit is noise — a training $`R^2` of 1 is a red flag, not an achievement. Adjusted $`R^2` corrects for $`p`: it can be negative (the model is worse than predicting the mean) and saturates at 1 under interpolation, so neither metric can judge an over-parameterized model — only a held-out estimate can.
 
@@ -182,7 +182,7 @@ A model with $`p = 10` parameters is fit to $`n = 100` samples and achieves trai
 
 **Definition**: replace each feature by a feature map $`\phi(x) = (x, x^2, \ldots, x^k)`; the model $`f(x) = \theta_0 + \theta_1 x + \cdots + \theta_k x^k` is still **linear in the parameters**, so the normal equation, ridge, lasso, $`R^2` and cross-validation all apply unchanged to the expanded design matrix. The degree $`k` is a capacity knob.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Feature engineering**: the only difference from linear regression is the columns of $`X`: instead of $`x`, the model sees $`(x, x^2, \ldots, x^k)`. Everything else — the closed form, the hat matrix, regularization — carries over.
 

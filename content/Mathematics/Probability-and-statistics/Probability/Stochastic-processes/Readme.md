@@ -1,6 +1,6 @@
 # Stochastic processes
 
-A stochastic process is a family of random variables $`(X_t)_{t \in T}`$ indexed by time: instead of asking "what is the probability of an outcome?", it asks "how does a random quantity evolve?". It is the natural language for queues, population dynamics, financial prices, signal noise, and physical diffusion.
+A stochastic process is a family of random variables $`(X_t)_{t \in T}` indexed by time: instead of asking "what is the probability of an outcome?", it asks "how does a random quantity evolve?". It is the natural language for queues, population dynamics, financial prices, signal noise, and physical diffusion.
 
 ## Brief history
 
@@ -11,7 +11,7 @@ A stochastic process is a family of random variables $`(X_t)_{t \in T}`$ indexed
 
 ## Classes
 
-The classes below are organized along two first-principles axes: the **time index** (discrete vs continuous) and the **path behavior** (counting jumps, continuous diffusion, or both). Two **unifying families** cut across the process families: Lévy processes generalize the increment structure, and Gaussian processes characterize everything through the covariance kernel. The **martingale property** is not a family of processes but a structural property a process from any family may have: Brownian motion is a martingale, and the compensated Poisson process $`N_t - \lambda t`$ is a martingale.
+The classes below are organized along two first-principles axes: the **time index** (discrete vs continuous) and the **path behavior** (counting jumps, continuous diffusion, or both). Two **unifying families** cut across the process families: Lévy processes generalize the increment structure, and Gaussian processes characterize everything through the covariance kernel. The **martingale property** is not a family of processes but a structural property a process from any family may have: Brownian motion is a martingale, and the compensated Poisson process $`N_t - \lambda t` is a martingale.
 
 <table>
 <tr><th>Page</th><th>Class</th><th>Nature</th><th>What it studies</th><th>Key objects</th></tr>
@@ -23,16 +23,16 @@ The classes below are organized along two first-principles axes: the **time inde
 <tr><td><a href='./Gaussian-processes.md'>Gaussian processes</a></td><td>Gaussian processes</td><td>Unifying family (all finite-dimensional laws Gaussian)</td><td>Processes fully specified by a mean and a covariance kernel; includes spatial random fields</td><td>Covariance kernels, kriging, GP regression</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The classes answer different questions and deliberately overlap:
 
 - **Markov chains** ask "what does the process remember?" Answer: only the present state. The Poisson process is a Markov process in continuous time (its future depends only on the current count), and Brownian motion is a Markov process with continuous paths.
-- **Poisson processes** ask "how do events accumulate?" They are the pure-jump members of the Lévy family: the counting process $`N_t`$ jumps by one at each arrival, and the inter-arrival times are independent exponentials.
+- **Poisson processes** ask "how do events accumulate?" They are the pure-jump members of the Lévy family: the counting process $`N_t` jumps by one at each arrival, and the inter-arrival times are independent exponentials.
 - **Brownian motion** asks "what do continuous random paths look like?" It is the scaling limit of random walks, has continuous but nowhere-differentiable paths, and is both a Markov process and a martingale.
 - **Lévy processes** unify the above: they are exactly the processes with stationary independent increments, and every Lévy process decomposes into a drift, a Brownian part, and a jump part.
-- **Martingales** are a structural property, not a competing family: a fair game has no predictable trend. Brownian motion and the compensated Poisson process $`N_t - \lambda t`$ are both martingales, which is why martingale tools apply across all the families above.
-- **Gaussian processes** are characterized entirely by their mean and covariance functions; Brownian motion is the Gaussian process with covariance $`\min(s, t)`$, and the same framework covers spatial random fields indexed by location rather than time.
+- **Martingales** are a structural property, not a competing family: a fair game has no predictable trend. Brownian motion and the compensated Poisson process $`N_t - \lambda t` are both martingales, which is why martingale tools apply across all the families above.
+- **Gaussian processes** are characterized entirely by their mean and covariance functions; Brownian motion is the Gaussian process with covariance $`\min(s, t)`, and the same framework covers spatial random fields indexed by location rather than time.
 
 All of these build on [Random variables and expectation](../Random-variables-and-expectation.md), [Conditional probability](../Conditional-probability.md), and [Limit theorems](../Limit-theorems.md).
 

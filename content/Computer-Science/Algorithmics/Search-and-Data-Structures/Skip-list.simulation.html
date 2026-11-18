@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Key-Value Stores Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h1 { font-size: 1.3em; margin-bottom: 10px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.tab { padding: 8px 16px; cursor: pointer; background: #e0e0e0; border: 1px solid #bbb; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 0.9em; }
+.tab.active { background: #fff; font-weight: bold; border-color: #1565c0; }
+.panel { display: none; border: 1px solid #1565c0; border-radius: 0 6px 6px 6px; padding: 16px; background: #fff; min-height: 300px; }
+.panel.active { display: block; }
+.controls { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.controls input { padding: 4px 8px; width: 80px; }
+.controls button { padding: 5px 12px; cursor: pointer; background: #1565c0; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0d47a1; }
+svg { display: block; margin: 10px auto; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Skip List</h1>
+<div class="panel active" id="panel2">
+<div class="controls">
+<label>Key: <input type="number" id="sl-key" value="7"></label>
+<button onclick="slInsert()">Insert</button>
+<button onclick="slSearch()">Search</button>
+<button onclick="slReset()">Reset</button>
+<span class="info" id="sl-info">Skip list, p = 0.5</span>
+</div>
+<svg id="sl-svg" width="520" height="280"></svg>
+</div>
+<script>
+// Skip List
+let slNodes = [];
+function slInsert() {
+  let k = parseInt(document.getElementById('sl-key').value);
+  if (slNodes.find(n => n.key === k)) return;
+  let level = 1;
+  while (Math.random() < 0.5 && level < 4) level++;
+  slNodes.push({key: k, level: level});
+  slNodes.sort((a,b) => a.key - b.key);
+  slDraw();
+  document.getElementById('sl-info').textContent = `Keys: [${slNodes.map(n=>n.key).join(', ')}]`;
+}
+function slSearch() {
+  let k = parseInt(document.getElementById('sl-key').value);
+  let found = slNodes.find(n => n.key === k);
+  document.getElementById('sl-info').textContent = found ? `Found ${k}!` : `${k} not in list.`;
+}
+function slReset() { slNodes = []; slDraw(); document.getElementById('sl-info').textContent = 'Skip list, p = 0.5'; }
+function slDraw() {
+  let svg = document.getElementById('sl-svg');
+  if (slNodes.length === 0) { svg.innerHTML = '<text x="260" y="110" text-anchor="middle" font-size="12" fill="#999">Empty. Insert keys to begin.</text>'; return; }
+  let sorted = [...slNodes].sort((a, b) => a.key - b.key);
+  let maxLevel = Math.max(...slNodes.map(n => n.level));
+  let s = '';
+  let colors = ['#e3f2fd','#e8f5e9','#fff3e0','#fce4ec','#f3e5f5'];
+  let strokes = ['#1565c0','#2e7d32','#e65100','#c62828','#8e24aa'];
+  let spacing = 500 / (sorted.length + 1);
+  let xOf = (node) => 40 + sorted.indexOf(node) * spacing;
+  for (let l = maxLevel; l >= 0; l--) {
+    let y = 30 + (maxLevel - l) * 50;
+    s += `<text x="5" y="${y+5}" font-size="10" fill="#555">L${l}</text>`;
+    let nodesAtLevel = sorted.filter(n => n.level > l);
+    for (let i = 0; i < nodesAtLevel.length; i++) {
+      let x = xOf(nodesAtLevel[i]);
+      s += `<circle cx="${x}" cy="${y}" r="14" fill="${colors[l]}" stroke="${strokes[l]}" stroke-width="2"/>`;
+      s += `<text x="${x}" y="${y+4}" text-anchor="middle" font-size="10" font-weight="bold">${nodesAtLevel[i].key}</text>`;
+      if (i < nodesAtLevel.length - 1) {
+        let nextX = xOf(nodesAtLevel[i + 1]);
+        s += `<line x1="${x+14}" y1="${y}" x2="${nextX-14}" y2="${y}" stroke="${strokes[l]}" stroke-width="1.5"/>`;
+      } else {
+        s += `<line x1="${x+14}" y1="${y}" x2="505" y2="${y}" stroke="${strokes[l]}" stroke-width="1.5"/>`;
+      }
+    }
+  }
+  svg.innerHTML = s;
+}
+slDraw();
+
+</script>
+</body>
+</html>

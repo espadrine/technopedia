@@ -26,7 +26,7 @@ The four classes are organized by the inferential question they answer. Each tar
 <tr><td><a href='./Causal-inference.md'>Causal inference</a></td><td>Causal inference</td><td>What is the effect of an intervention?</td><td>Structural causal models, do-calculus, instrumental variables, counterfactuals</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The four classes are organized by the inferential task, each targeting a distinct type of quantity:
 

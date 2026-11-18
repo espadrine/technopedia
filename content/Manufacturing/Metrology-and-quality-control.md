@@ -60,7 +60,7 @@ Calibration underpins every measurement. Dimensional and surface metrology produ
 
 Measuring the geometry of a part: dimensions, form, orientation, and position. Critical for verifying [subtractive manufacturing](./Subtractive-manufacturing/Readme.md) results, [additive manufacturing](./Additive-manufacturing.md) parts.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **CMM (coordinate measuring machine)**: a probe contacts the part surface at many points; the software reconstructs the geometry. Accuracy ±2–8 µm (high-end: ±1 µm), depending on machine class per [ISO 10360-2:2009](https://www.iso.org/standard/40954.html). Used for final inspection of machined and cast parts.
 - **Optical metrology**: structured light, laser triangulation, or confocal microscopy. Non-contact; used for surface topography, 3D scanning, and in-line inspection.
@@ -101,7 +101,7 @@ Measuring the geometry of a part: dimensions, form, orientation, and position. C
 
 Measuring surface roughness, texture, and topography. Directly related to [surface finishing](./Surface-finishing.md) processes that set the target roughness.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Stylus profilometer**: a diamond tip traces the surface; Ra, Rz, and other parameters are computed. Resolution 0.001 µm (vertical), 0.1 µm (lateral).
 - **Optical profilometer (white light, confocal)**: non-contact; maps 3D surface topography over large areas. Used for thin films, coatings, and textured surfaces.
@@ -134,7 +134,7 @@ Measuring surface roughness, texture, and topography. Directly related to [surfa
 
 Measuring the mechanical, chemical, and physical properties of the material. Context: [materials processing](./Materials-processing.md) sets the target properties; this section verifies them.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Tensile test**: a coupon is pulled until fracture; yield strength, ultimate tensile strength, and elongation are measured. (ISO 6892-1)
 - **Hardness test**: Brinell, Rockwell, or Vickers. An indenter is pressed into the surface; the indentation size gives the hardness.
@@ -147,7 +147,7 @@ Measuring the mechanical, chemical, and physical properties of the material. Con
 
 Using statistical methods to monitor and control a process in real time. SPC data comes from the dimensional and surface metrology measurements above; the results feed back into [process planning and DFM](./Process-planning-and-DFM.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Control charts**: X-bar and R charts track the mean and range of a measured characteristic over time. If the process is in control, the measurements fall within the control limits (±3σ).
 - **Process capability (Cpk)**: Cpk = min((USL − X̄) / (3σ), (X̄ − LSL) / (3σ)). Uses *within-subgroup* variation (σ estimated from the average range R̄/d₂). Cpk ≥ 1.33 is the minimum for most industries; Cpk ≥ 1.67 for aerospace.
@@ -205,7 +205,7 @@ Using statistical methods to monitor and control a process in real time. SPC dat
 
 Ensuring that measurement instruments are accurate and that their readings can be traced to national or international standards.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Calibration**: an instrument is compared to a reference standard of known accuracy. The calibration certificate records the uncertainty of the measurement.
 - **Traceability**: the reference standard is traceable to a national metrology institute (NIST, PTB, NPL) or to the SI base units.
@@ -249,7 +249,7 @@ Ensuring that measurement instruments are accurate and that their readings can b
 
 The organizational framework that governs how metrology and quality control are planned, executed, documented, and improved.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **PDCA cycle** (Plan–Do–Check–Act): the core loop of ISO 9001:2026. Plan: define quality objectives and metrology requirements. Do: execute the manufacturing and inspection processes. Check: compare measurement results to specification (SPC, Cpk). Act: implement corrective actions and update procedures.
 - **Document control**: every measurement procedure, calibration certificate, and inspection record is a controlled document with a revision history. AS9100D adds requirements for configuration management and traceability of aerospace parts.

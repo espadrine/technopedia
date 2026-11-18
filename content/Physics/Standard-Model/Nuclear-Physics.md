@@ -12,7 +12,7 @@ The nucleus sits between two levels of description. Below it, nucleons are bound
 
 **Definition.** The nuclear force is the residual strong interaction between nucleons: a short-range attraction (range ≈ 1–2 fm) with a repulsive core, approximately charge-independent, plus the long-range Coulomb repulsion between protons.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Where the force comes from
 
@@ -95,7 +95,7 @@ This matches the pion mass ($`m_{\pi} c^2 \approx 140` MeV) — the prediction t
 
 **Definition.** A nucleus with $`Z` protons and $`N` neutrons (mass number $`A = Z + N`) is a quantum bound state of $`A` nucleons. Its binding energy is described by two complementary models: the **liquid drop** (collective, like an incompressible fluid) and the **shell model** (independent nucleons filling quantized orbits, like electrons in atoms).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Step 1: the liquid drop model
 
@@ -175,7 +175,7 @@ $`Z = 50` is tin — and 50 is a magic number. Tin has the largest number of sta
 
 **Definition.** The binding energy per nucleon $`B/A` measures how tightly a nucleus is bound. Energy is released by any rearrangement — fission or fusion — that moves nuclei **up** the $`B/A` curve toward its maximum at iron.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Step 1: the curve
 
@@ -279,7 +279,7 @@ Compare coal at $`3 \times 10^7` J/kg: fusion fuel is about 10 million times mor
 
 **Definition.** A nuclear reaction transforms one set of nuclei into another, conserving charge, baryon number, lepton number, energy, and momentum. Its energy balance is the **Q-value**: $`Q = (m_i - m_f)c^2`, positive for exothermic reactions.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Step 1: the conservation laws
 
@@ -333,7 +333,7 @@ Each positron then annihilates with an electron, releasing $`2 \times 0.511 = 1.
 
 **Definition.** Radioactivity is the spontaneous transformation of an unstable nucleus: **alpha** decay (strong + Coulomb, tunneling), **beta** decay (weak interaction), or **gamma** decay (electromagnetic). The decay rate follows $`N(t) = N_0 e^{-\lambda t}` with half-life $`t_{1/2} = \ln 2/\lambda`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Step 1: alpha decay — tunneling through the Coulomb barrier
 

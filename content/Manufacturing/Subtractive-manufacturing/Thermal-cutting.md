@@ -35,7 +35,7 @@ A focused laser beam (CO₂ at 10.6 µm, or fibre at 1.06 µm) heats the materia
 
 Key parameters: laser power $`P` (W), spot diameter $`d` (µm), cut speed $`v` (m/min), assist gas pressure (bar), focal position (mm above/below surface).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Conduction mode** (low power, thin sheet): the beam heats the surface; conduction spreads the heat. The gas blows away the melt. Used for < 2 mm steel with N₂.
 - **Keyhole mode** (high power, thick section): the beam vaporises the metal, creating a plasma-filled keyhole. The recoil pressure and gas flow eject the melt. Used for 2–25 mm steel with O₂ (exothermic) or N₂ (inert).
@@ -86,7 +86,7 @@ An electric arc ionises a gas (argon, hydrogen, nitrogen, or air) to a plasma je
 
 Key parameters: arc current (A), gas flow (L/min), electrode-to-workpiece distance (standoff, mm), cut speed (m/min).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Conventional plasma**: cuts up to 20 mm steel, kerf 2–5 mm, Ra 25–50 µm. Used for structural steel, shipbuilding, and fabrication shops.
 - **High-definition (HD) plasma**: a constricted arc and higher gas pressure reduce the kerf to 1–2 mm and improve edge quality. Cuts up to 50 mm.
@@ -135,7 +135,7 @@ A preheating flame (oxygen + acetylene or propane) brings the steel to its ignit
 
 Key parameters: preheat flame type, oxygen cutting pressure (bar), cut speed (m/min), kerf width (mm).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Only works on ferrous metals** (carbon steel, low-alloy steel) that oxidise exothermically. Stainless steel, aluminium, and copper cannot be oxy-fuel cut.
 - **Thickness range**: 5 mm to 300 mm. The only practical method for very thick plates (> 100 mm).
@@ -184,7 +184,7 @@ A focused beam of high-energy electrons (150–200 kV) in a vacuum melts and vap
 
 Key parameters: beam current (mA), accelerating voltage (kV), scan speed (m/s), vacuum level (Pa).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Kerf**: 0.1–0.5 mm, very straight edges, minimal HAZ (< 0.1 mm).
 - **Thickness**: up to 50 mm steel in a single pass.

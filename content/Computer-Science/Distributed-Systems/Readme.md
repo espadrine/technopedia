@@ -8,13 +8,13 @@ Distributed systems study how to coordinate computation across multiple machines
 - It provides fault tolerance: the system survives individual node failures.
 - It coordinates state: multiple nodes agree on a consistent view of the data.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Distributed systems sit at the rightmost end of the computation pipeline: they take the executable programs running on individual machines (produced by the hardware and OS layers) and coordinate them into a single logical system. The fundamental challenge is that the network is unreliable: messages are lost, delayed, or duplicated; nodes crash; and the network can partition. The design space is governed by the **CAP theorem** (a partitioned system must choose between consistency and availability) and the **FLP impossibility** (no deterministic consensus algorithm can tolerate even one crash in an asynchronous system).
 
 </details>
 
-<iframe src="../Distributed-Systems.simulation.html" title="Quorum, network partitions, and the CAP trade-off in a 5-node replicated cluster"></iframe>
+<iframe src="./Distributed-Systems.simulation.html" title="Quorum, network partitions, and the CAP trade-off in a 5-node replicated cluster"></iframe>
 
 ## History
 
@@ -31,7 +31,7 @@ Distributed systems sit at the rightmost end of the computation pipeline: they t
 <tr><td><a href='./Networks.md'>Networks</a></td><td>Protocols, sockets, routing, TLS</td><td>Latency, throughput, reliability</td><td>How messages are transmitted between machines; does not model the application logic</td></tr>
 <tr><td><a href='./Scalability/Readme.md'>Scalability</a></td><td>Queues, Little's law, load balancers, caching, sharding</td><td>Throughput, tail latency, cost per request</td><td>How to partition and distribute work and data across nodes to add capacity; does not model fault tolerance or consistency</td></tr>
 <tr><td><a href='./Robustness/Readme.md'>Robustness</a></td><td>Replication, quorum, failover, RPO/RTO, consensus (Paxos, Raft), CAP, FLP</td><td>RPO, RTO, availability, consistency</td><td>How to survive failures and keep a consistent state when the network partitions; does not model the physical network or the application</td></tr>
-<tr><td><a href='./Adversarial-failure.md'>Adversarial failure</a></td><td>Byzantine faults, PBFT, Sybil attacks</td><td>Byzantine tolerance (3f+1), identity cost</td><td>How to survive malicious nodes that deviate from the protocol; does not model crash faults or the network</td></tr>
+<tr><td><a href='./Adversarial-Failure.md'>Adversarial failure</a></td><td>Byzantine faults, PBFT, Sybil attacks</td><td>Byzantine tolerance (3f+1), identity cost</td><td>How to survive malicious nodes that deviate from the protocol; does not model crash faults or the network</td></tr>
 </table>
 
 > **Authoritative sources**

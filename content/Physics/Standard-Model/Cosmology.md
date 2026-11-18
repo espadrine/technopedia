@@ -10,7 +10,7 @@ Cosmology is the study of the universe as a whole: its origin, evolution, and la
 
 **Definition.** The Big Bang model describes the universe as expanding from an initial hot, dense state ≈ 13.8 billion years ago. The expansion is described by the Friedmann equations derived from general relativity.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The **Friedmann equation** governs the expansion rate:
 
@@ -35,7 +35,7 @@ Key epochs:
 
 **Definition.** Big Bang nucleosynthesis (BBN) is the production of light elements (D, He-3, He-4, Li-7) during the first ≈ 20 minutes, when the universe cooled enough for nuclear reactions to proceed.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 As the universe expands and cools:
 - At T ≳ 10⁹ K: neutrons and protons are in thermal equilibrium.
@@ -60,7 +60,7 @@ These predictions match observations to high precision, providing strong evidenc
 
 **Definition.** The cosmic microwave background (CMB) is the relic radiation from recombination (z ≈ 1100), now observed as a nearly perfect blackbody at T = 2.725 K with tiny anisotropies (~10⁻⁵).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 At recombination, the universe became transparent: photons decoupled from matter and have been free-streaming ever since, redshifted from visible/IR to microwave.
 
@@ -78,7 +78,7 @@ The CMB is the most precise probe of the early universe and has measured the fla
 
 **Definition.** The expansion of the universe is currently accelerating, driven by dark energy (Λ or a dynamical field). Dark matter (~27% of the energy budget) provides the gravitational scaffolding for structure formation.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The energy budget of the universe (Planck 2018):
 - Dark energy: ≈ 68%

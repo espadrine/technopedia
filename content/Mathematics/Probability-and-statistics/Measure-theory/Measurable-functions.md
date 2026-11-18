@@ -13,7 +13,7 @@ $`f^{-1}(B) \in \mathcal{F} \quad \text{for all } B \in \mathcal{G}`
 
 In the most common case, $`Y = \mathbb{R}` with its Borel sigma-algebra $`\mathcal{B}(\mathbb{R})`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Equivalent characterizations for $`f: X \to \mathbb{R}`:**
 
@@ -39,7 +39,7 @@ $`f = \sum_{i=1}^{n} a_i \, \mathbf{1}_{A_i}`
 
 where $`a_i \in \mathbb{R}` are distinct and $`A_i \in \mathcal{F}` are pairwise disjoint.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Simple functions are the building blocks of the [Lebesgue integral](./Lebesgue-integral.md). Every nonnegative measurable function $`f` is the pointwise limit of an increasing sequence of simple functions $`f_n \uparrow f`.
 
@@ -59,7 +59,7 @@ This is independent of the particular representation of $`f` as a sum of indicat
 
 **Corollary.** If $`f: X \to \mathbb{R}` is measurable and $`g: \mathbb{R} \to \mathbb{R}` is Borel-measurable (in particular, if $`g` is continuous), then $`g \circ f` is measurable.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Proof.** For any $`C \in \mathcal{H}` (the sigma-algebra on $`Z`):
 $`(g \circ f)^{-1}(C) = f^{-1}(g^{-1}(C))`
@@ -75,7 +75,7 @@ Since $`g` is measurable, $`g^{-1}(C) \in \mathcal{G}`. Since $`f` is measurable
 - $`\sup_n f_n`, $`\inf_n f_n`, $`\limsup_n f_n`, $`\liminf_n f_n` are all measurable.
 - If $`f_n \to f` pointwise, then $`f` is measurable.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Proof sketch.** For $`\sup_n f_n`: $`\{x : \sup_n f_n(x) > a\} = \bigcup_n \{x : f_n(x) > a\}`, which is a countable union of measurable sets.
 

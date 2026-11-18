@@ -23,7 +23,7 @@ The **convolution** of two distributions $`\mu` and $`\nu` is the distribution o
 
 Convolution is associative and commutative. The delta measure $`\delta_0` is the identity. The relationship to [Atomic distributions](./Atomic-distributions.md): the PGF converts convolution to multiplication, making it the algebraic tool for discrete sums.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Convolution is the distributional analogue of multiplication in the algebra of functions: it is the operation that answers "what is the law of a sum of independent quantities?" The defining integral has a concrete geometric reading — **slide one density past the other, multiply pointwise, and integrate** — which is the single idea behind every closure result below.
 
@@ -99,7 +99,7 @@ A **mixture** of distributions $`\{\mu_i` with weights $`\{w_i` (where $`w_i \ge
 - If the $`\mu_i` are absolutely continuous, the mixture density is $`f(x) = \sum_i w_i f_i(x)`.
 - Mixtures are the natural model for **latent class** structures: the component index is a hidden variable.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Mixtures differ from convolutions in the order of operations: a mixture is a weighted average of distributions (the component is chosen *first*, then a single sample is drawn from it), while a convolution is the distribution of a sum (both components contribute to the *same* sample). A mixture is a convex combination of measures; a convolution is a product in the characteristic-function algebra.
 
@@ -165,7 +165,7 @@ Key properties:
 - The natural parameter space is $`\{\theta : A(\theta) < \infty\}`.
 - Closure under convolution holds only for *specific* subfamilies (normal, Poisson, gamma with fixed shape, stable laws), not for the exponential family as a whole.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The exponential family is the natural class for statistical inference: it is the class of distributions for which the sufficient statistic has fixed dimension regardless of sample size. The key members:
 
@@ -215,7 +215,7 @@ F(x) = F_0\bigl((x - \mu)/\sigma\bigr), \quad \sigma > 0.
 
 Examples: normal, logistic, uniform, Gumbel.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Location-scale families are closed under affine transformations: the sum of independent location-scale variables from the same family is again in the family (if the base is closed under convolution). The normal family is the unique location-scale family that is also closed under convolution for all parameter values (the stable property, see below).
 
@@ -257,7 +257,7 @@ Key facts:
 - The characteristic function is $`\varphi(t) = \exp(-\sigma^\alpha |t|^\alpha [1 - i\beta \, \mathrm{sgn}(t) \, \chi(\alpha, t)])`.
 - Stable laws are the **attractors** of the generalized central limit theorem: sums of i.i.d. variables with $`\alpha`-stable tails converge to a stable law.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The stable distributions are the universal limits for sums of heavy-tailed variables, just as the normal is the universal limit for sums of light-tailed (finite-variance) variables. The relationship to [Limit theorems](../Limit-theorems.md) is direct: the generalized CLT characterizes which stable law is the attractor based on the tail index of the summands.
 
@@ -319,7 +319,7 @@ f_Y(y) = f_X\bigl(g^{-1}(y)\bigr)\,\left|\frac{d}{dy}g^{-1}(y)\right|.
 - Monotone maps are the clean case; for non-injective $`g` one sums over all preimages.
 - Location-scale families are exactly the transformations $`g(x)=\mu+\sigma x` of a base law.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Transformations are the third basic operation: where convolution adds independent quantities and mixture averages over latent classes, a transformation *relabels* the outcomes of a single quantity. The Jacobian is what keeps total probability equal to one: the density is rescaled by the local stretch factor so that $`\int f_Y(y)\,dy = \int f_X(x)\,dx = 1`.
 
@@ -351,7 +351,7 @@ f_{X_{(k)}}(x) = \frac{n!}{(k-1)!(n-k)!} \, [F(x)]^{k-1} \, f(x) \, [1 - F(x)]^{
 - The **maximum** $`X_{(n)}` has CDF $`[F(x)]^n`.
 - The **range** is $`X_{(n)} - X_{(1)}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Order statistics are fundamental in extreme value theory, robust statistics, and reliability. The relationship to [Limit theorems](../Limit-theorems.md): the maximum of i.i.d. samples, after appropriate normalization, converges to one of three extreme value distributions (Gumbel, Fréchet, or Weibull), depending on the tail of $`F`.
 

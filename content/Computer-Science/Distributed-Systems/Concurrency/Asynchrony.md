@@ -2,7 +2,9 @@
 
 Asynchrony handles many I/O operations on a single thread without blocking. It is relevant when a server must handle thousands of concurrent connections, or when a UI must remain responsive while waiting for network responses.
 
-Asynchrony is a prerequisite for distributed systems: non-blocking I/O allows a single process to maintain thousands of network connections, handle timeouts and retries without stalling, and implement circuit breakers. Without it, every connection that waits for a remote node would pin an OS thread, making horizontal scaling impossible at the single-node level.
+**Concurrency vs parallelism**: *concurrency* means the program is structured as many tasks that may interleave; *parallelism* means several of them execute at the same instant on multiple cores. Asynchrony is concurrency **without** parallelism: one thread, many in-flight I/O operations — see [Parallelism](./Parallelism.md) for the multi-core side.
+
+Asynchrony is a prerequisite for distributed systems: non-blocking I/O allows a single process to maintain thousands of network connections, handle timeouts and retries without stalling, and implement circuit breakers. Without it, every connection waiting for a remote node would pin an OS thread, making horizontal scaling impossible at the single-node level.
 
 > **Authoritative sources**
 > - [Node.js Event Loop (Node.js docs)](https://nodejs.org/en/learn/getting-started/how-nodejs-sees-the-world)
@@ -10,13 +12,29 @@ Asynchrony is a prerequisite for distributed systems: non-blocking I/O allows a 
 > - [Rust Async Book](https://rust-lang.github.io/async-book/)
 > - [Tokio documentation](https://tokio.rs/)
 
+## Coroutines
+
+A **coroutine** is a function that can **suspend** itself (at an `await` / `yield` point) and later **resume** where it left off, keeping its local state. Unlike a thread, a coroutine is not scheduled by the OS: it gives up control voluntarily, so there is no preemption and no need for locks on its own stack. Coroutines are *stackless* in most runtimes: thousands of them share one OS thread.
+
+Examples: Python generators and `async def`, Rust `Future`s, Go goroutines (scheduled M:N onto OS threads — see [Parallelism](./Parallelism.md)), Lua coroutines.
+
+<details><summary>EXPLANATION</summary>
+
+**Why coroutines are cheap.** An OS thread costs a stack (typically 1–8 MB of reserved virtual memory) plus kernel scheduling. A coroutine costs a small state machine (its saved locals and program counter) — a few hundred bytes — because it never blocks: when it awaits, it simply returns control to the loop instead of sleeping. That is why a single thread can run 100,000 coroutines.
+
+**Cooperative scheduling.** Because a coroutine only switches at explicit suspension points, there are no data races on its own locals: nothing can preempt it mid-expression. The flip side is the head-of-line blocking pitfall below — a coroutine that *does* block (a synchronous call) stalls every other coroutine on the thread.
+
+**Coroutines vs threads vs processes.** A process has its own address space (isolation, IPC needed); a thread has its own stack and is preemptively scheduled by the OS (parallelism on multiple cores, but races need locks); a coroutine has neither — it is a suspendable function multiplexed by the runtime onto a thread, ideal for I/O-bound concurrency.
+
+</details>
+
 ## Event loop
 
 A single thread multiplexes many I/O operations. It registers callbacks for events (socket readable, timer expired) and dispatches them in order. The kernel's `epoll` (Linux), `kqueue` (BSD/macOS), or IOCP (Windows) notifies the loop when a file descriptor is ready, avoiding busy-waiting.
 
 Used in Node.js, Nginx (one event loop per worker process), Redis, and the browser's main thread.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The event loop is a concurrency pattern, not a parallelism pattern: it achieves high throughput on a single core by never blocking. The key insight is that I/O is the bottleneck, not computation: a server spends most of its time waiting for network data, not processing it.
 
@@ -34,15 +52,15 @@ A blocking operation (synchronous file I/O, CPU-intensive computation) stalls th
 
 </details>
 
-The event loop is the *scheduler* (runtime mechanism); async/await is the *programming model* (developer-facing syntax) that lets the developer express continuations without manual callback chaining.
+The event loop is the *scheduler* (runtime mechanism); async/await is the *programming model* (developer-facing syntax) that lets the developer write coroutines without manual callback chaining.
 
 ## async/await
 
 `async/await` is syntactic sugar for continuations. `await expr` suspends the current coroutine and resumes it when `expr` completes. The event loop drives the coroutines.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-`async/await` desugars into a state machine: each `await` is a suspension point. The compiler generates an enum (state machine) whose variants represent the states between suspension points. Resuming is a function call into the state machine. This is why `async` functions are cheap to create (no OS thread) but cannot be cancelled mid-instruction.
+`async/await` desugars into a state machine: each `await` is a suspension point. The compiler generates an enum (state machine) whose variants represent the states between suspension points; resuming is a function call into the state machine. This is why `async` functions are cheap to create (no OS thread) but cannot be cancelled mid-instruction.
 
 In Go, goroutines are the runtime's coroutines; see [Message Passing](./Message-Passing.md) for the channel model and [Parallelism](./Parallelism.md) for the M:N scheduler.
 
@@ -54,7 +72,7 @@ In Rust, `async fn` generates a `Future` (an enum-based state machine implementi
 
 Asynchrony trades thread isolation for a single-threaded execution model, introducing several practical difficulties.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Callback hell** (pre-async/await): chaining multiple asynchronous operations produces deeply nested callbacks that are hard to read and maintain.
 
@@ -73,7 +91,7 @@ fs.readFile('a.txt', (err, a) => {
 
 **Fragmented stack traces**: because a coroutine is suspended and resumed across multiple event-loop iterations, the call stack at the point of an error does not include the frames from before the suspension. Debugging requires async-aware tooling (e.g., V8's `--async-stack-traces`).
 
-**Head-of-line blocking**: if one I/O operation is slow (or a callback performs a long synchronous computation), the entire loop is stalled and every other pending connection waits. A single `fs.readFileSync` on a slow disk can freeze 10,000 connections. Mitigations: offload to worker threads, enforce timeouts, and use circuit breakers (see [Fault Tolerance](../Robustness/Fault-Tolerance.md)).
+**Head-of-line blocking**: if one I/O operation is slow (or a callback performs a long synchronous computation), the entire loop is stalled and every other pending connection waits. A single `fs.readFileSync` on a slow disk can freeze 10,000 connections. Mitigations: offload to worker threads, enforce timeouts, and use circuit breakers (see [Availability](../Robustness/Availability.md)).
 
 </details>
 
@@ -89,10 +107,10 @@ fs.readFile('a.txt', (err, a) => {
 - Throughput limited by thread creation/switching cost.
 
 **Event loop**:
-- 1 thread, 10,000 file descriptors in `epoll`.
-- Memory: 10,000 × (socket buffer + small state) ≈ a few hundred MB.
+- 1 thread, 10,000 file descriptors in `epoll`, each with a coroutine.
+- Memory: 10,000 × (socket buffer + small coroutine state) ≈ a few hundred MB.
 - Throughput: limited by I/O bandwidth, not by thread switching.
-- The 50 ms DB query is non-blocking: the loop registers a callback and continues serving other requests.
+- The 50 ms DB query is non-blocking: the coroutine suspends at `await`, and the loop serves other requests.
 
 <table>
 <tr><th></th><th>Thread-per-request</th><th>Event loop</th></tr>
@@ -105,4 +123,3 @@ fs.readFile('a.txt', (err, a) => {
 The event loop wins by orders of magnitude in memory and context-switch cost. The trade-off: a single blocking call (e.g., synchronous file I/O) stalls all 10,000 connections.
 
 </details>
-

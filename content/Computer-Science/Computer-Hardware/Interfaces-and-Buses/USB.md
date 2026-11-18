@@ -21,7 +21,7 @@ USB (Universal Serial Bus) is the dominant cabled peripheral interface: the plug
 <tr><td>USB4 v2 Gen 4</td><td>2022</td><td>80 Gb/s (PAM3, 25.6 GBd)</td><td>PAM3 + FEC</td><td>~77 Gb/s per direction</td></tr>
 </table>
 
-<details><summary>Details: reading the naming, and why rates doubled</summary>
+<details><summary>EXPLANATION: reading the naming, and why rates doubled</summary>
 
 The naming went through three confusing eras. Originally rates were named directly (1.5/12/480 Mb/s). Then "USB 3.2 Gen 1×1 / Gen 2×2" named the *lane speed* and the *lane count*: Gen 2×2 means two lanes at 10 Gb/s each. Marketing names ("SuperSpeed", "SuperSpeed+", "USB 20Gbps") are a fourth layer entirely — always check the line rate.
 
@@ -39,7 +39,7 @@ Each lever costs something: symbol rate costs cable length, multi-level signalli
 
 **Definition.** USB is a tiered star: exactly one host (the "root hub") owns the bus; hubs extend it (up to 7 tiers); every device gets one of 127 addresses assigned by the host during **enumeration**. Devices never speak to each other.
 
-<details><summary>Details: what happens when you plug in a device</summary>
+<details><summary>EXPLANATION: what happens when you plug in a device</summary>
 
 1. **Detect.** The device pulls the D+ (full-speed) or D− (low-speed) line up through a resistor; the hub notices the voltage change on its port.
 2. **Reset.** The host resets the port and listens at the default address 0.
@@ -67,7 +67,7 @@ Each hub consumes one address itself, so the total is bounded by 127 addresses (
 
 **Definition.** USB carries 5 V by default: 500 mA per port for USB 2.0 (2.5 W), 900 mA for USB 3.0 (4.5 W). USB-C raises the default to 1.5 A or 3 A (up to 15 W), and USB Power Delivery (PD) negotiates up to 48 V × 5 A = **240 W** (PD 3.1) over the CC pins.
 
-<details><summary>Details: how negotiation works</summary>
+<details><summary>EXPLANATION: how negotiation works</summary>
 
 Power negotiation happens on the **CC (Configuration Channel)** pins, separate from the data lanes:
 
@@ -95,7 +95,7 @@ The CC pins carry the PD negotiation: the monitor (a *sink*) and the laptop (a *
 
 **Definition.** USB defines four transfer types on every endpoint: **control** (enumeration, configuration), **bulk** (best-effort, high throughput, retried — drives), **interrupt** (small, bounded-latency polls — keyboards), and **isochronous** (guaranteed bandwidth, no retries — audio/video streams).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The four types are the same trade-off between latency guarantees and loss tolerance, resolved differently:
 

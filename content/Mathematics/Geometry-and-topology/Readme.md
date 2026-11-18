@@ -21,7 +21,7 @@ The following sub-areas do not yet have dedicated pages in Technopedia.
 <tr><td>Algebraic geometry</td><td>varieties, schemes, sheaves, ideals, polynomial equations</td><td>polynomial equations, Zariski topology</td><td>studies geometric objects defined by polynomial equations; bridges algebra and geometry; underlies number theory, string theory, and coding theory</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Use the table as a map:
 - For invariants under deformation, connectedness, or compactness, begin with Topology.

@@ -1,6 +1,6 @@
 # Adversarial Failure
 
-Adversarial failure models study how a system behaves when nodes are not merely crashed but actively malicious: they send contradictory messages, collude, or create fake identities. It is relevant in open networks (blockchains, public internet) where participants cannot be fully trusted. See [Consensus and Consistency](./Robustness/Consensus-and-Consistency.md) for the consensus problem that BFT protocols solve, and [Fault Tolerance](./Robustness/Fault-Tolerance.md) for the crash-fault counterpart.
+Adversarial failure models study how a system behaves when nodes are not merely crashed but actively malicious: they send contradictory messages, collude, or create fake identities. It is relevant in open networks (blockchains, public internet) where participants cannot be fully trusted. See [Consistency](./Robustness/Consistency.md) for the consensus problem that BFT protocols solve, and [Availability](./Robustness/Availability.md) for the crash-fault counterpart.
 
 > **Authoritative sources**
 > - [Practical Byzantine Fault Tolerance (Castro & Liskov, 1999)](https://pdos.csail.mit.edu/6.824/papers/castro-practicalbft.pdf)
@@ -19,11 +19,11 @@ The $`3f + 1` bound is not a property of PBFT but a fundamental impossibility re
 
 **Intuition**: with $`n \leq 3f`, the Byzantine nodes can split the honest nodes into groups and give each group a contradictory story, preventing any two honest nodes from agreeing. For example, with $`n = 4` and $`f = 1`: the single Byzantine node tells node A that node B said "attack" and tells node B that node A said "retreat". Both A and B see a consistent story (one honest node + one Byzantine node agreeing with them), so neither can detect the lie.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Proof sketch**: the proof reduces the Byzantine agreement problem to a "general and lieutenants" problem. The general sends an order to $`n - 1` lieutenants. If $`n \leq 3f`, the $`f` traitorous lieutenants can each relay a different version of the order to the remaining lieutenants, making it impossible for the loyal lieutenants to distinguish the true order from the lies. The bound is tight: with $`n = 3f + 1`, a simple protocol (each node broadcasts its value, and all nodes take the majority) succeeds.
 
-**Relation to FLP**: the FLP impossibility (asynchronous + 1 crash → no consensus) is a different impossibility. The 3f+1 bound holds even in a synchronous network; it is about the *number* of Byzantine nodes, not about timing. See [Consensus and Consistency](./Robustness/Consensus-and-Consistency.md) for FLP.
+**Relation to FLP**: the FLP impossibility (asynchronous + 1 crash → no consensus) is a different impossibility. The 3f+1 bound holds even in a synchronous network; it is about the *number* of Byzantine nodes, not about timing. See [Consistency](./Robustness/Consistency.md) for FLP.
 
 </details>
 
@@ -33,7 +33,7 @@ The $`3f + 1` bound is not a property of PBFT but a fundamental impossibility re
 
 **Synchrony assumption**: PBFT assumes a **partially synchronous** network: after a global stabilization time (GST), message delays are bounded by a known constant $`\Delta`. Before GST, messages may be arbitrarily delayed or lost. This is a critical assumption: in a fully asynchronous network (no bound on delays), the FLP impossibility applies and no deterministic BFT protocol can guarantee termination. PBFT works in practice because real networks are approximately synchronous after a transient period.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **PBFT phases**:
 1. **Pre-prepare**: the primary (leader) broadcasts the client request to all replicas.
@@ -46,7 +46,7 @@ The $`3f + 1` bound is not a property of PBFT but a fundamental impossibility re
 
 </details>
 
-<iframe src="./Adversarial-failure.simulation.html" title="PBFT three-phase protocol with Byzantine nodes"></iframe>
+<iframe src="./Adversarial-Failure.simulation.html" title="PBFT three-phase protocol with Byzantine nodes"></iframe>
 
 ### Other BFT protocols
 
@@ -60,7 +60,7 @@ PBFT is not the only BFT protocol. The design space trades off message complexit
 <tr><td>Algorand (2019)</td><td>O(n) per round (lottery)</td><td>Asynchronous (probabilistic)</td><td>Probabilistic (final after k rounds)</td><td>Leaderless, stake-weighted lottery; no persistent leader</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **HotStuff** (Bafna et al., 2019): reduces PBFT's O(n²) to O(n) amortized by pipelining: while the current view is in the commit phase, the next view's pre-prepare is already in flight. Uses a "timeout view change" that is O(n) rather than O(n²).
 
@@ -76,7 +76,7 @@ PBFT is not the only BFT protocol. The design space trades off message complexit
 
 **Concrete example**: in Bitcoin's proof-of-work, each block is weighted by the hash power that produced it. An attacker who wants to create k fake "nodes" must control k times the mining hardware. To outvote the honest majority, the attacker needs > 50% of the network's total hash power, which requires a capital expenditure that exceeds the potential profit from the attack. Proof-of-stake (Ethereum) achieves the same effect with staked capital: creating a fake validator requires locking up ETH that is slashed if the validator misbehaves.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Mitigation strategies**:
 - **Permissioned systems** (e.g., a blockchain with known validators): identity verification via certificates or a trusted authority.

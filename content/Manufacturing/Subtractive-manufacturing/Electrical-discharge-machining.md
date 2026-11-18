@@ -97,7 +97,7 @@ A shaped electrode (copper, graphite, or copper-tungsten) is lowered toward the 
 
 Key parameters: pulse-on time $`t_{on}` (µs), pulse-off time $`t_{off}` (µs), discharge current $`I` (A), spark gap $`g` (µm), dielectric type (kerosene, deionised water).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Electrode materials**: copper (finishing, good surface transfer), graphite (roughing, low wear, self-sharpening), copper-tungsten (hard materials like carbide, high melting point). Brass is used for hole-drilling electrodes.
 - **Material removal per spark**: $`V \propto E_{spark} / (\rho c_p \Delta T + \rho L_v)` where $`E_{spark}` is the spark energy. Typical: 0.001–0.1 mm³ per spark.
@@ -114,7 +114,7 @@ A thin wire (0.1–0.3 mm diameter, brass or copper-clad steel) acts as the elec
 
 Key parameters: wire diameter $`d_w` (mm), discharge current $`I` (A), wire feed speed (m/min), cut speed (mm/min), spark gap (µm).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Kerf**: equal to the wire diameter (0.1–0.3 mm). The cut tapers slightly due to wire deflection under tension.
 - **Tolerance**: ±0.005 mm. Ra 1–3 µm typical.
@@ -131,7 +131,7 @@ A rotating tubular electrode (brass or copper, Ø 0.1–10 mm) drills deep, smal
 
 Key parameters: electrode diameter, rotation speed (1000–3000 rpm), feed rate (µm/rev), discharge current (0.5–5 A), water pressure (0.5–2 MPa).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Aspect ratio**: up to 100:1 (e.g. Ø 0.5 mm × 50 mm deep).
 - **Tolerance**: ±0.01–0.05 mm.
@@ -163,7 +163,7 @@ Each EDM spark creates a local thermal cycle that modifies the workpiece surface
 2. **Heat-affected zone (HAZ)** – 20–200 µm deep. The material is tempered or annealed, losing hardness. In hardened tool steels, the HAZ can be 2–3× the recast layer thickness.
 3. **Residual stress** – typically **tensile** in the recast layer (100–500 MPa), which promotes crack initiation under cyclic loading. This is a critical concern for aerospace (turbine blades, landing gear) and medical (implant) applications.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Why tensile?** The rapid quenching of the thin melt layer by the surrounding cooler bulk produces a volume contraction that is constrained by the adjacent material, generating tensile stress in the surface layer.
 - **Mitigation**: a light grinding or lapping pass (5–20 µm) after EDM removes the recast layer and HAZ. For applications where this is not possible (e.g. internal cavities), the residual stress must be accounted for in fatigue design.

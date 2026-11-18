@@ -2,7 +2,7 @@
 
 Measure theory is the mathematical framework that generalises length, area, volume, and the notion of "size" to arbitrary collections of sets, and that rebuilds integration on that generalised notion. It is the language in which modern probability, harmonic analysis, ergodic theory, and much of functional analysis are stated. Whenever a problem involves assigning a "volume" to an irregular set, integrating a function that is not Riemann-integrable, or reasoning about random phenomena with a rigorous foundation, measure theory is the underlying machinery.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The basic object is a measure space $`(X, \mathcal{F}, \mu)`: a set $`X`, a sigma-algebra $`\mathcal{F}` of measurable sets, and a measure $`\mu` assigning nonnegative sizes to those sets. Lebesgue integration and probability theory are built by applying this structure to different choices of $`X`, $`\mathcal{F}`, and $`\mu`.
 

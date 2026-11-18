@@ -9,7 +9,7 @@ Mechanical machining removes material by applying a mechanical force (cutting, g
 
 All mechanical machining processes share a common physical basis: a tool or abrasive with a hardness greater than the workpiece removes material by plastic deformation (shear) or fracture. Understanding this basis explains why different processes exist and how their parameters relate.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Chip formation.** In a single-point cut (turning, milling), the workpiece material ahead of the tool is sheared along a plane at an angle $`\phi` to the cutting direction. The shear angle depends on the tool rake angle $`\alpha` and the friction at the tool–chip interface. A larger rake angle reduces the shear angle, lowering the cutting force but weakening the tool tip. The chip thickness $`t_c` is related to the feed by the shear ratio: $`t_c = f \sin\phi / \cos(\phi - \alpha)`.
 
@@ -29,7 +29,7 @@ A rotating multi-flute cutter (end mill, face mill, ball-nose) removes material 
 
 Key parameters: cutting speed $`v_c = \pi d n` (m/min), feed per tooth $`f_z` (mm/tooth), depth of cut $`a_p` (mm), number of flutes $`z`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Up-milling (conventional)**: cutter rotates against the feed. Chip thickness grows from zero; better for roughing, less tool wear.
 - **Down-milling (climb)**: cutter rotates with the feed. Chip thickness is maximum at entry; better surface finish, requires a rigid setup and backlash-free feed.
@@ -46,7 +46,7 @@ A single-point cutting tool removes material from a rotating workpiece (lathe or
 
 Key parameters: cutting speed $`v_c` (m/min), feed $`f` (mm/rev), depth of cut $`a_p` (mm), tool nose radius $`r_\epsilon`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **CNC turning**: the tool is positioned by servo-controlled axes (X, Z, and often a C-axis for workpiece rotation). Live tooling (drilling, milling) on the turret enables Swiss-type parts in one setup.
 - **Swiss-type (sliding headstock) lathes**: the workpiece slides in and out of the tool, enabling the machining of long, thin parts (surgical instruments, watch components) with minimal deflection.
@@ -60,7 +60,7 @@ An abrasive wheel (or belt, or slurry of fine particles) removes a thin layer of
 
 Key parameters: wheel speed $`v_w` (m/s), workpiece speed $`v_w'` (m/min), infeed $`f` (µm/pass), wheel grade and bond.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Surface grinding**: a flat or cylindrical wheel grinds a flat surface. Tolerance ±0.005 mm, Ra 0.2–0.8 µm (see [Metrology and quality control](../Metrology-and-quality-control.md)).
 - **Cylindrical grinding**: a cylindrical wheel grinds the OD or ID of a cylindrical part.
@@ -77,7 +77,7 @@ A high-velocity stream of water (200–620 MPa) or water + abrasive (garnet, SiC
 
 Key parameters: pump pressure (MPa), orifice diameter (0.1–1.5 mm), abrasive flow rate (kg/min), cut speed (m/min).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Pure waterjet**: cuts any material (metal, composite, glass, food) without a heat-affected zone. Tolerance ±0.1 mm, Ra 10–25 µm. Used for aerospace composites and multi-layer sandwich panels.
 - **Abrasive waterjet**: adds garnet or SiC to the water stream, enabling cutting of hardened steel (up to 100 mm) and titanium.

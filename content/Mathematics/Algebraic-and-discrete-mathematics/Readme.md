@@ -24,7 +24,7 @@ The following sub-areas do not yet have dedicated pages in Technopedia.
 
 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Use the table as a map:
 - For symmetries, groups, rings, or Galois theory, begin with Abstract algebra.
@@ -37,7 +37,7 @@ Use the table as a map:
 
 **Boundary with Logic and foundations.** [Logic and foundations](../Logic-and-foundations/Readme.md) handles the rules of reasoning and decidability (mathematical logic, computability, set theory). This page handles the combinatorial and algebraic structures those rules act upon. A reader asking "is this statement provable?" belongs to Logic and foundations; a reader asking "how many spanning trees does this graph have?" belongs here.
 
-**Boundary with Computer Science.** Graph theory, combinatorics, and finite algebra are the mathematical foundations of [Computer Science](../Computer-Science/Readme.md), while their algorithmic applications live there: network routing and scheduling (graph theory), error-correcting codes and cryptography (number theory, finite fields), and machine learning (linear algebra). See [Cryptography](../Computer-Science/Information-Theory/Cryptography.md) for the number-theoretic foundations of public-key systems, [Theory of Computation](../Computer-Science/Algorithmics/Theory-of-Computation.md) for the computability boundary, and [Graphs](../Computer-Science/Algorithmics/Search-and-Data-Structures/Graphs.md) for algorithmic graph algorithms.
+**Boundary with Computer Science.** Graph theory, combinatorics, and finite algebra are the mathematical foundations of [Computer Science](../Computer-Science/Readme.md), while their algorithmic applications live there: network routing and scheduling (graph theory), error-correcting codes and cryptography (number theory, finite fields), and machine learning (linear algebra). See [Cryptography](../Computer-Science/Information-Theory/Cryptography.md) for the number-theoretic foundations of public-key systems, [Theory of Computation](../Computer-Science/Algorithmics/Theory-of-Computation/Readme.md) for the computability boundary, and [Graphs](../Computer-Science/Algorithmics/Search-and-Data-Structures/Graphs.md) for algorithmic graph algorithms.
 
 **Cross-references to other Mathematics classes.** [Analysis](../Analysis/Readme.md) uses vector spaces and Banach algebras (linear algebra, abstract algebra); [Probability and statistics](../Probability-and-statistics/Readme.md) uses finite fields for error-correcting codes and Markov chains (graph theory); [Geometry and topology](../Geometry-and-topology/Readme.md) contains algebraic geometry, the bridge between algebraic structure and geometric objects defined by polynomial equations.
 

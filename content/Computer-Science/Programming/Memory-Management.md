@@ -2,7 +2,8 @@
 
 Memory management studies how programs allocate, access, and reclaim memory. It is relevant whenever a program's memory usage must be bounded, predictable, or safe.
 
-Three main approaches cover the landscape: the **stack** is automatic and scoped to function calls (push on entry, pop on return); the **heap** is explicit and long-lived (the programmer or runtime allocates and frees blocks); **garbage collection** is automatic but global (a background or stop-the-world pass reclaims unreachable objects). The stack is fastest but limited in size and lifetime; the heap is flexible but requires discipline; GC trades a pause for safety.
+Three main approaches cover the landscape: the **stack** is automatic and scoped to function calls (push on entry, pop on return); the **heap** is explicit and long-lived (the programmer or runtime allocates and frees blocks); **garbage collection** is automatic but global (a background or stop-the-world pass reclaims unreachable objects). The stack is fastest but limited in size and lifetime; the heap is flexible but requires discipline; GC trades a pause for safety. Underneath all of this, the **operating system** manages the virtual address space — page tables, paging, swap: see [Memory management](../Computer-Hardware/Operating-System.md).
+
 
 > **Authoritative sources**
 > - [The Garbage Collection Handbook (Jones, Hosking, Moss)](https://www.gchandbook.org/index.html)
@@ -14,9 +15,9 @@ The **stack** is a LIFO region of memory. Each **function frame** (activation re
 
 **Stack overflow**: unbounded recursion exhausts the stack (typically 1–8 MB). The OS kills the process.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Stack vs. heap**: stack allocation is $`O(1)` (move a pointer); heap allocation is $`O(1)`–$`O(n)` depending on the allocator. Stack memory is automatically reclaimed when the function returns; heap memory must be explicitly freed (or collected).
+**Stack vs. heap**: [stack](../Computer-Hardware/Operating-System.md) allocation is $`O(1)` (move a pointer); [heap](../Computer-Hardware/Operating-System.md) allocation is $`O(1)`–$`O(n)` depending on the allocator. Stack memory is automatically reclaimed when the function returns; heap memory must be explicitly freed (or collected).
 
 **Tail call optimization (TCO)**: if a function's last action is a call to another function, the current frame can be reused. $`f(n) = n == 0 ? 0 : f(n-1) + 1` cannot be TCO'd (the `+1` is pending); $`f(n, acc) = n == 0 ? acc : f(n-1, acc+1)` can.
 
@@ -32,7 +33,7 @@ The **heap** is a large region of memory managed by an **allocator**. **Pointers
 
 **Manual allocation** (C, Rust with `unsafe`): the programmer calls `malloc`/`free` (or `Box::new`/`drop`). Errors: **memory leaks** (forgot to free), **use-after-free** (accessed freed memory), **double free** (freed twice), **dangling pointer** (pointer to freed memory).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Allocators**:
 - **First fit**: scan from the start, allocate the first block that fits.
@@ -47,7 +48,7 @@ The **heap** is a large region of memory managed by an **allocator**. **Pointers
 
 **Memory alignment and padding**: the CPU requires certain types to start at specific addresses (e.g., a 64-bit integer at a multiple of 8). The compiler inserts **padding** bytes between struct fields so each member is aligned. A cache line is typically 64 bytes; aligning a hot struct to a cache-line boundary avoids **false sharing** (two cores writing to different fields of the same cache line). Misalignment can cause a hardware fault on some architectures (ARM) or a performance penalty on others (x86).
 
-**Memory-mapped I/O (mmap)**: the OS maps a file or device into the process address space, so the program accesses file contents through ordinary pointer dereferences. The kernel pages data in on demand. This is a distinct allocation strategy: the "heap" is the file, and the OS manages the virtual-to-physical mapping.
+**Memory-mapped I/O (mmap)**: the OS maps a file or device into the process address space, so the program accesses file contents through ordinary pointer dereferences. The kernel pages data in on demand. This is a distinct allocation strategy: the "heap" is the file, and the OS manages the [virtual-to-physical mapping](../Computer-Hardware/Operating-System.md).
 
 **Rust's ownership model**: each value has exactly one owner; the borrow checker enforces ownership and borrowing rules at compile time. See [Security](./Security.md) for the full safety guarantees.
 
@@ -59,7 +60,7 @@ The **heap** is a large region of memory managed by an **allocator**. **Pointers
 
 **Tracing GC** (mark-and-sweep, copying, generational): identify live objects by traversing from roots (stack, globals, registers); reclaim the rest.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Mark-and-sweep**: two phases. **Mark**: traverse from roots, mark reachable objects. **Sweep**: free unmarked objects. $`O(n)` where $`n` is the number of objects. Pauses the application (stop-the-world).
 

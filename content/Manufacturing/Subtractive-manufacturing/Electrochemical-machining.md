@@ -22,7 +22,7 @@ where $`M` is the molar mass (kg/mol), $`I` is the current (A), $`n` is the numb
 
 where $`\rho` is the material density (kg/m³) and $`\dot{V}` is the volumetric removal rate (m³/s).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Dissolution mechanism**: at the anode surface, metal atoms lose electrons and enter the electrolyte as cations: $`\text{Fe} \rightarrow \text{Fe}^{2+} + 2e^-`. The electrolyte carries the ions away.
 - **Current density**: typically 10–1000 A/cm². Higher current density increases MRR but reduces shape fidelity (the current spreads in the electrolyte gap).
@@ -43,7 +43,7 @@ The choice of electrolyte is a key practical decision that trades material remov
 <tr><td>NaNO₃</td><td>15–25 %</td><td>Moderate</td><td>Moderate</td><td>Higher</td><td>Finer (Ra 0.5–2 µm)</td><td>Finishing, precision airfoils</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **NaCl**: the chloride ion is a strong depassivant; it keeps the anode surface active, giving the highest MRR. However, the aggressive chemistry produces more localised dissolution (pitting) and slightly lower shape fidelity. Temperature is kept below 60 °C to limit corrosion of the tool.
 - **NaNO₃**: the nitrate ion is a mild oxidiser that allows a thin, uniform passive film to form and re-dissolve, giving smoother, more uniform dissolution. MRR is 20–40 % lower than NaCl, but surface finish and dimensional accuracy are superior.
@@ -56,7 +56,7 @@ The choice of electrolyte is a key practical decision that trades material remov
 
 The cathode is the geometric negative of the desired cavity, offset outward by the equilibrium gap.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Equilibrium gap**: the fundamental operating principle of ECM. The servo feed advances the tool at a rate that exactly matches the anodic dissolution rate at the gap surface. At equilibrium, the gap $`g_{\text{eq}}` is the distance at which the current density (and hence dissolution rate) equals the feed rate. If the gap is too small, the current density rises and the tool is pushed back; if too large, the tool advances. The servo system stabilises at $`g_{\text{eq}}`.
 - **Offset calculation**: the tool is machined as the negative of the part geometry, offset by $`g_{\text{eq}}` in the normal direction. For a flat surface this is a simple parallel offset; for complex 3-D shapes the offset is computed in CAD (accounting for the fact that the gap is not uniform in corners and edges where the current density is higher).
@@ -77,7 +77,7 @@ A shaped cathode (lead, copper, or graphite) is fed toward the workpiece. The to
 
 Key parameters: current $`I` (kA), gap $`g` (mm), electrolyte flow rate (L/min), feed rate (mm/min).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **MRR**: 1–2 000 mm³/min (very high for large areas).
 - **Tolerance**: ±5–50 µm. Ra 0.5–5 µm.
@@ -90,7 +90,7 @@ Key parameters: current $`I` (kA), gap $`g` (mm), electrolyte flow rate (L/min),
 
 A hybrid of grinding and ECM: an abrasive wheel (cathode) and an electrolyte are used simultaneously. The electrolyte dissolves the material electrochemically, and the abrasive removes the passive oxide layer.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Advantage over pure grinding**: 5–10× faster, no wheel wear, no HAZ, no residual stress.
 - **Tolerance**: ±5–20 µm. Ra 0.2–1 µm.
@@ -102,7 +102,7 @@ A hybrid of grinding and ECM: an abrasive wheel (cathode) and an electrolyte are
 
 A tubular cathode is fed into a pre-drilled hole; the electrolyte flows through the tube and dissolves the bore wall. Used for deep, narrow holes in hardened or superalloy material.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Aspect ratio**: up to 20:1 (depth to diameter).
 - **Tolerance**: ±10–50 µm.
@@ -114,7 +114,7 @@ A tubular cathode is fed into a pre-drilled hole; the electrolyte flows through 
 
 A pulsed power supply replaces the DC source. The short on-pulse (µs) dissolves material at the surface before the passive film can form; the off-pulse allows the electrolyte to flush the gap. The effective gap is reduced to 10–50 µm (vs. 0.1–1 mm in continuous ECM), dramatically improving shape fidelity and enabling micro-features.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Key parameters**:
   - Pulse on-time: 1–100 µs
@@ -129,7 +129,7 @@ A pulsed power supply replaces the DC source. The short on-pulse (µs) dissolves
 
 ## Safety
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Hydrogen gas**: the cathodic reaction $`\text{2H}_2\text{O} + 2e^- \rightarrow \text{H}_2 + 2\text{OH}^-` produces hydrogen at the cathode. The work area must be well ventilated; hydrogen is flammable (4–75 % in air) and can accumulate in enclosed spaces.
 - **Spent electrolyte**: contains dissolved metal ions (Fe, Ni, Cr, Co) and metal hydroxides. These are regulated effluents. Typical treatment: pH adjustment to 9–10 with NaOH to precipitate metal hydroxides, followed by filter-press dewatering. The sludge is disposed of as hazardous waste; the clarified water can be recycled.

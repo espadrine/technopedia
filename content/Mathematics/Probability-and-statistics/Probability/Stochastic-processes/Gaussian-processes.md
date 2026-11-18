@@ -24,7 +24,7 @@ Gaussian processes are relevant whenever you want a *distribution over functions
 
 PSD is exactly the condition that makes $`(k(t_i,t_j))` a legitimate covariance matrix for every finite set of points, so that a Gaussian process with that kernel actually exists.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why PSD is the right condition.** A covariance matrix $`K` of any random vector must satisfy $`\mathrm{Var}\big(\sum_i c_i X_i\big) = \sum_{i,j} c_i c_j K_{ij} \geq 0`, because a variance is never negative. So PSD is not an extra assumption — it is precisely the requirement that $`k` can be the covariance of *some* Gaussian vector at every finite set of points. Conversely, if $`k` is PSD, the Kolmogorov extension theorem guarantees a Gaussian process with that kernel.
 
@@ -55,7 +55,7 @@ Yes. Write $`k(s,t) = 1 + s t = 1\cdot 1 + s\cdot t`, a sum of two rank-one PSD 
 
 **Definition.** A general stochastic process is specified by *all* of its finite-dimensional distributions (infinitely many objects). A Gaussian process is specified by **only two functions** — the mean $`m` and the kernel $`k` — because a multivariate normal distribution is completely determined by its mean vector and covariance matrix.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The global idea.** For an arbitrary process, knowing the law of $`(X_{t_1}, X_{t_2})` tells you nothing about the law of $`(X_{t_1}, X_{t_2}, X_{t_3})`; you must specify each finite-dimensional distribution separately, and they must all be mutually consistent. For a Gaussian process this burden vanishes: the joint law of any finite subfamily is a multivariate normal, and a multivariate normal $`\mathcal{N}(\mu, \Sigma)` has *no free parameters beyond* $`\mu` and $`\Sigma`. So once you fix $`m` and $`k`, every finite-dimensional distribution is forced, and consistency is automatic.
 
@@ -96,7 +96,7 @@ It is a valid Gaussian process exactly when the covariance matrix is PSD, i.e. w
 
 The length-scale $`\ell` is the single most important knob: a small $`\ell` makes the kernel decay fast, so values far apart are nearly independent and the function looks wiggly; a large $`\ell` keeps values correlated over long distances, so the function looks smooth.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Reading smoothness off the decay.** The figure below plots $`k(0,t)` (correlation with the origin) against distance $`t` for three kernels with the same $`\ell = 0.5`. The squared-exponential curve leaves the origin *flat* (its derivative at $`t=0` is $`0`), the Matérn curve leaves with a *corner*, and the Ornstein–Uhlenbeck curve falls off as a pure exponential. That difference in local shape is exactly what shows up in the sample paths: flat departure gives smooth paths, a corner gives continuous-but-rough paths.
 
@@ -146,7 +146,7 @@ m_*(t_0) \;=\; m(t_0) + k_*^{\top}\, K^{-1}\big(y - m\big),
 
 With independent observation noise of variance $`\sigma_n^2`, replace $`K` by $`K + \sigma_n^2 I` in both formulas. This is **kriging** in geostatistics and **Gaussian-process regression** in machine learning.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The global idea.** Conditioning a multivariate normal is pure linear algebra: the conditional distribution of one component given the others is Gaussian, with mean and covariance given by block-matrix formulas. Because a GP is just a (possibly infinite) multivariate normal, conditioning the *function* $`f` on its values at the observed points is the same computation, and the answer is again a GP — the **posterior GP** — whose mean and kernel are the two formulas above. The posterior mean is a weighted average of the observations (the weights are $`k_*^{\top}K^{-1}`), and the posterior variance is the prior variance $`k(t_0,t_0)` *minus* the information the observations carry about $`t_0`.
 
@@ -201,7 +201,7 @@ With a single observation, $`K = [1]`, $`k_* = [\min(4,1)] = [1]`, $`k(4,4) = 4`
 
 then the process admits a **continuous** modification. For a GP with $`\mathrm{Var}(X_t) = \sigma^2` constant, take $`\alpha = 2` and the left side is $`\mathrm{Var}(X_t - X_s) = 2\big(\sigma^2 - k(s,t)\big)`, so continuity follows from how fast $`\sigma^2 - k(s,t)` shrinks as $`s \to t`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The global idea.** The criterion says: if the expected size of an increment over a small gap $`|t-s|` is *smaller* than the gap itself (raised to a power $`> 1`), the paths must be continuous. For a Gaussian process the increment $`X_t - X_s` is Gaussian, so its typical size is its standard deviation $`\sqrt{\mathrm{Var}(X_t-X_s)}`. The question "are the paths continuous?" becomes "does $`\mathrm{Var}(X_t - X_s)` go to zero faster than $`|t-s|`?"
 

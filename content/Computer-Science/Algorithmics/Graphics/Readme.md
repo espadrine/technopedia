@@ -8,7 +8,7 @@ Computer graphics turns geometric and image data into pixels on a display. It is
 - It turns geometry into pixels (rendering) at a target frame rate.
 - It manipulates the resulting pixels (image processing) for color, filtering, and compression.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The three subtopics below partition graphics by the *stage* of the pipeline. **Geometry** is the mathematical representation of shapes (what to draw); **rendering** is the process of turning that geometry into a color image (how to draw it); **image processing** is the manipulation of the resulting pixels (post-processing). Each builds on the previous: geometry supplies the primitives, rendering rasterizes or traces them into a framebuffer, and image processing refines the framebuffer before it reaches the display.
 

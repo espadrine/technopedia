@@ -26,7 +26,7 @@ The four classes partition the subject along the nature of the probability measu
 <tr><td><a href='./Distributional-structure-and-operations.md'>Distributional structure and operations</a></td><td>Distributional structure and operations</td><td>Algebraic properties: families, closure, and operations on distributions</td><td>Exponential families, location-scale families, stable laws, convolutions, mixtures, order statistics</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The first three classes form a partition by the **Lebesgue decomposition theorem**: every finite Borel measure on $`\mathbb{R}^d` decomposes uniquely as $`\mu = \mu_{\text{at}} + \mu_{\text{ac}} + \mu_{\text{sg}}` where $`\mu_{\text{at}}` is atomic (countable sum of point masses), $`\mu_{\text{ac}}` is absolutely continuous (has a density), and $`\mu_{\text{sg}}` is singular (continuous but supported on a null set, e.g. the Cantor measure). A distribution belongs to exactly one of the first three classes, or is a mixture of two or more.
 

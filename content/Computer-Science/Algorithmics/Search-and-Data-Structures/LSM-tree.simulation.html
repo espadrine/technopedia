@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LSM-Tree</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h1 { font-size: 1.3em; margin-bottom: 10px; }
+.panel { border: 1px solid #1565c0; border-radius: 6px; padding: 16px; background: #fff; }
+.controls { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.controls button { padding: 5px 12px; cursor: pointer; background: #1565c0; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0d47a1; }
+svg { display: block; margin: 10px auto; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>LSM-Tree</h1>
+<div class="panel">
+<div class="controls">
+<button onclick="lsmAdd(1)">Add key</button>
+<button onclick="lsmAdd(5)">Add 5 keys</button>
+<button onclick="lsmAdd(50)">Add 50 keys</button>
+<button onclick="lsmReset()">Reset</button>
+</div>
+<svg id="lsm-svg" width="520" height="310"></svg>
+<div class="info" id="lsm-info"></div>
+<div class="info">Flush and compaction happen automatically, LevelDB-style: the memtable flushes to L0 as one SST when full (5 keys = 2 MB); when L0 exceeds its cap (10 MB = 5 SSTs), only ONE L0 SST is compacted into L1 (merged with the overlapping L1 SSTs), so each compaction stays small. Higher levels have 10× caps.</div>
+</div>
+<script>
+// LSM-Tree simulation (LevelDB-style).
+// Each SST holds 5 keys and is 2 MB. L0 caps at 10 MB = 5 SSTs; each higher
+// level has a 10x bigger cap, so compacting a level into the next always fits.
+const SST_KEYS = 5;                 // keys per SST
+const SST_MB = 2;                   // MB per SST
+const LEVEL_CAPS = [5, 50, 500, 5000]; // max SSTs per level (L0 = 10 MB, then 10x)
+let lsm = { memtable: [], levels: [[], [], [], []], counter: 0, last: '—' };
+
+function lsmAdd(n) {
+  for (let i = 0; i < n; i++) {
+    lsm.counter++;
+    lsm.memtable.push(lsm.counter);
+    if (lsm.memtable.length >= SST_KEYS) lsmFlush();
+  }
+  lsmDraw();
+  lsmUpdateInfo();
+}
+// Flush the memtable to L0 as one SST, then compact if L0 is over its cap.
+function lsmFlush() {
+  if (lsm.memtable.length === 0) return;
+  let sst = [...lsm.memtable];
+  lsm.levels[0].push(sst);
+  lsm.memtable = [];
+  lsm.last = `flushed SST [${sst[0]}–${sst[sst.length-1]}] to L0`;
+  lsmCompactFrom(0);
+}
+// LevelDB-style compaction: when level l exceeds its cap, compact only ONE
+// SST (the oldest) from level l, merged with the overlapping SSTs of level l+1
+// (later writes override earlier ones on the same key), repacked as 5-key SSTs.
+function rangeOverlap(a, b) {
+  return a[0] <= b[b.length - 1] && b[0] <= a[a.length - 1];
+}
+function lsmCompactFrom(l) {
+  if (lsm.levels[l].length > LEVEL_CAPS[l]) {
+    if (l + 1 >= lsm.levels.length) lsm.levels.push([]);
+    let sst = lsm.levels[l].shift(); // oldest SST of level l
+    let overlapping = lsm.levels[l + 1].filter(s => rangeOverlap(s, sst));
+    let rest = lsm.levels[l + 1].filter(s => !rangeOverlap(s, sst));
+    let merged = new Map();
+    for (const s of [sst, ...overlapping]) for (const k of s) merged.set(k, k);
+    let keys = [...merged.keys()].sort((a, b) => a - b);
+    let packed = [];
+    for (let i = 0; i < keys.length; i += SST_KEYS) packed.push(keys.slice(i, i + SST_KEYS));
+    lsm.levels[l + 1] = [...rest, ...packed].sort((a, b) => a[0] - b[0]);
+    lsm.last = `compacted 1 SST [${sst[0]}–${sst[sst.length-1]}] L${l}→L${l+1} (merged with ${overlapping.length} overlapping L${l+1} SSTs; ${keys.length} keys → ${packed.length} SSTs)`;
+    lsmCompactFrom(l);
+    lsmCompactFrom(l + 1);
+  }
+}
+function lsmReset() { lsm = { memtable: [], levels: [[], [], [], []], counter: 0, last: '—' }; lsmDraw(); lsmUpdateInfo(); }
+function lsmUpdateInfo() {
+  let parts = lsm.levels.map((lv, i) => `L${i}: ${lv.length}/${LEVEL_CAPS[i]} SSTs (${lv.length * SST_MB}/${LEVEL_CAPS[i] * SST_MB} MB)`);
+  document.getElementById('lsm-info').textContent =
+    `Memtable: ${lsm.memtable.length}/${SST_KEYS} keys | ${parts.join(' | ')} — last: ${lsm.last}`;
+}
+function lsmDraw() {
+  let svg = document.getElementById('lsm-svg');
+  let s = '';
+  // Memtable
+  s += `<rect x="10" y="10" width="170" height="48" fill="#fff3e0" stroke="#e65100" stroke-width="2" rx="4"/>`;
+  s += `<text x="95" y="26" text-anchor="middle" font-size="11" font-weight="bold">Memtable</text>`;
+  s += `<text x="95" y="40" text-anchor="middle" font-size="8">${lsm.memtable.join(', ') || '(empty)'}</text>`;
+  s += `<text x="95" y="52" text-anchor="middle" font-size="8">${lsm.memtable.length}/${SST_KEYS} keys</text>`;
+  // Flush arrow memtable -> L0
+  s += `<line x1="95" y1="58" x2="95" y2="74" stroke="#333" stroke-width="1.5"/>`;
+  s += `<text x="105" y="70" font-size="8" fill="#333">flush when full</text>`;
+  // Levels
+  for (let l = 0; l < lsm.levels.length; l++) {
+    let y = 80 + l * 56;
+    let lv = lsm.levels[l];
+    s += `<text x="12" y="${y+16}" font-size="11" font-weight="bold">L${l}</text>`;
+    s += `<text x="12" y="${y+29}" font-size="8" fill="#555">${lv.length}/${LEVEL_CAPS[l]} SSTs</text>`;
+    s += `<text x="12" y="${y+41}" font-size="8" fill="#555">${lv.length * SST_MB}/${LEVEL_CAPS[l] * SST_MB} MB</text>`;
+    for (let i = 0; i < lv.length; i++) {
+      let x = 62 + i * 46;
+      let sst = lv[i];
+      let hot = lv.length > LEVEL_CAPS[l];
+      s += `<rect x="${x}" y="${y}" width="44" height="44" fill="${hot ? '#ffebee' : '#e3f2fd'}" stroke="${hot ? '#c62828' : '#1565c0'}" stroke-width="1.5" rx="4"/>`;
+      s += `<text x="${x+22}" y="${y+18}" text-anchor="middle" font-size="8" font-weight="bold">${sst[0]}–${sst[sst.length-1]}</text>`;
+      s += `<text x="${x+22}" y="${y+32}" text-anchor="middle" font-size="7" fill="#555">${SST_MB} MB</text>`;
+    }
+    // Compaction arrow to next level
+    if (l < lsm.levels.length - 1) {
+      s += `<line x1="36" y1="${y+44}" x2="36" y2="${y+56}" stroke="#d32f2f" stroke-width="1.5"/>`;
+      s += `<text x="44" y="${y+54}" font-size="8" fill="#d32f2f">compact 1 SST when over cap</text>`;
+    }
+  }
+  svg.innerHTML = s;
+}
+lsmDraw();
+lsmUpdateInfo();
+</script>
+</body>
+</html>

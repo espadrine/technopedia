@@ -14,7 +14,7 @@ A **compiler** transforms source code into machine code through a sequence of pa
 \text{source} \xrightarrow{\text{tokenize}} \text{tokens} \xrightarrow{\text{parse}} \text{AST} \xrightarrow{\text{type check}} \text{typed AST} \xrightarrow{\text{IR gen}} \text{IR} \xrightarrow{\text{optimize}} \text{IR}' \xrightarrow{\text{code gen}} \text{machine code}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The pipeline is a sequence of **passes**, each of which reads one representation and produces the next. Passes are independent: a compiler can be re-targeted by replacing the back-end (IR → machine code) while keeping the same front-end (source → IR).
 
@@ -30,7 +30,7 @@ The front-end translates source text into a structured, type-checked representat
 - **Parser**: builds an Abstract Syntax Tree (AST) from the token stream using a grammar (LL, LR, recursive descent). See [Language Theory](./Language-Theory.md) for parser construction.
 - **Type checker**: walks the AST, infers or verifies types, and rejects ill-typed expressions. See [Language Theory](./Language-Theory.md) for type systems and Hindley-Milner inference.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The front-end is where most user-facing error messages originate. A good front-end reports the first error with a precise location and a suggestion. The AST is a tree whose nodes are syntactic constructs (function calls, conditionals, assignments) and whose leaves are identifiers and literals. The type checker annotates each node with its type, producing a **typed AST** that the IR generator can consume.
 
@@ -75,7 +75,7 @@ In **SSA**, every variable is assigned exactly once. Multiple logical assignment
 
 SSA makes data-flow analysis (liveness, reaching definitions, constant propagation) linear-time and local, because each variable has a single definition site.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why SSA matters for optimization**: In non-SSA form, a variable like `x` may be defined in many places, so a pass that wants to know "what value does `x` have here?" must search all preceding definitions. In SSA, the value at any point is determined by following the single definition chain (or a φ node). This turns global data-flow problems into local graph traversals.
 
@@ -111,7 +111,7 @@ Optimization transforms the IR to reduce execution time, code size, or power con
 - **Partial evaluation**: specialize the program for known inputs, eliminating dead branches.
 - **Register allocation**: assign virtual registers (variables) to the limited set of physical CPU registers. See [Memory Management](./Memory-Management.md) for the register-vs-memory hierarchy.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Register allocation** is the most complex optimization. It is modeled as a **graph coloring** problem:
 
@@ -176,7 +176,7 @@ Examine a small window of consecutive instructions and replace them with a short
 - $`push x; pop x` → delete.
 - $`x = x << 1` → $`x = x + x` (on some ISAs, addition is faster than shift).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Code generation is the most target-specific part of the compiler. A single IR can be lowered to x86-64, AArch64, or RISC-V by swapping the instruction selection table and the scheduling model. The **calling convention** (which registers hold arguments, which are caller-saved vs. callee-saved) is part of the target ABI and is handled here. See [CPU Architecture](../Computer-Hardware/CPU-Architecture.md) for the full ISA description, register files, and calling conventions.
 
@@ -212,7 +212,7 @@ Each object file exports symbols (functions, globals) and imports symbols it ref
 - **Linking** (static or dynamic): resolves symbols and produces a final binary with fixed section layout. Happens at build time (static) or process start (dynamic).
 - **Loading**: the OS kernel maps the binary's sections into the process's virtual address space, sets up the stack, and transfers control to the entry point (`_start`). See [Memory Management](./Memory-Management.md) for virtual memory and the process address space layout.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Position-independent code (PIC)**: dynamically linked code must be position-independent because the shared library may be loaded at any address. PIC uses a **Global Offset Table (GOT)** and **Procedure Linkage Table (PLT)** to resolve addresses at runtime. Modern compilers (x86-64, AArch64) generate PIC by default.
 
@@ -228,7 +228,7 @@ Three models govern when and how compilation happens relative to execution:
 - **JIT (Just-In-Time)**: the program is compiled to bytecode, then the runtime compiles hot code paths to native machine code during execution. Slower startup, but can optimize based on runtime profiles (e.g., which branches are taken, which types are actually used). Used by Java (HotSpot), JavaScript (V8, SpiderMonkey), .NET (CoreCLR).
 - **Bytecode interpretation**: the bytecode is executed instruction-by-instruction by an interpreter, with no native compilation. Simplest to implement, slowest at runtime. Used by Python (CPython), Ruby (MRI).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Bytecode** is a platform-independent intermediate representation. The JVM bytecode, .NET IL, and Python bytecode are all examples. Bytecode is easier to verify (security: the JVM verifier checks type safety before execution) and to optimize (JIT: the runtime can specialize code based on observed types) than native code.
 

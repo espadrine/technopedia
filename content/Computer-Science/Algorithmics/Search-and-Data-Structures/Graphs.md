@@ -31,7 +31,7 @@ A graph $`G = (V, E)` with $`|V| = n`, $`|E| = m`:
 <tr><td>Hash set of edges</td><td><i>O</i>(<i>n</i> + <i>m</i>)</td><td><i>O</i>(1) expected</td><td><i>O</i>(deg(<i>v</i>))</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Adjacency list**: an array of lists (or vectors). Best for sparse graphs ($`m \ll n^2`). The standard choice for most algorithms. Each list is a [List](./Lists.md) structure.
 
@@ -39,7 +39,7 @@ A graph $`G = (V, E)` with $`|V| = n`, $`|E| = m`:
 
 **Edge list**: a flat array of (u, v, weight) tuples. Compact, good for external-memory algorithms and GPU parallelism.
 
-**Complexity context**: the Big-O bounds above are analyzed in the framework of [Computability and Complexity Classes](../Computability-and-Complexity-Classes.md), which defines time and space complexity and complexity classes.
+**Complexity context**: the Big-O bounds above are analyzed in the framework of [Theory of Computation](../Theory-of-Computation/Readme.md), which defines time and space complexity and complexity classes.
 
 </details>
 
@@ -53,7 +53,7 @@ A graph $`G = (V, E)` with $`|V| = n`, $`|E| = m`:
 - **Time**: $`O(n + m)`.
 - **Finds**: connected components, cycle detection, topological order, articulation points, biconnected components.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **BFS**: maintain a queue. Start from source $`s`, mark visited, enqueue neighbors. The first time a vertex is dequeued, the path to it is shortest (in edge count).
 
@@ -121,7 +121,7 @@ The BFS levels are:
 - **Optimality**: A* is optimal when $`h` is **admissible**: $`h(v) \leq d^*(v, t)` for all $`v`, where $`d^*(v, t)` is the true shortest distance from $`v` to the target $`t`.
 - **Efficiency**: if $`h` is additionally **consistent** (a.k.a. monotone): $`h(u) \leq c(u,v) + h(v)` for every edge $(u,v)$, then each node is expanded at most once, and the algorithm terminates without re-opening nodes. Consistency implies admissibility.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Dijkstra**: maintain a priority queue of (distance, vertex). Pop the minimum, relax its outgoing edges. Each vertex is finalized once. The binary heap gives $`O(\log n)` per extract-min and $`O(\log n)` per decrease-key.
 
@@ -175,7 +175,7 @@ Shortest distances from A: d(A)=0, d(B)=3, d(C)=2, d(D)=8, d(E)=10.
 
 **A\***: the heuristic $`h(v)` estimates the remaining cost to the target. In a grid, Manhattan distance is admissible. In a road network, the crow-fly (Euclidean) distance is admissible. A* is the basis of GPS navigation and game pathfinding.
 
-See also [Learning Paradigms and Models](../Learning-Paradigms-and-Models.md) for the RL framing of shortest-path problems.
+See also [Neural Networks](../Optimization/Neural-Networks.md) for the RL framing of shortest-path problems.
 
 </details>
 
@@ -189,7 +189,7 @@ An **MST** of a weighted connected undirected graph is a tree spanning all verti
 **Prim's algorithm**: grow the tree from a root; at each step, add the cheapest edge crossing the cut.
 - **Time**: $`O(m \log n)` with a binary heap.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Union-Find** (disjoint set union): supports `make-set`, `find`, `union` in $`O(\alpha(n))` amortized per operation (inverse Ackermann, effectively constant). Path compression + union by rank.
 
@@ -262,7 +262,7 @@ The **max-flow problem** finds the maximum value of flow from $`s` to $`t`.
 
 **Max-flow min-cut theorem**: the maximum flow value equals the minimum cut capacity. A **cut** $(S, T)$ partitions vertices with $`s \in S`, $`t \in T`; its capacity is $\sum_{u \in S, v \in T} c(u,v)$.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Residual graph**: after pushing flow, the residual graph has forward edges with residual capacity $`c(u,v) - f(u,v)` and backward edges with capacity $`f(u,v)` (allowing "undo"). An augmenting path is any $`s \to t` path in the residual graph.
 

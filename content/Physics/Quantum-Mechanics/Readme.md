@@ -24,7 +24,7 @@ Quantum mechanics is organized by the fundamental structures it introduces: the 
 
 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### What quantum mechanics changes
 

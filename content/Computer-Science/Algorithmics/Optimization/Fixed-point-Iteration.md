@@ -10,7 +10,7 @@ A **fixed point** of a map $`g: \mathbb{R}^d \to \mathbb{R}^d` is a point $`x^*`
 
 **Definition**: if $`g` is differentiable and $`\|g'(x^*)\| \leq \rho < 1`, then for $`x_0` close enough to $`x^*`, the iteration $`x_{t+1} = g(x_t)` converges **linearly**: $`\|x_t - x^*\| \leq \rho^t \|x_0 - x^*\|`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Intuition**: a contraction mapping "shrinks" distances. If $`g` brings every point closer to $`x^*` by a factor of at least $`\rho < 1`, then repeated application must converge. The rate $`\rho` determines how many iterations are needed: to reach precision $`\varepsilon`, we need $`t > \log(\varepsilon / \|x_0 - x^*\|) / \log \rho`.
 
@@ -38,7 +38,7 @@ The fixed point is $`x^* \approx 0.739085`. Since $`|\sin(x^*)| \approx 0.674 < 
 
 **Definition**: Newton's method finds roots of $`f(x) = 0` via the fixed-point iteration $`x_{t+1} = x_t - f(x_t)/f'(x_t)`. Near a simple root, it converges **quadratically**: $`\|x_t - x^*\| \approx C \|x_{t-1} - x^*\|^2`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why quadratic**: the fixed-point map is $`g(x) = x - f(x)/f'(x)`. At the root, $`g'(x^*) = 0` (the linear term vanishes), so the error is dominated by the quadratic term. This means the number of correct digits roughly **doubles** each step, making Newton's method extremely fast once close to the solution.
 
@@ -76,7 +76,7 @@ The true root is $`x^* \approx 2.09455`. After 2 steps we have 4 correct digits.
 
 **Definition**: gradient descent $`\theta_{t+1} = \theta_t - \eta \nabla f(\theta_t)` is the fixed-point iteration with $`g(\theta) = \theta - \eta \nabla f(\theta)`. The fixed point satisfies $`\nabla f(\theta^*) = 0` (a critical point). Convergence requires $`\eta < 2/L` where $`L` is the Lipschitz constant of $`\nabla f`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The contraction condition**: the Jacobian of $`g` is $`g'(\theta) = I - \eta \nabla^2 f(\theta)`. For $`g` to be a contraction, we need $`\|I - \eta \nabla^2 f\| < 1`, which holds when $`0 < \eta < 2/L` (where $`L` is the largest eigenvalue of the Hessian, i.e., the Lipschitz constant of the gradient).
 

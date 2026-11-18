@@ -35,7 +35,7 @@ m\ddot{x} + c\dot{x} + kx = F_0\cos(\omega t)
 
 where $`c` is the damping coefficient, $`k` the stiffness, $`\omega_0 = \sqrt{k/m}` the natural frequency, and $`\gamma = c/(2m)` the damping rate. The drive has amplitude $`F_0` and angular frequency $`\omega`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Decomposition into transient + steady-state.** Because the equation is linear, the full solution is the sum of two independent parts:
 
@@ -97,7 +97,7 @@ where the amplitude and phase lag are:
 X(\omega) = \frac{F_0/m}{\sqrt{(\omega_0^2 - \omega^2)^2 + (2\gamma\omega)^2}}, \qquad \tan\delta = \frac{2\gamma\omega}{\omega_0^2 - \omega^2}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Three frequency regimes.**
 
@@ -168,7 +168,7 @@ The peak amplitude (at the displacement resonance $`\omega_{res}`) is, in the we
 X_{\max} = \frac{F_0}{c\,\omega_0} = \frac{F_0}{2m\gamma\,\omega_0} = Q\,\frac{F_0}{k}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Displacement vs. velocity resonance.** The amplitude $`X(\omega)` is maximized at
 
@@ -214,7 +214,7 @@ The instantaneous power delivered by the drive is $`P(t) = F_0\cos(\omega t)\,\d
 \langle P \rangle = \frac{1}{2} F_0 \omega X \sin\delta
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Maximum power transfer at $`\omega = \omega_0`.** The average power is proportional to $`\sin\delta`. Since $`\delta = \pi/2` exactly at $`\omega = \omega_0`, the power is maximized there—*not* at the displacement peak $`\omega_{res}`. Physically, at $`\omega = \omega_0` the velocity $`\dot{x}` is in phase with the force, so the drive does positive work on every half-cycle. This is why **velocity resonance** (and power resonance) sits at $`\omega_0` while **displacement resonance** sits slightly below it.
 
@@ -244,7 +244,7 @@ The same mathematics governs a series RLC circuit driven by a voltage source:
 L\ddot{q} + R\dot{q} + \frac{1}{C}q = V_0\cos(\omega t)
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The mapping between the mechanical and electrical systems is exact:
 
@@ -285,7 +285,7 @@ Instead of applying an external force, a system parameter (e.g., length, stiffne
 m\ddot{x} + c\dot{x} + k_0\bigl[1 + \varepsilon\cos(\Omega t)\bigr]x = 0
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 This is a **Mathieu equation** (when $`\varepsilon` is small and $`c = 0`). The key feature: energy is pumped into the system by modulating a parameter, not by applying a direct force.
 

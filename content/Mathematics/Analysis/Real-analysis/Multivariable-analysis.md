@@ -13,7 +13,7 @@ Multivariable analysis extends the four pillars of one-variable real analysis â€
 
 **Definition (continuity).** $`f` is continuous at $`\mathbf{a}` if $`\lim_{\mathbf{x} \to \mathbf{a}} f(\mathbf{x}) = f(\mathbf{a})`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From one dimension to many
 
@@ -70,7 +70,7 @@ $`\nabla f(\mathbf{a}) = \left(\frac{\partial f}{\partial x_1}(\mathbf{a}), \ldo
 
 $`D_{\mathbf{v}} f(\mathbf{a}) = \nabla f(\mathbf{a}) \cdot \mathbf{v}.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From one derivative to many
 
@@ -120,7 +120,7 @@ $`D(\mathbf{g} \circ \mathbf{f})(\mathbf{a}) = D\mathbf{g}(\mathbf{f}(\mathbf{a}
 
 $`D(\mathbf{f}^{-1})(\mathbf{f}(\mathbf{a})) = [D\mathbf{f}(\mathbf{a})]^{-1}.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The Jacobian as a linear map
 
@@ -176,7 +176,7 @@ $`\mathbf{f}(b) - \mathbf{f}(a) = D\mathbf{f}(c) \cdot (b - a).`
 
 $`f(\mathbf{b}) - f(\mathbf{a}) = \nabla f(\mathbf{c}) \cdot (\mathbf{b} - \mathbf{a}).`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why the multivariable MVT is different
 
@@ -224,7 +224,7 @@ $`\iint_R f(x,y)\, dx\, dy = \int_c^d \left(\int_a^b f(x,y)\, dx\right) dy.`
 
 $`\int_{\mathbf{T}(U)} f(\mathbf{y})\, d\mathbf{y} = \int_U f(\mathbf{T}(\mathbf{x})) \, |\det D\mathbf{T}(\mathbf{x})|\, d\mathbf{x}.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From Riemann sums in two dimensions
 

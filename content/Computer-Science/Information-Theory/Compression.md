@@ -11,7 +11,7 @@ Compression reduces the number of bits needed to represent data, either **lossle
 
 ## Lossless compression
 
-The **source coding theorem** (Shannon, 1948) states that no lossless code can have expected length below the entropy $`H` of the source, and this bound is asymptotically achievable. All the algorithms below approach this fundamental limit. See [Coding and entropy](./Coding-and-Entropy.md) for the full statement and proof.
+The **source coding theorem** (Shannon, 1948) states that no lossless code can have expected length below the entropy $`H` of the source, and this bound is asymptotically achievable. All the algorithms below approach this fundamental limit. See [Coding](./Coding.md) for the full statement and proof.
 
 **Run-length encoding (RLE)**: replace runs of identical symbols with a count. $`AAAAABBBCC \to 5A\;3B\;2C`. Effective for data with long runs; expands data with no runs.
 
@@ -19,7 +19,7 @@ The **source coding theorem** (Shannon, 1948) states that no lossless code can h
 
 **LZW (dictionary)**: build a dictionary of previously seen strings; emit dictionary indices. The dictionary grows during encoding. Used in GIF, TIFF.
 
-**Huffman coding**: assign shorter codewords to more probable symbols. Optimal among prefix-free codes for a known distribution (see [Coding and entropy](./Coding-and-Entropy.md)). Used in JPEG, MP3, DEFLATE.
+**Huffman coding**: assign shorter codewords to more probable symbols. Optimal among prefix-free codes for a known distribution (see [Coding](./Coding.md)). Used in JPEG, MP3, DEFLATE.
 
 **DEFLATE** (RFC 1951): combines LZ77 (backreferences) with Huffman coding. The basis of gzip, ZIP, PNG.
 
@@ -27,7 +27,7 @@ The **source coding theorem** (Shannon, 1948) states that no lossless code can h
 
 **Modern general-purpose formats**: **bzip2** applies the Burrows–Wheeler transform (a reversible permutation that clusters repeated contexts into runs) before entropy coding — strong ratio, slow. **zstd** (RFC 8878) pairs LZ77-style matching with FSE (finite-state entropy, an arithmetic-coding relative) and Huffman coding, tuned for very high speed. **Brotli** (RFC 7932) adds a built-in static dictionary of common web strings to a DEFLATE-like core, for HTTP content encoding.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **LZ77 example**: encoding "ABRACADABRA" with window $`W = 12`, max match $`L = 4`, minimum match 3:
 - positions 0–6: `A`, `B`, `R`, `A`, `C`, `A`, `D` are all literals (each longest match is shorter than 3 symbols);
@@ -116,7 +116,7 @@ All lossy codecs follow the same three-stage structure:
 
 The sections below differ only in the transform (DCT for images, MDCT for audio, DCT + motion compensation for video) and the perceptual model (visual vs. auditory masking).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Worked mini-example**: take a 2-sample block of pixel values $`[64, 72]` and run it through the three stages with a toy transform (the Haar step, which is the simplest orthogonal transform: it replaces a pair by its scaled sum and scaled difference).
 
@@ -182,7 +182,7 @@ An image is a 2D array of **pixels**, each with **RGB** (or YCbCr) values. Lossy
 
 **DCT vs FFT**: this page uses the DCT (and its audio cousin, the MDCT), not the FFT. The DCT is the real-valued, even-symmetric variant of the DFT: the DCT of $`N` real points equals the DFT of the $`2N`-point even extension of the signal, and it needs no complex arithmetic. The FFT is the fast $`O(N \log N)` algorithm that computes DFTs — and, via that even-extension trick, DCTs as well.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why DCT?**: Natural images have most of their energy in low-frequency DCT coefficients. The top-left coefficient (DC) captures the average; the rest (AC) capture detail. Quantizing AC coefficients to zero discards detail the eye barely notices.
 
@@ -255,7 +255,7 @@ Human hearing spans $`20 \text{ Hz}` to $`20 \text{ kHz}`, so $`f_s = 44.1 \text
   <text x="507" y="95" font-size="11" fill="#52b788">above threshold → kept</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Perceptual coding** exploits three phenomena:
 - Critical bands: the ear processes $`\approx 24`–$`25` independent frequency bands.
@@ -323,7 +323,7 @@ Video is a sequence of **frames** at a **framerate** (24, 30, 60 fps). Lossy vid
 
 **Motion compensation**: divide the frame into 16×16 or 8×8 blocks; for each block, search a reference frame for the best-matching block; store the motion vector (offset) and the residual (difference).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **GOP** (Group of Pictures): the sequence of frames between two I-frames. A longer GOP means fewer I-frames (smaller file) but longer error propagation if a frame is corrupted — and a longer seek time, since a player must start decoding at an I-frame.
 
@@ -379,7 +379,7 @@ Compression reduces the number of bits needed to represent data, either lossless
 
 ## Lossless text compression
 
-The **source coding theorem** (Shannon, 1948) states that no lossless code can have expected length below the entropy $`H` of the source, and this bound is asymptotically achievable. All the algorithms below approach this fundamental limit. See [Coding and entropy](./Coding-and-Entropy.md) for the full statement and proof.
+The **source coding theorem** (Shannon, 1948) states that no lossless code can have expected length below the entropy $`H` of the source, and this bound is asymptotically achievable. All the algorithms below approach this fundamental limit. See [Coding](./Coding.md) for the full statement and proof.
 
 **Run-length encoding (RLE)**: replace runs of identical symbols with a count. $`AAAAABBBCC \to 5A\;3B\;2C`. Effective for data with long runs; expands data with no runs.
 
@@ -387,13 +387,13 @@ The **source coding theorem** (Shannon, 1948) states that no lossless code can h
 
 **LZW (dictionary)**: build a dictionary of previously seen strings; emit dictionary indices. The dictionary grows during encoding. Used in GIF, TIFF.
 
-**Huffman coding**: assign shorter codewords to more probable symbols. Optimal among prefix-free codes for a known distribution (see [Coding and entropy](./Coding-and-Entropy.md)). Used in JPEG, MP3, DEFLATE.
+**Huffman coding**: assign shorter codewords to more probable symbols. Optimal among prefix-free codes for a known distribution (see [Coding](./Coding.md)). Used in JPEG, MP3, DEFLATE.
 
 **DEFLATE** (RFC 1951): combines LZ77 (backreferences) with Huffman coding. The basis of gzip, ZIP, PNG.
 
 **Arithmetic coding**: encodes the entire message as a single fraction in $`[0,1)` whose interval shrinks by the probability of each symbol. Achieves entropy more closely than Huffman (which is limited to integer bit lengths).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **LZ77 example**: Encoding "ABRACADABRA" with window 12, max match 4:
 - `A` → literal
@@ -428,7 +428,7 @@ An image is a 2D array of **pixels**, each with **RGB** (or YCbCr) values. Lossy
 5. Quantize: divide each DCT coefficient by a quantization step (larger steps for high frequencies).
 6. Encode the quantized coefficients with Huffman or arithmetic coding.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why DCT?**: Natural images have most of their energy in low-frequency DCT coefficients. The top-left coefficient (DC) captures the average; the rest (AC) capture detail. Quantizing AC coefficients to zero discards detail the eye barely notices.
 
@@ -452,7 +452,7 @@ Human hearing spans $`20 \text{ Hz}` to $`20 \text{ kHz}`, so $`f_s = 44.1 \text
 5. Quantize spectral coefficients below the masking threshold to zero.
 6. Encode the remaining coefficients with Huffman coding.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Mel spectrogram**: a time-frequency representation where the frequency axis is in Mel units. It is the input to many speech recognition and audio classification models.
 
@@ -476,7 +476,7 @@ Video is a sequence of **frames** at a **framerate** (24, 30, 60 fps). Lossy vid
 
 **Motion compensation**: divide the frame into 16×16 or 8×8 blocks; for each block, search a reference frame for the best-matching block; store the motion vector (offset) and the residual (difference).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **GOP** (Group of Pictures): the sequence of frames between two I-frames. A longer GOP means fewer I-frames (smaller file) but longer error propagation if a frame is corrupted.
 

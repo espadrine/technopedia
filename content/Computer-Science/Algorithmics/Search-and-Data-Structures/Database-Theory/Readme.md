@@ -8,7 +8,7 @@ Database theory studies how to store, query, and maintain collections of structu
 - It provides execution guarantees: ACID transactions, index-backed $`O(\log n)` lookups, and cost-based query planning.
 - It composes with distributed systems: sharding, replication, and consensus extend the single-node model.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The five classes partition database theory by the *fundamental question* each answers: structure (what data exists), semantics (what operations mean), execution (how operations run efficiently), concurrency (how parallel access stays safe), and evolution (how the structure changes over time). Each builds on the previous: you must define a schema before you can write algebra over it, you must define algebra before you can compile it to a plan, you must have a plan before you can reason about concurrent execution, and you must have all of the above before you can safely evolve the schema.
 
@@ -27,7 +27,7 @@ The five classes partition database theory by the *fundamental question* each an
 <tr><th>Page</th><th>Aspect</th><th>Key question</th><th>Core guarantee</th></tr>
 <tr><td><a href='./Schema.md'>Schema</a></td><td>Structure</td><td>What tables, columns, and keys exist?</td><td>Referential integrity, normalization</td></tr>
 <tr><td><a href='./Relational-Algebra.md'>Relational Algebra</a></td><td>Semantics</td><td>What does a query compute?</td><td>Set-theoretic correctness of joins, selections, projections</td></tr>
-<tr><td><a href='./SQL.md'>SQL &amp; Query Planning</a></td><td>Execution</td><td>How is a query compiled and run cheaply?</td><td>Cost-optimal plan, index usage</td></tr>
+<tr><td><a href='./SQL-Query-Planning.md'>SQL &amp; Query Planning</a></td><td>Execution</td><td>How is a query compiled and run cheaply?</td><td>Cost-optimal plan, index usage</td></tr>
 <tr><td><a href='./Transactions.md'>Transactions</a></td><td>Concurrency</td><td>How do parallel operations stay consistent?</td><td>ACID, serializability, MVCC</td></tr>
 <tr><td><a href='./Migrations.md'>Migrations</a></td><td>Evolution</td><td>How does the schema change over time?</td><td>Ordered, idempotent, reversible schema changes</td></tr>
 </table>

@@ -12,7 +12,7 @@ The formalism in which these particles are described is [quantum field theory](.
 
 **Definition.** The Standard Model is a quantum field theory with gauge group SU(3)×SU(2)×U(1). Matter fields (fermions) transform under representations of this group; force carriers (gauge bosons) are the connections associated with each factor. Electric charge is fixed by the quantum numbers through the Gell-Mann–Nishijima relation $`Q = T_3 + Y/2`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: three gauge factors, three interactions.** The gauge group has three factors, each corresponding to one interaction:
 
@@ -89,7 +89,7 @@ A neutral/charged doublet with no color is a **lepton doublet** $`(\nu_L, \ell_L
 
 **Definition.** Fermions are spin-½ particles that obey the Pauli exclusion principle. They come in three generations, each with the same particle types but increasing mass.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: the three generations.** Each generation contains one quark doublet and one lepton doublet (plus right-handed singlets). The particle content is:
 
@@ -166,7 +166,7 @@ The electron $`e^-` is a first-generation charged lepton. State its electric cha
 
 **Definition.** Neutrinos are electrically neutral, colorless leptons. In the minimal Standard Model they are massless; the observation of neutrino oscillations shows they have tiny, non-zero masses — the only confirmed physics beyond the minimal Standard Model.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: why they are special.** The minimal Standard Model contains only left-handed neutrinos and no right-handed partners, so no renormalizable mass term can be written for them. Neutrino oscillation experiments (Super-Kamiokande, SNO, 2002) show that a neutrino produced as one flavor (νₑ, ν_μ, ν_τ) is later detected as another, which is only possible if the flavor states are superpositions of states with different non-zero masses.
 
@@ -184,7 +184,7 @@ The electron $`e^-` is a first-generation charged lepton. State its electric cha
 
 **Definition.** Every particle has an antiparticle with the same mass and spin but opposite values of all additive quantum numbers (electric charge, color, lepton number, baryon number). A particle that is its own antiparticle is called a self-conjugate (neutral) particle.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: the rule.** Charge conjugation flips the sign of every additive charge while leaving mass and spin unchanged. The antiparticle of the electron is the **positron** $`e^+` (charge +1, same mass 0.511 MeV); the antiparticle of the up quark is the **anti-up quark** $`\bar{u}` (charge −2/3, anti-color).
 
@@ -220,7 +220,7 @@ The neutron (udd, charge 0, baryon number +1) has an antiparticle, the **antineu
 
 **Definition.** Gauge bosons are spin-1 particles that mediate the fundamental interactions. The Standard Model contains eight gluons (g), three weak bosons (W⁺, W⁻, Z⁰), and one photon (γ).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: the four carriers.**
 - **Gluons** (8): massless, carry color charge themselves (adjoint representation of SU(3)), mediate the strong force. Self-interaction of gluons leads to confinement and asymptotic freedom.
@@ -277,7 +277,7 @@ The emitted boson is the **W⁻**. The down quark (Q = −1/3) becomes an up qua
 
 **Definition.** The Higgs boson (H, mass ≈ 125 GeV/c²) is the spin-0 excitation of the Higgs field. Its nonzero vacuum expectation value breaks electroweak symmetry and gives mass to W, Z, quarks, and charged leptons.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: the mechanism (formalism).** The Higgs field is an SU(2) doublet with hypercharge $`Y = 1`. Its potential has the "Mexican hat" shape, and its nonzero vacuum expectation value $`v \approx 246` GeV breaks the electroweak symmetry. The full derivation — the Mexican-hat potential, the three "eaten" degrees of freedom that become the longitudinal modes of W⁺, W⁻, Z⁰, and the Yukawa mass formula $`m_f = y_f v/\sqrt{2}` — is developed in the [gauge-symmetry section of the QFT page](../Quantum-Mechanics/Quantum-Field-Theory.md). Here we keep only the phenomenology.
 

@@ -38,16 +38,20 @@ An explanation page must have:
 4. the content, which should be structured into sections each corresponding to an idea/a pattern/a group of concepts/theorems/etc.
    Examples: different electronics components, different physics particles, different sorting algorithms.
    Each section should have a title, a definition, a tutorial.
-   1. The definition should be very terse. Like a cheatsheet. Only the raw information, theorem, formula, etc.
+   1. The definition should be very terse. Like a cheatsheet. Only the raw information.
+      Each paragraph: one sentence to explain the purpose, then introduce the name, then a quick description of the objects needed for the definition, and then the theorem, formula, etc.
       The goal is for the reader to remember what it is if they already know, and if they don't, to give them a first clue.
       It can link to an explanation subpage that lists more details (for instance: the main page shows the list of types of compression algorithms,
       eg. one section for "variable-size input to fixed-sized output", with LZ77 as example,
       and we have a subpage listing LZ77, LZ78, LZW, etc.).
-   2. The tutorial should be in a folded block "DETAILS".
-      It explains the idea step-by-step: the goal is for the reader to understand everything, so it should flow from one explanation to the next with no sizable leap.
+   2. The tutorial should be in a folded block "EXPLANATION" (not "DETAILS").
+      It holds the reader's hand through the concept, explaning it step by step, starting from the very beginning.
+      Each step is typically one to three paragraphs, but don't start them with "Step X".
+      It should not assume that the reader read the definition.
+      The goal is for the reader to understand everything, so it should flow from one explanation to the next with no sizable leap.
       Each step should have:
-      1. a global explanation,
-      2. then a specific example,
+      1. a global explanation, explaning the purpose, introducing and defining the involved objects, explaining the definition.
+      2. then a walkthrough example to show how the concept works in practice step-by-step,
       3. intersperse diagrams, animations, interactive demos, iframe simulations (eg. electronics schematics, physics simulations, ...),
          in order to showcase and enhance the examples.
       4. then links to authoritative sources,
@@ -101,12 +105,13 @@ It should, in a loop:
       3. if there are pages with a null score, pick the one amongst them with the oldest edit timestamp;
       4. otherwise, pick the page with the oldest review timestamp.
    2. Produce an evaluation of the page.
-      If the page is a topic page, the evaluation must check:
+      It must check:
       - adherence to the rules,
+      - adherence to the author notes,
+      If the page is a topic page, the evaluation must check:
       - whether the categorization is the optimal one,
       - whether there is a missing topic
       If the page is an explanation page, the evaluation must check:
-      - adherence to the rules,
       - clarity of the explanation, of how one section flows to the next, of the examples, intuitiveness and interactivity of the animations
       - whether the section organization is the optimal one,
       - whether there is a missing section

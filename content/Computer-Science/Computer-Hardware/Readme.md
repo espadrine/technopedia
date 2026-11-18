@@ -8,7 +8,7 @@ Computer hardware studies the physical substrate on which programs execute: proc
 - It provides the abstraction (process, thread, file) that software uses to access hardware.
 - It enables parallelism: multiple cores, SIMD, and multicore scaling.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Computer hardware sits between programming and distributed systems: it takes the executable program produced by the compiler and runs it on physical silicon. The key insight is the **memory hierarchy**: registers (1 cycle) → L1 cache (4 cycles) → L2 cache (12 cycles) → L3 cache (40 cycles) → DRAM (100 cycles) → SSD (100,000 cycles) → HDD (10,000,000 cycles). Each level is faster but smaller and more expensive. The operating system manages this hierarchy: it schedules processes onto cores, maps virtual addresses to physical pages, and multiplexes I/O devices.
 

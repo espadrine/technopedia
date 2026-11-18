@@ -16,7 +16,7 @@ Given a likelihood $`L(\theta) = \prod_{i=1}^n f(x_i; \theta)`, the MLE is
 
 where $`\ell(\theta) = \sum_i \log f(x_i; \theta)` is the log-likelihood.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The MLE has several key properties:
 
@@ -58,7 +58,7 @@ Equate sample moments to population moments:
 
 Solve for $`\theta`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The method of moments is simpler than MLE but generally less efficient. It works by matching the first $`k` sample moments to the first $`k` theoretical moments, where $`k` is the number of parameters.
 
@@ -74,7 +74,7 @@ For any unbiased estimator $`T` of $`g(\theta)`:
 \text{Var}(T) \geq \frac{[g'(\theta)]^2}{n \, I(\theta)}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The Cramér–Rao bound gives a lower bound on the variance of any unbiased estimator. An estimator that achieves the bound is called **efficient**. The MLE is asymptotically efficient: its variance approaches the bound as $`n \to \infty`.
 
@@ -107,7 +107,7 @@ The mean squared error of an estimator $`\hat{\theta}` decomposes as
 
 where $`\text{Bias}(\hat{\theta}) = E[\hat{\theta}] - \theta`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The decomposition shows that an estimator's total error has two independent sources: systematic error (bias) and random fluctuation (variance). The Cramér–Rao bound constrains only the variance of *unbiased* estimators; a biased estimator can have lower MSE by trading some bias for reduced variance.
 
@@ -121,7 +121,7 @@ This tradeoff is the key lens for comparing estimators beyond the Cramér–Rao 
 
 A statistic $`T(X)` is **sufficient** for $`\theta` if the conditional distribution of $`X` given $`T(X)` does not depend on $`\theta`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Fisher's factorization theorem.** $`T(X)` is sufficient for $`\theta` if and only if the likelihood factors as
 
@@ -147,7 +147,7 @@ A $`1-\alpha` confidence interval for $`\theta` is a random interval $`[L(X), U(
 P_\theta\bigl(\theta \in [L, U]\bigr) \geq 1 - \alpha \quad \forall\, \theta
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Construction methods:
 

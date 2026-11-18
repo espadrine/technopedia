@@ -10,7 +10,7 @@ Operators are the maps between the spaces of the [Spaces](./Spaces.md) page — 
 
 **Definition.** A linear map $`T : X \to Y` between normed spaces is **bounded** if some constant $`M` satisfies $`\|Tx\| \leq M\|x\|` for every $`x`; equivalently, $`T` is continuous. Its **operator norm** is $`\|T\| = \sup_{\|x\| \leq 1} \|Tx\|`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Bounded is the same as continuous
 
@@ -49,7 +49,7 @@ $`\|T(a,b)\|^2 = (a+b)^2 + (a-b)^2 = 2a^2 + 2b^2 = 2\|(a,b)\|^2`, so $`\|T(a,b)\
 
 **Definition.** An **unbounded operator** $`A` on a Hilbert space $`H` is a linear map defined only on a dense subspace $`\mathcal{D}(A) \subset H` (its **domain**), not on all of $`H`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why operators must sometimes be unbounded
 
@@ -79,7 +79,7 @@ Take $`f_n(x) = \sin(n \pi x)`. Then $`\|f_n\|_2^2 = \int_0^1 \sin^2(n\pi x)\,dx
 
 **Definition.** The **adjoint** $`T^*` of a bounded operator $`T : X \to Y` is the unique bounded operator $`T^* : Y^* \to X^*` with $`\langle Tx, y^* \rangle = \langle x, T^* y^* \rangle` for all $`x, y^*`. On a Hilbert space $`H`, $`T^* : H \to H` is defined by $`\langle Tx, y \rangle = \langle x, T^* y \rangle`. An operator is **self-adjoint** if $`T = T^*`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The adjoint turns the inner product around
 
@@ -116,7 +116,7 @@ $`\lambda = \lambda \langle x, x \rangle = \langle \lambda x, x \rangle = \langl
 
 **Definition.** A bounded operator $`T` on a normed space is **compact** if the image of the unit ball has compact closure; equivalently, every bounded sequence $`(x_n)` has a subsequence such that $`(T x_{n_k})` converges.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Compact means "almost finite rank"
 
@@ -157,7 +157,7 @@ Let $`T x = \sum_{k=1}^n \varphi_k(x)\, y_k` with $`\varphi_k \in X^*` and $`y_k
 
 **Definition.** The **spectral theorem** says that a normal operator $`T` on a Hilbert space (in particular a self-adjoint one) can be "diagonalized": there is a measure space and a function $`f` such that $`T` is unitarily equivalent to multiplication by $`f`, and the spectrum of $`T` is the essential range of $`f`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From diagonalizing a matrix
 

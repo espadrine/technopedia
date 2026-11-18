@@ -10,7 +10,7 @@ Analytic continuation extends a holomorphic function beyond the disk where its d
 
 **Definition.** Let $`f` be holomorphic on a domain $`U`. An **analytic continuation** of $`f` to a larger domain $`V \supseteq U` is a holomorphic function $`F` on $`V` such that $`F|_U = f`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why continuation is possible at all
 
@@ -58,7 +58,7 @@ Let $`F` be any holomorphic continuation to $`\mathbb{C} \setminus \{1\}`. On th
 
 **Definition.** A point $`a` is a **branch point** of a (multi-valued) function if analytic continuation of a branch along a small loop encircling $`a` does not return to the original branch. The **monodromy** of the function is the rule that records which branch one lands on after continuing along a given loop.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The logarithm: a one-valued-looking function that is not
 
@@ -100,7 +100,7 @@ At $`z = 0`: as shown, one loop around $`0` sends a branch to its negative, so c
 
 **Definition.** A **Riemann surface** is a one-dimensional complex manifold: a space that locally looks like an open set of $`\mathbb{C}`, with holomorphic transition maps. For a multi-valued function, its Riemann surface is built by stacking copies of the plane ("sheets") and gluing them along branch cuts so that the function becomes single-valued and holomorphic on the surface.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Making $`\log z` single-valued: the infinite spiral
 

@@ -23,7 +23,7 @@ The four fundamental interactions are distinct in their source, range, and coupl
 
 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Gravity is unique: in general relativity it is not a force in a fixed background but the curvature of spacetime itself. The other three interactions are described by gauge field theories with local symmetry groups (U(1) for electromagnetism, SU(3) for the strong force, SU(2)×U(1) for the electroweak theory). In the classical limit, the quantum field description reduces to continuous fields obeying differential equations (Maxwell's equations, Einstein field equations, Yang-Mills equations).
 

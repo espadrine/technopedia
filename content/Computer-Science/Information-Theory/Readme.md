@@ -8,7 +8,7 @@ Information theory studies the mathematical limits of encoding, compression, tra
 - It designs codes that achieve those bounds (compression, error correction).
 - It provides the mathematical foundation for cryptography.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Information theory sits between algorithmics and the physical world: it takes the abstract data produced by an algorithm and asks how many bits are truly needed, how to pack them efficiently, and how to protect them from noise or eavesdroppers. The key insight is that the limits are mathematical (entropy, channel capacity) and are independent of the particular hardware or protocol used to implement them.
 
@@ -25,7 +25,8 @@ Information theory sits between algorithmics and the physical world: it takes th
 
 <table>
 <tr><th>Page</th><th>Core object</th><th>Key metric</th><th>Boundary</th></tr>
-<tr><td><a href='./Coding-and-Entropy.md'>Coding and entropy</a></td><td>Alphabets, encodings, entropy measures</td><td>Bits per symbol, entropy, redundancy</td><td>How to represent data compactly; does not model the channel or the adversary</td></tr>
+<tr><td><a href='./Coding.md'>Coding</a></td><td>Alphabets, encodings, prefix-free codes</td><td>Bits per symbol, codewords, Huffman codes</td><td>How to represent data with bits; does not model the channel or the adversary</td></tr>
+<tr><td><a href='./Entropy.md'>Entropy</a></td><td>Uncertainty of a random source</td><td>Entropy, mutual information, redundancy</td><td>How much information a source carries; does not model the channel or the adversary</td></tr>
 <tr><td><a href='./Compression.md'>Compression</a></td><td>Lossless and lossy codecs</td><td>Compression ratio, distortion, bitrate</td><td>How to reduce the number of bits; does not model the transmission channel</td></tr>
 <tr><td><a href='./Communication.md'>Communication</a></td><td>Error-correcting codes, channel models</td><td>Bit error rate, code rate, channel capacity</td><td>How to transmit reliably over a noisy channel; does not model the source or the adversary</td></tr>
 <tr><td><a href='./Cryptography.md'>Cryptography</a></td><td>Ciphers, hashes, key exchange</td><td>Key size, advantage, security parameter</td><td>How to protect data from an adversary; does not model the physical channel</td></tr>

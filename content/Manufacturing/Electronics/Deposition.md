@@ -33,7 +33,7 @@ Each cycle adds one functional layer (a gate oxide, a metal interconnect, a well
 
 A gas-phase chemical reaction at the heated substrate surface deposits a solid film; variants (thermal, plasma-enhanced, metalorganic) differ only in how the reaction energy is supplied.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** Precursor gases are flowed into a reactor chamber. They diffuse through a boundary layer to the wafer, adsorb on the hot surface, react there (the surface must be hot enough, or a plasma must crack the molecules), and the solid product stays as film while by-products desorb and are pumped away. The rate is limited either by the surface reaction (temperature-controlled, gives good coverage) or by gas transport (flow-controlled, gives high rate but poor coverage).
 
@@ -85,7 +85,7 @@ A PECVD tool deposits SiO₂ at 100 nm/min. How long must it run to fill a 0.5 �
 
 A self-limiting special case of CVD: alternating precursor pulses each saturate the surface, so exactly one atomic layer (a fraction of a monolayer, ~0.1 nm) is added per cycle, independent of how long the pulse lasts.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** One cycle has four steps: (1) pulse precursor A — its molecules chemisorb on the surface until every reactive site is occupied, then the uptake *stops by itself* (self-limiting); (2) purge the excess A away; (3) pulse co-reactant B, which reacts with the adsorbed A to form one layer of product and regenerates reactive sites; (4) purge again. Because each step saturates, the growth per cycle (GPC) is fixed by surface chemistry, not by time or gas flow — which is why ALD coats deep trenches and nanowires with atomic uniformity even at aspect ratios of 10:1 to 20:1 (beyond that, purge times must be extended because diffusion into the feature becomes slow).
 
@@ -138,7 +138,7 @@ An ALD process for Al₂O₃ from TMA/H₂O grows 0.11 nm per cycle. How many cy
 
 A solid source is vaporized in vacuum and condenses on the substrate; atoms travel in straight lines, so coverage of shadowed regions is limited.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** The source material is turned into vapor — by heating it (evaporation) or by bombarding it with energetic ions (sputtering). Because the chamber is at high vacuum, the atoms fly without collisions and land on whatever surface has a direct line of sight to the source. Film growth is therefore directional: horizontal surfaces get thick films, trench bottoms get thin ones. A magnetic field (magnetron) traps electrons near the target so more Ar⁺ ions are created, raising the rate.
 
@@ -194,7 +194,7 @@ A metal is deposited from a liquid electrolyte — electrochemically (driven by 
 
 A single-crystal film is grown on a single-crystal substrate with the same lattice orientation; the film *continues* the crystal rather than nucleating grains.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** Atoms arrive at a hot, atomically clean single-crystal surface and find lattice sites that continue the substrate's periodicity. If the arriving species are supplied as beams in ultra-high vacuum, growth is slow and precisely controlled layer by layer (MBE); if they arrive as gas molecules that decompose on the surface, it is vapor-phase epitaxy (MOVPE, or Si epitaxy from SiH₄). Lattice mismatch between film and substrate creates strain — which is exploited deliberately: compressively strained SiGe in transistor sources/drains boosts hole mobility (see [Film stress](#film-stress)).
 
@@ -324,7 +324,7 @@ The figure below shows a cross-section of a high-aspect-ratio trench (depth ≈ 
 
 Film quality is the set of measurable properties that decide whether a deposited layer works in the device: thickness, uniformity, conformality, roughness, interface cleanliness, and stress. Every one of them trades off against **deposition rate** — the primary throughput knob a process engineer turns. Fast processes (PECVD, sputtering) deliver high throughput but rougher, more stressed, less conformal films; slow ones (ALD, MBE) deliver near-perfect films at a fraction of the wafers per hour.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Thickness and uniformity.** Measured by spectroscopic ellipsometry (in-line, non-destructive, 49-point maps). Example: a 300 mm wafer with a nominal 50 nm PECVD SiO₂ film reads 50.2 nm at the center and 49.8 nm at the edge — a spread of 0.4 nm on 50 nm, i.e. 0.8 % uniformity, inside the typical ±2 % CVD spec (ALD specs are tighter, ±1 %).
 
@@ -396,7 +396,7 @@ Each cycle adds one functional layer (a gate oxide, a metal interconnect, a well
 
 A gas-phase reaction deposits a solid film on the substrate surface.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Thermal CVD**: precursor gases react at the substrate surface at 300–1100 °C. Example: SiH₄ + O₂ → SiO₂ (thermal oxide for gate dielectrics and spacers). Good step coverage, moderate rate.
 - **Plasma-enhanced CVD (PECVD)**: a plasma provides the activation energy, allowing deposition at 100–300 °C. Used for SiO₂, Si₃N₄, and amorphous silicon.
@@ -409,7 +409,7 @@ A gas-phase reaction deposits a solid film on the substrate surface.
 
 A solid source is vaporized and condensed on the substrate.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Thermal evaporation**: the source is heated until it evaporates; the vapor condenses on the substrate. Line-of-sight deposition; poor step coverage. Used for thin metal films (Al, Cu, Au).
 - **Sputtering**: ions (Ar⁺) bombard a target, ejecting atoms that deposit on the substrate. Better step coverage than evaporation. Used for metal interconnects, barrier layers (TaN, TiN), and hard masks.
@@ -422,7 +422,7 @@ A solid source is vaporized and condensed on the substrate.
 
 A metal is deposited electrochemically or by chemical reduction. This section covers the electronics-specific applications; for the general manufacturing context (corrosion resistance, wear protection) see [Surface finishing](../Surface-finishing.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Electroplating (electronics)**: Cu is deposited from an electrolyte onto a seed layer. Used for PCB copper thickening in [PCB fabrication](./PCB-fabrication.md), TSV filling in 3D ICs (see [Interconnect and packaging](./Interconnect-and-packaging.md)).
 - **Electroless copper**: a chemical reduction deposits Cu on a catalytically active surface (palladium-seeded). Used to make non-conductive substrates (glass, ceramic) conductive before electroplating.
@@ -434,7 +434,7 @@ A metal is deposited electrochemically or by chemical reduction. This section co
 
 A single-crystal film is grown on a single-crystal substrate with the same lattice orientation.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Molecular beam epitaxy (MBE)**: ultra-high vacuum, atomic-beam sources. Grows III-V and II-VI heterostructures with monolayer precision. Used for quantum wells, HEMTs, and research.
 - **Metalorganic vapor phase epitaxy (MOVPE)**: organometallic precursors in a gas stream. Higher throughput than MBE. Used for LEDs, lasers, and 5G power amplifiers.
@@ -491,7 +491,7 @@ The figure below shows a cross-section of a high-aspect-ratio trench (depth ≈ 
 
 ## Film quality metrics
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Thickness and uniformity**: measured by spectroscopic ellipsometry (in-line, non-destructive). Typical spec: ±2 % thickness uniformity across a 300 mm wafer for CVD; ±1 % for ALD.
 - **Step coverage**: measured by cross-section TEM (transmission electron microscopy). Typical values: &gt; 90 % for CVD, &gt; 99 % for ALD at moderate aspect ratios (≤ 20:1).

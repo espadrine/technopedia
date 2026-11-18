@@ -14,7 +14,7 @@ The canonical nonlinear oscillator:
 \ddot{x} + \delta\dot{x} + \alpha x + \beta x^3 = \gamma\cos(\omega t)
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - $`\beta > 0`: **hardening** spring (stiffness increases with amplitude; period decreases with amplitude).
 - $`\beta < 0`: **softening** spring (stiffness decreases; period increases with amplitude).
@@ -37,7 +37,7 @@ T(A) = \frac{4}{\sqrt{\alpha + \beta A^2}}\;K\!\Bigl(\sqrt{\frac{\beta A^2}{2(\a
 
 where $`K` is the complete elliptic integral of the first kind.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 For small nonlinearity ($`|\beta|A^2 \ll \alpha`), a perturbation expansion gives:
 
@@ -65,7 +65,7 @@ In the phase plane, nonlinear systems can exhibit:
 - **Limit cycles**: isolated closed orbits that attract (stable) or repel (unstable) nearby trajectories.
 - **Separatrices**: boundaries between qualitatively different motions.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A **stable limit cycle** means the system oscillates with a fixed amplitude regardless of initial conditions (within the basin of attraction). Examples: the van der Pol oscillator (modeling heartbeats, relaxation oscillations), the Hopf bifurcation in fluid dynamics.
 
@@ -83,7 +83,7 @@ The other canonical nonlinear oscillator is the **van der Pol** equation:
 \ddot{x} - \mu(1 - x^2)\dot{x} + x = 0
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The parameter $`\mu \geq 0` controls the strength of the nonlinear damping:
 
@@ -111,7 +111,7 @@ As a control parameter (e.g., driving amplitude $`\gamma`) is varied, the steady
 3. **Quasi-periodicity**: motion on a 2-torus (two incommensurate frequencies).
 4. **Intermittency**: long laminar phases interrupted by bursts.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The Duffing oscillator with $`\delta > 0` and varying $`\gamma` exhibits a period-doubling route to chaos. The Lyapunov exponent becomes positive in the chaotic regime, meaning nearby trajectories diverge exponentially.
 

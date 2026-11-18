@@ -61,7 +61,7 @@ No real engine exceeds this efficiency between the same two reservoirs.
 
 </td></tr></table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The four steps** (heat engine mode, working fluid is an ideal gas):
 
@@ -130,7 +130,7 @@ where $`r = V_{\max}/V_{\min}` is the compression ratio and $`\gamma = C_P/C_V`.
 
 </td></tr></table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Steps:** (1) isentropic compression, (2) constant-volume heat addition (combustion), (3) isentropic expansion (power stroke), (4) constant-volume heat rejection (exhaust).
 
@@ -194,7 +194,7 @@ where $`r` is the compression ratio and $`\rho = V_3/V_2` is the cutoff ratio.
 
 </td></tr></table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Steps:** (1) isentropic compression, (2) constant-pressure heat addition (fuel injection), (3) isentropic expansion, (4) constant-volume heat rejection.
 
@@ -256,7 +256,7 @@ where $`r_p = P_{\text{high}}/P_{\text{low}}` is the pressure ratio.
 
 </td></tr></table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Steps:** (1) isentropic compression (compressor), (2) constant-pressure heat addition (combustor), (3) isentropic expansion (turbine), (4) constant-pressure heat rejection (exhaust).
 
@@ -322,7 +322,7 @@ where $`r_p = P_{\text{high}}/P_{\text{low}}` is the pressure ratio.
 
 </td></tr></table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Steps:** (1) isentropic compression (pump, liquid water), (2) constant-pressure heat addition (boiler: liquid → superheated vapor), (3) isentropic expansion (turbine), (4) constant-pressure heat rejection (condenser: vapor → liquid).
 
@@ -390,7 +390,7 @@ With perfect regeneration the Stirling cycle achieves Carnot efficiency, because
 
 </td></tr></table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The four steps:**
 
@@ -433,7 +433,7 @@ Carnot (reversible) limits:
 \mathrm{COP}_{\text{ref,Carnot}} = \frac{T_C}{T_H - T_C}, \qquad \mathrm{COP}_{\text{HP,Carnot}} = \frac{T_H}{T_H - T_C}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Refrigerator vs. heat pump.** Same cycle, different purpose. A refrigerator removes heat from a cold space ($`Q_C` is the desired output). A heat pump delivers heat to a warm space ($`Q_H` is the desired output). Since $`Q_H = Q_C + W`, the heat-pump COP is always 1 greater than the refrigerator COP.
 

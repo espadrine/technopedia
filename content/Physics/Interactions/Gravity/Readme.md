@@ -37,7 +37,7 @@ precesses, exactly as observed for Mercury and for pulsars in binary systems.
 
 ## Details
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From Newton to Einstein
 

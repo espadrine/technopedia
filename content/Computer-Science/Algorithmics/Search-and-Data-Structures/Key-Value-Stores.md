@@ -11,12 +11,12 @@ Key-value stores organize data so that a key maps to a value, supporting fast lo
 ## Comparison
 
 <table>
-<tr><th>Structure</th><th>Search</th><th>Insert</th><th>Space</th><th>Medium</th><th>Primary use case</th></tr>
-<tr><td>Hash table</td><td><i>O</i>(1) expected</td><td><i>O</i>(1) expected</td><td><i>O</i>(<i>n</i>)</td><td>In-memory</td><td>Caches, dictionaries, dedup</td></tr>
-<tr><td>Balanced BST</td><td><i>O</i>(log <i>n</i>)</td><td><i>O</i>(log <i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td>In-memory</td><td>Ordered iteration, range queries</td></tr>
-<tr><td>Skip list</td><td><i>O</i>(log <i>n</i>) expected</td><td><i>O</i>(log <i>n</i>) expected</td><td><i>O</i>(<i>n</i>) expected</td><td>In-memory</td><td>Sorted sets (Redis ZSET), memtables</td></tr>
-<tr><td>B-tree</td><td><i>O</i>(log<sub><i>m</i></sub> <i>n</i>) I/Os</td><td><i>O</i>(log<sub><i>m</i></sub> <i>n</i>) I/Os</td><td><i>O</i>(<i>n</i>)</td><td>Disk</td><td>Database indexes (InnoDB, SQLite)</td></tr>
-<tr><td>LSM-tree</td><td><i>O</i>(log <i>n</i>) with bloom filters</td><td><i>O</i>(1) (memtable)</td><td><i>O</i>(<i>n</i> · <i>L</i>) worst case</td><td>Disk + RAM</td><td>Write-heavy stores (RocksDB, Cassandra)</td></tr>
+<tr><th>Structure</th><th>Search</th><th>Range</th><th>Insert</th><th>Space</th><th>Medium</th><th>Primary use case</th></tr>
+<tr><td>Hash table</td><td><i>O</i>(1) expected</td><td>— (point lookups only)</td><td><i>O</i>(1) expected</td><td><i>O</i>(<i>n</i>)</td><td>In-memory</td><td>Caches, dictionaries, dedup</td></tr>
+<tr><td>Balanced BST</td><td><i>O</i>(log <i>n</i>)</td><td><i>O</i>(log <i>n</i> + <i>k</i>)</td><td><i>O</i>(log <i>n</i>)</td><td><i>O</i>(<i>n</i>)</td><td>In-memory</td><td>Ordered iteration, range queries</td></tr>
+<tr><td>Skip list</td><td><i>O</i>(log <i>n</i>) expected</td><td><i>O</i>(log <i>n</i> + <i>k</i>) expected</td><td><i>O</i>(log <i>n</i>) expected</td><td><i>O</i>(<i>n</i>) expected</td><td>In-memory</td><td>Sorted sets (Redis ZSET), memtables</td></tr>
+<tr><td>B-tree</td><td><i>O</i>(log<sub><i>m</i></sub> <i>n</i>) I/Os</td><td><i>O</i>(log<sub><i>m</i></sub> <i>n</i> + <i>k</i>) I/Os</td><td><i>O</i>(log<sub><i>m</i></sub> <i>n</i>) I/Os</td><td><i>O</i>(<i>n</i>)</td><td>Disk</td><td>Database indexes (InnoDB, SQLite)</td></tr>
+<tr><td>LSM-tree</td><td><i>O</i>(log <i>n</i>) with bloom filters</td><td><i>O</i>(log <i>n</i> + <i>k</i>)</td><td><i>O</i>(1) (memtable)</td><td><i>O</i>(<i>n</i> · <i>L</i>) worst case</td><td>Disk + RAM</td><td>Write-heavy stores (RocksDB, Cassandra)</td></tr>
 </table>
 
 ## Hash tables
@@ -26,11 +26,12 @@ A hash table maps keys to values via a hash function $`h: K \to \{0, \ldots, m-1
 - **Lookup / Insert / Delete**: $`O(1)` expected.
 - **Load factor**: $`\alpha = n/m`. Performance degrades when $`\alpha > 0.7` (chaining) or $`\alpha > 0.5` (open addressing).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
+<iframe src="./Hash-table.simulation.html" title="Interactive Hash table simulation"></iframe>
 A hash table is an array of $`m` slots. The hash function $`h(k)` computes the slot index for key $`k`. When two keys map to the same slot, a **collision** occurs and must be resolved.
 
-**Step 1 — The hash function.**
+**The hash function.**
 
 The hash function compresses an arbitrary key into a small integer. For a table of size $`m = 7`, a simple hash is $`h(k) = k \bmod 7`.
 
@@ -40,18 +41,18 @@ The hash function compresses an arbitrary key into a small integer. For a table 
 - $`h(8) = 8 \bmod 7 = 1` → slot 1
 - $`h(1) = 1 \bmod 7 = 1` → slot 1 (collision with 8!)
 
-**Step 2 — Collision resolution.**
+**Collision resolution.**
 
 Two standard strategies:
 
 - **Chaining**: each slot holds a linked list of all keys that hash to it. Slot 1 now holds [8, 1]. Lookup walks the chain: expected chain length is $`\alpha = n/m = 4/7 \approx 0.57`.
 - **Open addressing**: on collision, probe to the next slot. Linear probing: $`h(i) = (h(k) + i) \bmod m`. Key 1 collides at slot 1, so it probes to slot 2.
 
-**Step 3 — Resizing.**
+**Resizing.**
 
 When $`\alpha` exceeds a threshold (e.g. 0.75), the table is rehashed into an array of size $`2m`. Every key is reinserted. Amortized cost per insertion remains $`O(1)` because the expensive resize is spread over many cheap insertions.
 
-**Step 4 — Hash function quality.**
+**Hash function quality.**
 
 A good hash is approximately universal: for any two distinct keys $`k_1 \neq k_2`, $`\Pr[h(k_1) = h(k_2)] \leq 1/m`. In practice, 64-bit hashes (xxHash, MurmurHash, FNV) with a random seed suffice.
 
@@ -119,9 +120,10 @@ A **binary search tree (BST)** stores keys in a binary tree satisfying the BST i
 - **Space**: $`O(n)` (one node per key, two child pointers + color/balance field).
 - **Ordered iteration**: in-order traversal yields keys in sorted order in $`O(n)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The BST invariant.**
+<iframe src="./Balanced-BST.simulation.html" title="Interactive Balanced BST simulation"></iframe>
+**The BST invariant.**
 
 In a BST, for any node $`v` with key $`k_v`:
 - Every key in $`v`'s left subtree is $`< k_v`.
@@ -151,17 +153,17 @@ This means a search for key $`k` follows a single path: go left if $`k < k_v`, r
 
 Search for 4: 5 → go left (4 < 5) → 3 → go right (4 > 3) → found. 2 comparisons.
 
-**Step 2 — Why balance is needed.**
+**Why balance is needed.**
 
 If keys arrive in sorted order (1, 2, 3, …, n), the BST becomes a right-leaning chain of height $`n-1`. Search degrades to $`O(n)`. A balanced BST enforces a height bound of $`O(\log n)`.
 
-**Step 3 — AVL trees (height balance).**
+**AVL trees (height balance).**
 
 An **AVL tree** (Adelson-Velskii–Landis, 1962) requires that for every node, the heights of the left and right subtrees differ by at most 1. After an insertion or deletion, the tree is rebalanced with at most two rotations (left, right, left-right, right-left) along the path to the root.
 
 *Example*: insert 1, 2, 3 into an AVL tree. After inserting 3, node 1 has a right-heavy subtree (height 2 vs. 0). A left rotation at node 1 makes node 2 the root, restoring balance.
 
-**Step 4 — Red-black trees (color invariants).**
+**Red-black trees (color invariants).**
 
 A **red-black tree** (Guibas & Sedgewick, 1978) colors each node red or black and enforces:
 1. Every node is red or black.
@@ -174,7 +176,7 @@ Rule 5 bounds the height: the longest path (alternating red-black) is at most tw
 
 *Example*: insert 5, 3, 8, 1, 4. After inserting 4 (red), its parent 3 is also red — violating rule 4. A left rotation at 3 and a color swap restores the invariants.
 
-**Step 5 — Comparison and use.**
+**Comparison and use.**
 
 <table>
 <tr><th>Property</th><th>AVL</th><th>Red-black</th></tr>
@@ -215,13 +217,14 @@ A skip list is a probabilistic balanced search structure: each element has a ran
 - **Space**: $`O(n)` expected (geometric distribution of levels).
 - **Simpler to implement** than AVL or red-black trees (no rotations; only pointer manipulation).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The base level.**
+<iframe src="./Skip-list.simulation.html" title="Interactive Skip list simulation"></iframe>
+**The base level.**
 
 Level 0 is a sorted linked list. Search is $`O(n)`: walk forward until you find the key.
 
-**Step 2 — Adding levels.**
+**Adding levels.**
 
 Each new element gets a level by "flipping a coin" until it lands: level 1 with probability 1/2, level 2 with probability 1/4, etc. The expected number of levels per element is 2, so total space is $`O(n)`. Higher levels act as express lanes: a search starts at the top level and drops down when it would overshoot.
 
@@ -229,19 +232,21 @@ Each new element gets a level by "flipping a coin" until it lands: level 1 with 
 
 <svg viewBox="0 0 500 170" xmlns="http://www.w3.org/2000/svg" style="max-width:500px;">
   <text x="5" y="25" font-size="11" fill="#555">L3</text>
-  <circle cx="50" cy="22" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
-  <text x="50" y="26" text-anchor="middle" font-size="11" font-weight="bold">12</text>
-  <line x1="64" y1="22" x2="480" y2="22" stroke="#e65100" stroke-width="1.5"/>
+  <line x1="36" y1="22" x2="311" y2="22" stroke="#e65100" stroke-width="1.5"/>
+  <circle cx="325" cy="22" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+  <text x="325" y="26" text-anchor="middle" font-size="11" font-weight="bold">12</text>
+  <line x1="339" y1="22" x2="480" y2="22" stroke="#e65100" stroke-width="1.5"/>
   <text x="5" y="55" font-size="11" fill="#555">L2</text>
-  <circle cx="50" cy="52" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
-  <text x="50" y="56" text-anchor="middle" font-size="11" font-weight="bold">3</text>
-  <line x1="64" y1="52" x2="140" y2="52" stroke="#e65100" stroke-width="1.5"/>
-  <circle cx="155" cy="52" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
-  <text x="155" y="56" text-anchor="middle" font-size="11" font-weight="bold">9</text>
-  <line x1="169" y1="52" x2="240" y2="52" stroke="#e65100" stroke-width="1.5"/>
+  <line x1="36" y1="52" x2="101" y2="52" stroke="#e65100" stroke-width="1.5"/>
+  <circle cx="115" cy="52" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+  <text x="115" y="56" text-anchor="middle" font-size="11" font-weight="bold">3</text>
+  <line x1="129" y1="52" x2="241" y2="52" stroke="#e65100" stroke-width="1.5"/>
   <circle cx="255" cy="52" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
-  <text x="255" y="56" text-anchor="middle" font-size="11" font-weight="bold">12</text>
-  <line x1="269" y1="52" x2="480" y2="52" stroke="#e65100" stroke-width="1.5"/>
+  <text x="255" y="56" text-anchor="middle" font-size="11" font-weight="bold">9</text>
+  <line x1="269" y1="52" x2="311" y2="52" stroke="#e65100" stroke-width="1.5"/>
+  <circle cx="325" cy="52" r="14" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+  <text x="325" y="56" text-anchor="middle" font-size="11" font-weight="bold">12</text>
+  <line x1="339" y1="52" x2="480" y2="52" stroke="#e65100" stroke-width="1.5"/>
   <text x="5" y="85" font-size="11" fill="#555">L1</text>
   <circle cx="50" cy="82" r="14" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
   <text x="50" y="86" text-anchor="middle" font-size="11" font-weight="bold">1</text>
@@ -274,23 +279,25 @@ Each new element gets a level by "flipping a coin" until it lands: level 1 with 
   <circle cx="325" cy="112" r="14" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>
   <text x="325" y="116" text-anchor="middle" font-size="11" font-weight="bold">12</text>
   <line x1="339" y1="112" x2="480" y2="112" stroke="#1565c0" stroke-width="1.5"/>
-  <line x1="50" y1="36" x2="50" y2="38" stroke="#999" stroke-dasharray="2"/>
-  <line x1="50" y1="66" x2="50" y2="68" stroke="#999" stroke-dasharray="2"/>
+  <line x1="50" y1="96" x2="50" y2="98" stroke="#999" stroke-dasharray="2"/>
+  <line x1="115" y1="66" x2="115" y2="68" stroke="#999" stroke-dasharray="2"/>
   <line x1="115" y1="96" x2="115" y2="98" stroke="#999" stroke-dasharray="2"/>
-  <line x1="155" y1="66" x2="155" y2="68" stroke="#999" stroke-dasharray="2"/>
+  <line x1="185" y1="96" x2="185" y2="98" stroke="#999" stroke-dasharray="2"/>
   <line x1="255" y1="66" x2="255" y2="68" stroke="#999" stroke-dasharray="2"/>
   <line x1="255" y1="96" x2="255" y2="98" stroke="#999" stroke-dasharray="2"/>
+  <line x1="325" y1="36" x2="325" y2="38" stroke="#999" stroke-dasharray="2"/>
+  <line x1="325" y1="66" x2="325" y2="68" stroke="#999" stroke-dasharray="2"/>
   <line x1="325" y1="96" x2="325" y2="98" stroke="#999" stroke-dasharray="2"/>
   <text x="10" y="155" font-size="10" fill="#555">Search for 9: L3: 12 &gt; 9, drop. L2: 3 &lt; 9, 9 found! (2 steps at L2 + 1 drop)</text>
 </svg>
 
-**Step 3 — Search algorithm.**
+**Search algorithm.**
 
 Start at the top-left. At each node, if the forward pointer's key is $`\leq` target, move forward; otherwise drop down one level. This is analogous to binary search but on a linked structure.
 
 *Example*: search for 9 in the diagram above. Start at L3 (key 12): 12 > 9, drop to L2. At L2, key 3: 3 < 9, move forward. Key 9: found! Total: 1 drop + 2 forward moves = 3 steps.
 
-**Step 4 — Why use them?**
+**Why use them?**
 
 Redis uses skip lists for sorted sets (ZSET). LevelDB uses them for the in-memory memtable. They are easier to implement correctly than balanced BSTs (no rotations, only pointer splicing) and perform comparably in practice.
 
@@ -323,13 +330,14 @@ A **B-tree of order $`m`** is an $`m`-ary search tree where:
 - **Search**: $`O(\log_m n)` disk accesses (each node = one disk block).
 - **Insert / Delete**: $`O(\log_m n)` with possible splits / merges.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Why B-trees exist.**
+<iframe src="./B-tree.simulation.html" title="Interactive B-tree simulation"></iframe>
+**Why B-trees exist.**
 
 A binary tree of $`n` keys has height $`\log_2 n`. For $`n = 10^9`, that's 30 levels. If each level is a separate disk block, a search costs 30 random I/Os. A B-tree of order $`m = 256` has height $`\log_{256}(10^9) \approx 3`, so only 3 disk accesses. The fan-out (branching factor) is the key: more keys per node → fewer levels.
 
-**Step 2 — The structure.**
+**The structure.**
 
 A B-tree node stores up to $`m - 1` keys and $`m` child pointers. Keys within a node are sorted. For a search target $`k`, the node determines which child to follow: the child between the two keys that bracket $`k`.
 
@@ -363,17 +371,17 @@ A B-tree node stores up to $`m - 1` keys and $`m` child pointers. Keys within a 
   <text x="10" y="150" font-size="10" fill="#555">Search 25: root → 25 is between 20 and 30 → go to 3rd child → found. 2 disk accesses.</text>
 </svg>
 
-**Step 3 — Insertion and splitting.**
+**Insertion and splitting.**
 
 If a node overflows ($`> m-1` keys), it splits into two nodes and the median key is pushed up to the parent. If the root splits, the tree grows by one level.
 
 *Example*: order 4, leaf [12, 15, 18] receives key 16 → [12, 15, 16, 18] (4 keys > 3 max). Split: left [12, 15], right [18], push 16 up to root. Root becomes [10, 16, 20, 30] — now 4 keys > 3 max, so root also splits.
 
-**Step 4 — Deletion and merging.**
+**Deletion and merging.**
 
 If a node underflows ($`< \lceil m/2 \rceil - 1` keys), it merges with a sibling or borrows from one. If the root becomes empty, the tree shrinks by one level.
 
-**Step 5 — Capacity.**
+**Capacity.**
 
 With $`m = 256` (a 4 KB block holding 256 16-byte keys), a B-tree of 3 levels holds $`256^3 \approx 16` million keys in 3 disk accesses. A B-tree of 4 levels holds $`256^4 \approx 4` billion keys in 4 disk accesses.
 
@@ -407,19 +415,21 @@ A **Log-Structured Merge-tree** optimizes for write throughput by converting ran
 - **Read**: check memtable, then SSTs in order. Worst case $`O(\log n \cdot L)` where $`L` is the number of levels. With per-SST bloom filters, the expected read is closer to $`O(\log n)` because most levels are skipped (a negative lookup is rejected by the filter with high probability).
 - **Space amplification**: up to $`L` copies of a key during compaction.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The write path.**
+<iframe src="./LSM-tree.simulation.html" title="Interactive LSM-tree simulation"></iframe>
+
+**The write path.**
 
 Every write is an append to the in-memory memtable (a skip list or a sorted array). This is $`O(\log n)` in the memtable but the memtable is small (tens of MB), so it fits in L2/L3 cache. No random disk I/O occurs on the write path.
 
 *Example*: 100K writes/sec × 100 bytes/write = 10 MB/s. A 64 MB memtable fills in ~6 seconds. Each flush is a single sequential write of 64 MB to disk.
 
-**Step 2 — The flush.**
+**The flush.**
 
 When the memtable reaches its size limit, it is sorted (if not already) and written as an immutable SST file. The SST is a sorted run of (key, value) pairs with an index for binary search. A new empty memtable is activated.
 
-**Step 3 — Compaction.**
+**Compaction.**
 
 Over time, many SSTs accumulate. Compaction merges overlapping SSTs into fewer, larger ones, discarding tombstones (deleted keys) and expired entries.
 
@@ -453,15 +463,15 @@ Over time, many SSTs accumulate. Compaction merges overlapping SSTs into fewer, 
   <text x="320" y="158" font-size="10" fill="#555">are skipped → expected O(log n)</text>
 </svg>
 
-**Step 4 — Compaction strategies.**
+**Compaction strategies.**
 
 - **Size-tiered**: merge SSTs of similar size. Good write throughput, high space amplification.
 - **Leveled** (LevelDB, RocksDB): each level is $`10\times` larger than the previous. Better read performance, more write amplification.
 - **Universal** (Cassandra): merge a set of SSTs when their total size exceeds a threshold.
 
-**Step 5 — Bloom filters on the read path.**
+**Bloom filters on the read path.**
 
-Each SST carries a [Bloom filter](./Lists.md) (a probabilistic set). On a read, the filter is checked first: if the key is definitely absent, the SST is skipped without a disk read. With a false-positive rate of 1%, a read that would check $`L = 7` levels only actually reads $`\approx 1` SST on average, bringing expected read cost close to $`O(\log n)`.`}}</invoke>
+Each SST carries a [Bloom filter](./Lists.md) (a probabilistic set). On a read, the filter is checked first: if the key is definitely absent, the SST is skipped without a disk read. With a false-positive rate of 1%, a read that would check $`L = 7` levels only actually reads $`\approx 1` SST on average, bringing expected read cost close to $`O(\log n)`.
 
 **Use cases**: RocksDB, Cassandra, HBase, LevelDB, ScyllaDB. Ideal for write-heavy workloads (time-series data, event logs, IoT).
 
@@ -499,6 +509,3 @@ Choose between a B-tree and an LSM-tree for a write-heavy workload with 10M keys
 
 </details>
 
-## Interactive simulation
-
-<iframe src="./Key-Value-Stores.simulation.html" title="Interactive visualization of key-value store structures: hash table, balanced BST, skip list, B-tree, and LSM-tree"></iframe>

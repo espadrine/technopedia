@@ -10,7 +10,7 @@ Limits and continuity provide the rigorous language for describing how functions
 
 **Definition.** Let $`f: D \to \mathbb{R}` and $`a \in \mathbb{R}` be a limit point of $`D`. We write $`\lim_{x \to a} f(x) = L` if for every $`\varepsilon > 0` there exists $`\delta > 0` such that for all $`x \in D` with $`0 < |x - a| < \delta`, we have $`|f(x) - L| < \varepsilon`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why ε–δ?
 
@@ -64,7 +64,7 @@ Then $`|x - 3| < \delta \implies |x^2 - 9| < 7\delta \leq \varepsilon`. ∎
 
 **Key theorem.** If $`f_n` are continuous on $`X` and $`f_n \to f` uniformly, then $`f` is continuous on $`X`. Pointwise convergence does not preserve continuity.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The distinction in one picture
 
@@ -109,7 +109,7 @@ This illustrates why the domain matters: uniform convergence is a property of th
 
 **Theorem (continuous image of compact is compact).** If $`f: K \to \mathbb{R}` is continuous and $`K` is compact, then $`f(K)` is compact. In particular, $`f` attains its maximum and minimum on $`K`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why compactness matters
 

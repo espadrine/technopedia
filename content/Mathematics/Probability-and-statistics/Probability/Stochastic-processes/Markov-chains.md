@@ -38,7 +38,7 @@ The whole future is pinned down by the present state $`i` . By the chain rule of
 
 This is the single most useful identity: a long, complicated path probability collapses into one initial probability times a product of one-step probabilities.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the property is powerful.** Without the Markov property, the probability of a path of length $`n` would require conditioning on the entire history $`(x_0, \dots, x_{n-1})` — an object that grows with $`n` . The Markov property says that conditioning on the history is *redundant*: the last state $`x_{n-1}` already carries all the information the future needs. That is what makes chains computable and simulable.
 
@@ -106,7 +106,7 @@ The **Chapman–Kolmogorov equations** say that an $`(m+n)` -step move equals an
 P^{(m+n)}_{ij} = \sum_{k \in S} P^{(m)}_{ik}\, P^{(n)}_{kj}.
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Reading the matrix.** $`P_{ij}` is the probability of *leaving* $`i` and *arriving* at $`j` in one step. Because from state $`i` you must go somewhere, $`\sum_j P_{ij} = 1` . A diagonal entry $`P_{ii}` is the probability of *staying put*.
 
@@ -169,7 +169,7 @@ If the chain is **irreducible** and **aperiodic** (Section 4), then $`\pi` exist
 
 i.e. every row of $`P^n` tends to $`\pi` . This is the **ergodic theorem** for finite Markov chains.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **What "stationary" means.** If the chain *starts* in $`\pi` — that is, $`\mathbb{P}(X_0 = i) = \pi_i` — then it stays in $`\pi` forever: $`\mathbb{P}(X_{t+1} = j) = \sum_i \pi_i P_{ij} = (\pi P)_j = \pi_j` . The distribution is a fixed point of the update rule.
 
@@ -223,7 +223,7 @@ All three are equal, so $`\pi_1 = \pi_2 = \pi_3 = 1/3` .
 - The chain is **irreducible** if every state can be reached from every other state.
 - The **period** of $`i` is $`d = \gcd\{ n \ge 1 : (P^n)_{ii} > 0 \}` ; the state is **aperiodic** if $`d = 1` .
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Recurrent vs transient, intuitively.** A recurrent state is one you are *doomed* to revisit; a transient state is one you may visit a few times and then abandon forever. In a finite chain, irreducibility forces *every* state to be recurrent (you cannot "escape to infinity" when there are only finitely many states). Transience only appears in infinite chains, e.g. the simple random walk on $`\mathbb{Z}^3` is transient.
 
@@ -261,7 +261,7 @@ From $`3` you can jump to $`1` (and then wander in $`\{1,2\}` ) or stay at $`3` 
 h_i = 0 \ (i \in A), \qquad h_i = 1 + \sum_{j \in S} P_{ij}\, h_j \ (i \notin A).
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the linear system.** If $`i \in A` you have already arrived, so $`h_i = 0` . If $`i \notin A` , you spend one step (the leading $`1` ) and then, having moved to $`j` with probability $`P_{ij}` , still need $`h_j` more steps on average. Taking expectation over the next state gives $`h_i = 1 + \sum_j P_{ij} h_j` . This is a system of linear equations in the unknowns $`h_i` for $`i \notin A` , and it has a unique solution whenever $`A` is reachable from every state.
 
@@ -293,7 +293,7 @@ Here $`N = 4` , $`i = 2` , and the fair-game formula gives $`h_i = i(N - i) = 2 
 
 **Definition.** Markov chains are the engine behind a wide range of models and algorithms; the unifying idea is always "the next state is a probabilistic function of the current one."
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **PageRank.** The web is a directed graph; a "random surfer" who follows links at random is a Markov chain on pages. PageRank is its stationary distribution $`\pi` (with a damping factor to keep the chain irreducible and aperiodic). The most important pages are the ones the surfer occupies most often in the long run.
 - **MCMC (Metropolis–Hastings).** To sample from a hard-to-normalize target distribution, one *builds* a Markov chain whose stationary distribution is exactly the target, runs it, and reads off samples. Ergodicity (Section 3) guarantees the samples converge to the target.

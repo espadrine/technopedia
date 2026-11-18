@@ -18,7 +18,7 @@ The dissolution rate is governed by the reaction kinetics at the metal–reagent
 
 where $`\dot{d}` is the etch rate (mm/min), $`k` is the rate constant, $`C_0` is the reagent concentration, $`E_a` is the activation energy, $`R` is the gas constant, and $`T` is the absolute temperature. In practice, the etch rate is specified by the reagent manufacturer (e.g. 0.010–0.030 mm/min for FeCl₃ on copper at 40–50 °C, 30% solution).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Selectivity**: the reagent must dissolve the workpiece material but not the resist. Common pairs: FeCl₃ / copper, H₂SO₄ / aluminium, NaOH / aluminium, HF / glass, aqua regia / gold.
 - **Etch factor (EF)**: the ratio of vertical etch depth to lateral undercut. Because the reagent attacks the material laterally as well as vertically, the etched profile is trapezoidal. EF is typically 1:1 to 3:1 depending on material, etchant, and process parameters (e.g. FeCl₃ on copper achieves EF ≈ 2.5–3.2). A lower EF means more undercut relative to depth.
@@ -34,7 +34,7 @@ A photoresist is spin-coated on the workpiece, exposed through a photomask, and 
 
 Key parameters: resist thickness (µm), exposure energy (mJ/cm²), etch rate (mm/min), etch time (min), etch factor.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Minimum feature size**: approximately equal to material thickness (limited by isotropic etching and undercut; minimum hole diameter ≈ 1.1–1.2× thickness).
 - **Tolerance**: ±10% of material thickness (±2.5 µm on 0.025 mm foil, ±100 µm on 1 mm stock).
@@ -49,7 +49,7 @@ Key parameters: resist thickness (µm), exposure energy (mJ/cm²), etch rate (mm
 
 A non-photochemical resist (rubber, plastic, or paint) is applied to protect the areas to be retained. The exposed areas are etched in a tank or by spray. Used for large, simple shapes (aircraft skins, sheet-metal brackets).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Etch rate**: 0.01–0.1 mm/min (slower than PCM for thick sections).
 - **Tolerance**: ±0.1–0.5 mm (limited by resist edge quality and etch uniformity).
@@ -61,7 +61,7 @@ A non-photochemical resist (rubber, plastic, or paint) is applied to protect the
 
 A chemical reaction dissolves a sacrificial layer without an external power source. Example: alkaline dissolution of aluminium in NaOH, used to remove aluminium sacrificial layers in composite layups.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Aluminium in NaOH**: $`2\text{Al} + 2\text{NaOH} + 6\text{H}_2\text{O} \rightarrow 2\text{Na}[\text{Al}(\text{OH})_4] + 3\text{H}_2`. Rate: 0.1–1 mm/min depending on concentration and temperature.
 - **Applications**: removing aluminium sacrificial layers in composite layups, cleaning, surface texturing.

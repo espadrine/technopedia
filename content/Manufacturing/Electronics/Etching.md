@@ -33,7 +33,7 @@ The etch is the step where the pattern becomes physical: the resist is sacrifici
 
 A liquid etchant (acid, base or oxidizer) dissolves the exposed film: isotropically in amorphous or polycrystalline films, or along crystallographic planes in a single crystal.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** The wafer is immersed in (or sprayed with) a liquid etchant. The etchant (1) transports to the surface, (2) reacts with the exposed film, converting it into a soluble product, and (3) the product diffuses away. In a liquid, molecules arrive at the surface from every direction with equal probability, so an *amorphous* film etches equally fast in every direction: the etch front is a circle expanding from the mask opening, and the etch tunnels under the mask — the **undercut** — by exactly as much as it goes down. In a *single crystal*, however, different crystal planes dissolve at very different rates, so the etch becomes anisotropic along crystallographic directions even though the chemistry itself has no preferred direction.
 
@@ -86,7 +86,7 @@ The groove's sidewalls are (111) planes at 54.74° to the surface. The groove re
 
 A plasma of reactive radicals and energetic ions removes the film by a combination of chemical reaction and physical bombardment; the directionality of the ion flux is what makes the etch anisotropic.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — make a plasma.** A gas such as CF₄, CHF₃, SF₆ or Cl₂ is fed into a vacuum chamber and broken into ions and radicals by an RF field (typically 13.56 MHz). Radicals (F, Cl atoms) are neutral and fly in all directions; ions are charged and can be accelerated by electric fields.
 
@@ -151,7 +151,7 @@ Mask loss = etch depth ÷ selectivity = 5 µm / S ≤ 50 nm, so S ≥ 100:1. A p
 
 A collimated beam of inert ions (usually Ar⁺) sputters atoms off the film by pure momentum transfer — no chemistry at all.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** An ion gun ionizes argon and extracts a beam accelerated to 100–1000 eV that hits the wafer in vacuum. Each ion transfers momentum to surface atoms; when the transfer exceeds the surface binding energy, an atom is ejected (the **sputter yield**, typically 0.1–3 atoms per ion). Because the beam is collimated, milling is directional; because there is no chemistry, it etches everything — metals, oxides, diamond, ceramics — with little selectivity beyond differences in sputter yield.
 
@@ -175,7 +175,7 @@ Ion flux: 1×10⁻³ A/cm² ÷ 1.6×10⁻¹⁹ C = 6.25×10¹⁵ ions cm⁻² s�
 
 Physical and chemical side-effects of the etch that degrade the underlying device and shift the final geometry away from the lithographic pattern.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Ion damage / implantation**: energetic ions (10–200 eV) displace atoms in a 10–50 nm surface layer, degrading carrier mobility and increasing leakage; mitigated by a post-etch anneal or a sacrificial removal layer.
 - **Charging**: insulating films (SiO₂, Si₃N₄) accumulate charge during plasma exposure; the local fields deflect ions, causing non-uniform etching or gate-oxide breakdown.
@@ -188,7 +188,7 @@ Physical and chemical side-effects of the etch that degrade the underlying devic
 
 A hybrid removal step: a rotating pad soaks the wafer in a chemically reactive abrasive slurry, so the highest topography is dissolved *and* ground away until the whole surface is flat. It is the "remove" step that closes every deposition cycle in a multi-layer chip.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** The wafer is mounted face-down on a rotating carrier and pressed against a rotating polyurethane pad soaked in slurry — abrasive nanoparticles (silica, ceria, alumina) in a chemically active solution. Material is removed by the *combination* of the two mechanisms this page separates: the chemistry weakens or dissolves the surface (as in wet etching), and the mechanical abrasion of pad asperities and particles scrapes the weakened layer off (a micro-scale ion-milling analogue). The removal rate follows the Preston equation: rate = K_p · pressure · velocity, so removal is fastest exactly where the surface sticks up highest — the process is self-limiting and drives the surface flat.
 

@@ -18,7 +18,7 @@ Category theory is the study of mathematical structure through **objects** and *
 
 such that composition is **associative** ($`(h \circ g) \circ f = h \circ (g \circ f)`) and each identity acts as a unit ($`\mathrm{id}_B \circ f = f = f \circ \mathrm{id}_A`).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A category abstracts the pattern "things, and arrows between them." The only rules are that arrows compose, that composition is associative, and that each object has a do-nothing identity arrow. What the objects *are* and what the arrows *do* is deliberately left unspecified — that is the whole point. The same definition covers sets and functions, groups and homomorphisms, topological spaces and continuous maps, and propositions and proofs (see [Type theory](../Type-theory.md)).
 
@@ -75,7 +75,7 @@ Composition: if $`m \le n` and $`n \le p` then $`m \le p`, and there is exactly 
 F(g \circ f) = F(g) \circ F(f), \qquad F(\mathrm{id}_A) = \mathrm{id}_{F(A)}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A functor is the "structure-preserving map between structures" of category theory — the homomorphism, but one level up. It sends an entire category (objects *and* arrows) to another, in a way that respects how the arrows fit together.
 
@@ -132,7 +132,7 @@ For $`f: S \to T` and $`g: T \to U`, $`\mathcal{P}(g \circ f)(X) = (g \circ f)(X
 G(f) \circ \alpha_A = \alpha_B \circ F(f)
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A natural transformation is a "map between functors": a coherent family of arrows, one per object, that commutes with *everything in sight*. The word "natural" means the family does not depend on any arbitrary choice — it behaves the same no matter which arrow you slide it past.
 
@@ -182,7 +182,7 @@ Here $`F(f) = G(f) = f \times f`, so $`(f \times f)(a, b) = (f(a), f(b))`. Going
 
 **Definition.** A **limit** of a diagram $`D: \mathcal{J} \to \mathcal{C}` is an object $`L` together with a **cone** (morphisms $`L \to D(j)` for each object $`j` of $`\mathcal{J}`) that is **universal**: for every other cone from an object $`X` there is a *unique* morphism $`X \to L` making all the triangles commute. The **product** $`A \times B` is the limit of the discrete diagram $`A, B`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A **universal property** characterizes an object by *how other objects map into it*, not by what it is made of. The limit is the "best" object that everything maps into: it is the unique (up to isomorphism) answer to a mapping-in problem. Products, equalizers, and pullbacks are all limits of particular diagrams.
 
@@ -238,7 +238,7 @@ Define $`h(x) = (f(x), g(x))`. Then $`\pi_1 \circ h(x) = f(x)` and $`\pi_2 \circ
 
 equivalently, a **unit** $`\eta: \mathrm{id}_{\mathcal{C}} \Rightarrow G F` and a **counit** $`\varepsilon: F G \Rightarrow \mathrm{id}_{\mathcal{D}}` satisfying the triangle identities. $`F` is the **left adjoint** (the "free" functor) and $`G` the **right adjoint** (the "forgetful" functor).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 An adjunction is a precise sense in which one functor is a "left inverse" of another. The left adjoint $`F` is **free**: it builds the most structure you can from a bare object. The right adjoint $`G` is **forgetful**: it strips structure away, keeping only the underlying object. The bijection above says that maps *out of* a free object are the same thing as maps *into* the underlying object — which is exactly the universal property of the free construction. Universal properties are the shadows of adjunctions.
 

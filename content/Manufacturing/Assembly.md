@@ -21,7 +21,7 @@ Assembly arranges already-finished components into a functional system, typicall
 
 Fixtures, jigs, and part-presentation devices hold workpieces in a defined pose so that fastening, connection, or inspection can proceed without re-aiming.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The idea.** Every downstream operation (fastening, connection, inspection) assumes the part is in a known pose; fixturing is how the station guarantees that pose, every cycle. Five pieces do the work:
 
@@ -59,7 +59,7 @@ Add a key: one flat on the cylindrical connector body and a matching flat in the
 
 The assembly-process discipline of joining parts at the station: fastening sequence, in-line torque verification, tool selection for the station, and how fasteners are specified in the bill of materials. The physics of the joint itself — the torque–clamp-force relationship, press-fit mechanics, adhesive bonding — is covered in [Joining](./Joining.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The idea.** A fastening operation is a process step with a specification, a tool, and a verification. The station designer decides four things:
 
@@ -110,7 +110,7 @@ Sequential tightening builds the full clamp load at the first corner before the 
 
 The spatial and temporal organization of stations, transport, and buffers that moves parts from kitting to finished product.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The idea.** Takt time sets the rhythm of the line: $`t_{\text{takt}} = \frac{\text{available production time}}{\text{demand per period}}`. It is the fundamental constraint: every station's cycle time must be ≤ takt time, and it applies to all assembly methods, not just manual lines. Line balancing decomposes the total work content into $`n` stations such that $`\sum_{i=1}^{n} t_i \leq n \cdot t_{\text{takt}}`; the line efficiency is $`\eta = \frac{\sum t_i}{n \cdot t_{\text{takt}}}` (target ≥ 85 %). The remaining levers are transport and layout:
 
@@ -180,7 +180,7 @@ $`\eta = \frac{\sum t_i}{n \cdot t_{\text{takt}}} = \frac{20+20+20}{3 \times 60}
 
 Assembly-specific checks that confirm the product functions correctly before release.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The idea.** Verification closes the loop that fixturing and fastening open: it confirms that the assembled product actually works, and records the evidence. The pieces:
 
@@ -242,7 +242,7 @@ The log is only as trustworthy as the instrument that produced it: a driver that
 
 Design decisions made at the product level that reduce assembly time, cost, and error rate — before the line is designed.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The idea.** DFA moves the assembly problem upstream: instead of making the line cope with a hard product, make the product easy to assemble. The levers:
 

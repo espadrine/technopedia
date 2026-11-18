@@ -17,7 +17,7 @@ P = \frac{G}{5c^5}\,\left\langle \dddot{Q}_{ij}\dddot{Q}_{ij} \right\rangle,
 
 the famous $`G/c^5` prefactor explaining why gravitational radiation is fantastically weak: only astrophysical sources radiate measurably.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Why quadrupole?** A spherically symmetric collapse emits nothing (Birkhoff's theorem), and a spinning axisymmetric body emits nothing either — the monopole (mass) and dipole (center of mass) are conserved, so the first radiating multipole is the quadrupole. This is why a spinning perfect neutron star is silent while a lumpy one is not.
 2. **Polarizations.** A wave has two transverse polarizations, $`+` and $`\times`, which stretch one transverse axis while squeezing the other, swapping every half-period. A ring of test particles is alternately stretched into ellipses at ±45°.
@@ -31,7 +31,7 @@ the famous $`G/c^5` prefactor explaining why gravitational radiation is fantasti
 
 **Definition.** As a binary loses energy to gravitational radiation, its orbit shrinks and its orbital frequency rises, producing a characteristic accelerating "chirp" whose frequency–time profile measures the system's **chirp mass** $`\mathcal{M} = (m_1 m_2)^{3/5}/(m_1+m_2)^{1/5}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Inspiral.** The quadrupole formula gives the orbital decay: $`\dot{f}` grows as $`f^{11/3}`. Measuring $`f` and $`\dot{f}` in a detected signal fixes the chirp mass without any distance information — the basis of "standard siren" cosmology.
 2. **Merger and ringdown.** As the bodies approach, the signal becomes nonlinear; after merger, the remnant black hole rings down at its quasinormal frequencies, like a struck bell, settling into a stationary Kerr state.

@@ -55,7 +55,7 @@ where $`R` is the inside bend radius, $`K` the bend deduction factor (≈ 0.33�
 \text{Minimum bend radius:} \quad R_{\min} \approx f(\text{elongation},\;\text{grain direction})
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The key parameter is the **minimum bend radius**, which depends on the material's ductility (elongation) and the bend direction relative to the grain. For mild steel, a typical minimum inside radius is 1× the sheet thickness for a 90° bend; for aluminum, ≈ 1× t for soft tempers (e.g. 5052-H32) and up to 3–4× t for hard tempers (e.g. 6061-T6).
 
@@ -87,7 +87,7 @@ D_{\text{blank}} \approx \sqrt{D_{\text{die}}^2 + 4\,D_{\text{die}}\,h}
 
 where $`h` is the cup depth. The LDR must stay below the material's limiting drawing ratio (LDR_max ≈ 2.0–2.5 for mild steel).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The **limiting drawing ratio (LDR)** is the maximum blank-to-die diameter ratio before tearing. For mild steel, LDR ≈ 2.0–2.5. A draw bead and blank-holder force prevent wrinkling.
 
@@ -118,7 +118,7 @@ F_{\text{draw}} \approx \pi\, d_p\, t\, \sigma_f\, (DR - 0.7)
 
 where $`d_p` is the punch (die) diameter, $`t` the sheet thickness, $`\sigma_f` the flow stress, and $`DR = D_{\text{blank}}/D_{\text{die}}` the drawing ratio (per ASM Handbook Vol. 14B / Groover).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Stamping encompasses all sheet-forming operations performed in a press: air forming, coining, ironing, and multi-stage progressive die operations. It is the dominant process for automotive body-in-white (BIW) panels, where a single station may combine drawing, redrawing, and trimming.
 
@@ -146,7 +146,7 @@ F_{\text{forge}} \approx \sigma_{\text{flow}} \times A_{\text{contact}}
 \sigma_{\text{flow}} = K\,\varepsilon_p^n \quad \text{(Hollomon)}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Open-die forging**: the billet is upset, spread, or drawn between flat or shaped dies. Used for large parts (crankshafts, turbine discs).
 - **Closed-die (impression-die) forging**: the billet is forced into a die cavity. Flash is trimmed. Used for high-volume parts (connectors, gears, valve bodies).
@@ -170,7 +170,7 @@ P_{\text{extrusion}} = \sigma_{\text{flow}} \times \ln\!\left(\frac{A_b}{A_p}\ri
 
 where $`A_b` is the billet cross-sectional area and $`A_p` the product cross-sectional area. The ratio $`A_b/A_p` is the extrusion ratio (R).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Forward extrusion**: the ram pushes the billet through the die. The billet sticks to the container wall, increasing friction.
 - **Backward extrusion**: the ram pushes the billet into a hollow die; the part exits through the ram. Lower force, used for tubes and hollow parts.
@@ -191,7 +191,7 @@ F_{\text{draw}} \approx \sigma_{\text{flow}} \times A_p \times \ln\!\left(\frac{
 
 where $`A_b` is the billet (input) cross-sectional area and $`A_p` the product (output) cross-sectional area. The force is applied in tension on the product side (pulling), distinguishing it from extrusion where the force is applied in compression on the billet side.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Single-die drawing**: one die per pass; the wire is pulled through by a capstan or motor. Used for copper wire, steel wire, and aluminum rod.
 - **Multi-die (block) drawing**: several dies in series reduce the cross-section in one pass; used for high-speed wire production.
@@ -218,7 +218,7 @@ F_{\text{roll}} \approx \sigma_{\text{flow}} \times w \times \sqrt{R\,\Delta h}
 
 where $`w` is the strip width, $`R` the roll radius, and $`\Delta h` the thickness reduction. The maximum reduction per pass is limited by the available roll force and the material's flow stress.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Flat rolling** (upstream stock reduction): slab → hot-rolled coil → cold-rolled sheet. For the full upstream process, see [Materials processing](./Materials-processing.md).
 - **Ring rolling**: a ring blank is rolled to reduce its diameter and increase its wall thickness. Used for large rings (flanges, turbine casings).

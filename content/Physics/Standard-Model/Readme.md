@@ -23,7 +23,7 @@ The subtopics follow the scale of the physical system under consideration: from 
 
 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The four subtopics are ordered by the scale of the physical system they describe. At the smallest scale, [elementary particles](./Elementary-Particles.md) are the irreducible excitations of quantum fields, constrained by the gauge group SU(3)×SU(2)×U(1) of the [Interactions](../Interactions/Readme.md). At the nuclear scale, the strong interaction binds quarks into hadrons and nucleons into nuclei; the weak interaction governs beta decay and neutrino processes — together these form [nuclear physics](./Nuclear-Physics.md). At the atomic scale, the electromagnetic interaction binds electrons to nuclei, producing the periodic table, spectral lines, and chemical bonding — [atomic physics](./Atomic-Physics.md). At the largest scale, the same physics governs the thermal evolution of the universe from the first fractions of a second to the present: [cosmology](./Cosmology.md).
 

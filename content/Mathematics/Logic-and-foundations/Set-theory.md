@@ -18,7 +18,7 @@ Set theory is the standard foundational language for mathematics: every mathemat
 
 **Definition.** A **set** is a collection of objects; the only primitive relation is **membership**, written *x* ∈ *A* ("*x* is an element of *A*"). A set is determined entirely by its elements: two sets are equal exactly when they have the same members.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The whole of mathematics is built from one idea: a thing is whatever its *members* are. There is no hidden "container" — the set {1, 2, 3} is the same object as {3, 1, 2}, and {1, 1, 2} is the same as {1, 2} (repetition and order do not matter).
 
@@ -69,7 +69,7 @@ Let *A* = {1, 2, 3} and *B* = {2, 3, 4}. Find *A* ∪ *B*, *A* ∩ *B*, and *A* 
 
 **Definition.** Two sets are **equipotent** (have the same **cardinality**) when there is a **bijection** between them. The cardinality of a set is its "size." Cantor's diagonal argument shows |ℕ| &lt; |ℝ|: the infinite sizes are not all equal.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 For finite sets, size is just a number. For infinite sets, "how many" must be defined by *pairing off*: *A* and *B* are the same size if you can match every element of *A* to exactly one element of *B* with none left over. This is a bijection.
 
@@ -157,7 +157,7 @@ Pair (m, n) with the prime-power code 2^m · 3^n; unique factorization makes thi
 
 **Definition.** An **ordinal** is a set that is well-ordered by membership and equals the set of its predecessors. Ordinals extend counting into the transfinite: 0, 1, 2, …, ω, ω+1, …, ω·2, …, ω^ω, … They measure the *length* of well-ordered processes and the strength of induction and recursion.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A **cardinal** answers "how many"; an **ordinal** answers "in what order." Every finite ordinal is just a natural number, but ordinals keep going past all of them. The first infinite ordinal is ω, the order type of the naturals 0, 1, 2, … After exhausting one copy of ω you can start another: ω+1 is "ω then one more," and ω·2 is two copies of ω end to end.
 
@@ -204,7 +204,7 @@ No. ω+1 is the order type "0, 1, 2, … then one more," which has a last elemen
 
 **Definition.** A statement is **independent** of ZFC when it is neither provable nor refutable from the ZFC axioms. The **continuum hypothesis** (CH) — "there is no infinite cardinal strictly between ℵ₀ and 2^ℵ₀" — is the canonical example.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Cantor asked whether 2^ℵ₀ = ℵ₁ (the next cardinal after ℵ₀). This is the **continuum hypothesis**. For decades it was thought to be decidable, until:
 

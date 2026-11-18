@@ -30,7 +30,7 @@ Each attribute is declared with a **data type** (domain) that constrains the val
 
 A common rule: choose the **narrowest type** that safely covers the domain. An `INTEGER` (4 bytes) is preferable to `BIGINT` (8 bytes) when values fit, because smaller types pack more rows per page and compare faster.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Referential integrity**: if $`R.fk` references $`S.pk`, then every value of $`R.fk` must either be NULL or match some $`S.pk` value. Deleting a row from $`S` that is referenced by $`R` is rejected (or cascaded, depending on the `ON DELETE` clause).
 
@@ -79,15 +79,15 @@ The ER diagram is a *design tool*: it is not stored in the database. The next st
 <tr><td>Relationship with its own attributes</td><td>The junction table also carries those attributes</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 – Identify entities and keys.** Walk through the domain description and list every distinct "thing" that has its own identity. For each, pick a natural key or decide on a surrogate.
+**Identify entities and keys.** Walk through the domain description and list every distinct "thing" that has its own identity. For each, pick a natural key or decide on a surrogate.
 
-**Step 2 – Identify relationships and cardinality.** For every pair of entities that interact, determine whether the relationship is 1:1, 1:N, or M:N. A common test: can one instance of A relate to multiple instances of B? Can one instance of B relate to multiple instances of A?
+**Identify relationships and cardinality.** For every pair of entities that interact, determine whether the relationship is 1:1, 1:N, or M:N. A common test: can one instance of A relate to multiple instances of B? Can one instance of B relate to multiple instances of A?
 
-**Step 3 – Map to tables.** Apply the mapping rules above. Every M:N relationship becomes a junction table. Every 1:N relationship adds a foreign key to the "many" side.
+**Map to tables.** Apply the mapping rules above. Every M:N relationship becomes a junction table. Every 1:N relationship adds a foreign key to the "many" side.
 
-**Step 4 – Add relationship attributes.** If the relationship itself has data (e.g., a loan has a date), those attributes go in the junction table.
+**Add relationship attributes.** If the relationship itself has data (e.g., a loan has a date), those attributes go in the junction table.
 
 **Example: Library system.**
 
@@ -169,7 +169,7 @@ The composite key `(student_id, course_id)` enforces that a student cannot enrol
 - **3NF**: 2NF + no transitive dependency (non-key attributes depend only on the $`PK`, not on other non-key attributes).
 - **BCNF**: for every non-trivial dependency $`X \to Y`, $`X` is a superkey.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why normalize?** Redundancy causes update anomalies:
 - *Insert anomaly*: cannot add a fact without also adding unrelated data.
@@ -237,7 +237,7 @@ orders(order_id PK, customer_id FK, product_id FK, quantity)
 
 ## Indexes
 
-> For how B-trees and hash tables work internally, see [Key-Value Stores](../Key-Value-Stores.md). For how the optimizer chooses to use an index at query time, see [SQL & Query Planning](./SQL.md).
+> For how B-trees and hash tables work internally, see [Key-Value Stores](../Key-Value-Stores.md). For how the optimizer chooses to use an index at query time, see [SQL & Query Planning](./SQL-Query-Planning.md).
 
 An **index** is a secondary data structure that accelerates lookup by a column (or set of columns).
 
@@ -246,7 +246,7 @@ An **index** is a secondary data structure that accelerates lookup by a column (
 - **Composite index** on $`(c_1, c_2, \ldots)`: ordered by $`c_1`, then $`c_2`, etc. Supports prefix queries ($`c_1 = 5`), but not $`c_2` alone.
 - **Covering index**: includes all columns needed by a query, avoiding a table lookup ("index-only scan").
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Write overhead**: every INSERT, UPDATE, or DELETE must also update every index on the affected columns. A table with 5 indexes pays 5× the index-maintenance cost on writes. For write-heavy workloads, LSM-tree indexes (see [Key-Value Stores](../Key-Value-Stores.md)) batch writes and merge in the background.
 

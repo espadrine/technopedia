@@ -15,7 +15,7 @@ Newtonian gravitation models gravity as an attractive force between masses, prop
 \qquad G \approx 6.674\times 10^{-11}\ \mathrm{m^3\,kg^{-1}\,s^{-2}}.
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The law has three ingredients, each physically load-bearing:
 
@@ -37,7 +37,7 @@ The law has three ingredients, each physically load-bearing:
 
 where $`\rho` is the mass density (Poisson's equation). Outside a spherical mass, $`\Phi = -GM/r` exactly (shell theorem).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The field formulation is a bookkeeping upgrade with real consequences:
 
@@ -53,7 +53,7 @@ The field formulation is a bookkeeping upgrade with real consequences:
 
 **Definition.** Under an inverse-square attraction, a body of specific angular momentum $`h` follows a conic section with the central mass at a focus; tidal effects come from the *gradient* of the field across an extended body, scaling as $`GM\,\Delta r/r^3`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Conic orbits.** The orbit equation is $`r = \frac{h^2/GM}{1 + e\cos\varphi}`: ellipses ($`e<1`), parabolas ($`e=1`), hyperbolas ($`e>1`). Kepler's three laws are corollaries. This is the basis of all [orbital mechanics](../../Mechanics/Readme.md) used for satellites and spacecraft.
 2. **Tides.** The Moon pulls the near side of Earth more strongly than the far side. The differential acceleration is $`\Delta g \approx 2GMr/d^3` — note the *cube*: tides are a second-derivative effect. Tidal forces raise ocean bulges, lock rotations, heat Io, and will eventually shred anything falling into a black hole.

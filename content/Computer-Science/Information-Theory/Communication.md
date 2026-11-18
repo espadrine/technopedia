@@ -29,7 +29,7 @@ The **Shannon capacity** of a discrete memoryless channel is:
 C = \max_{p(x)} I(X; Y)
 ```
 
-bits per channel use, where $`I(X;Y)` is the mutual information and $`H(X)` is the entropy (see [Coding and entropy](./Coding-and-Entropy.md) for definitions). For a binary symmetric channel with crossover probability $`p`:
+bits per channel use, where $`I(X;Y)` is the mutual information and $`H(X)` is the entropy (see [Entropy](./Entropy.md) for definitions). For a binary symmetric channel with crossover probability $`p`:
 
 ```math
 C = 1 - H_b(p) = 1 + p\log_2 p + (1-p)\log_2(1-p)
@@ -41,7 +41,7 @@ The **code rate** $`R = k/n` is the ratio of information bits $`k` to the total 
 
 **Source–channel separation theorem** (Shannon 1948): optimal source coding (compression) and channel coding (error correction) can be designed independently. The source is compressed to its entropy rate, then the compressed stream is protected by a channel code operating below capacity. This is why [Compression](./Compression.md) and this page are separate topics: each solves a different problem, and the optimal solution to one does not depend on the details of the other.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **AWGN channel**: For a continuous channel with bandwidth $`B` Hz and signal-to-noise ratio $`\text{SNR}`:
 
@@ -74,7 +74,7 @@ The **minimum Hamming distance** $`d_{min}` of a code is the smallest number of 
 
 For example, $`d_{min} = 3` detects 2 errors and corrects 1; $`d_{min} = 5` detects 4 errors and corrects 2.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **CRC properties**:
 - Detects all single-bit errors.
@@ -98,7 +98,7 @@ CRC is a linear code: the set of valid codewords forms a vector space over $`\ma
 
 **LDPC codes**: sparse parity-check matrix; decoded with belief propagation (iterative message passing on the factor graph). Used in Wi-Fi (802.11ax), DVB-S2, 5G.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Reed-Solomon example**: RS(255, 223) over $`\mathbb{F}_{256}` encodes 223 bytes into 255 bytes, correcting up to 16 byte errors. Used in CD (C2 error correction) and QR codes.
 

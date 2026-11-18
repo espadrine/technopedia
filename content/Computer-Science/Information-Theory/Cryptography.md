@@ -47,11 +47,11 @@ Modern cryptography is a tower of constructions: each layer assumes only the one
 
 A **PRNG** (Pseudo-Random Number Generator) is a deterministic function $`f: \{0,1\}^s \to \{0,1\}^*` that, given a secret seed (state) $`s`, produces a sequence indistinguishable from uniform to any efficient observer. The **state** is the internal memory; the **cycle** is the period before the sequence repeats. A **random oracle** is an idealized function that returns a uniform random value for each new input and is consistent on repeated inputs.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The global picture.** A PRNG is a state machine: seed the state once, then each call updates the state and emits a function of it. *Security* means next-output unpredictability: an adversary who has seen any number of outputs must be unable to predict the next one. This divides PRNGs into two families: **statistical PRNGs** (LCG, Mersenne Twister), which look uniform but are predictable, and **CSPRNGs** (ChaCha20, AES-CTR-DRBG), which are unpredictable because recovering the state from the outputs is computationally infeasible.
+**The global picture.** A PRNG is a state machine: seed the state once, then each call updates the state and emits a function of it. *Security* means next-output unpredictability: an adversary who has seen any number of outputs must be unable to predict the next one. This divides PRNGs into two families: **statistical PRNGs** (LCG, Mersenne Twister), which look uniform but are predictable, and **CSPRNGs** (ChaCha20, AES-CTR-DRBG), which are unpredictable because recovering the state from the outputs is computationally infeasible.
 
-**Step 2 — A concrete example.** Take an LCG with $`a = 7`, $`c = 0`, $`m = 13`, seed $`s_0 = 1`. The outputs are 7, 10, 5, 9, 11, 12, 6, 3, 8, 4, 2, then back to 1: the cycle has length 12. Knowing the parameters and a single output, an attacker computes every past and future value with simple arithmetic — the sequence only *looks* random. A CSPRNG with a 256-bit state behaves the same way internally, but the state update is a cryptographic function, so recovering the state from outputs costs about $`2^{256}` operations.
+**A concrete example.** Take an LCG with $`a = 7`, $`c = 0`, $`m = 13`, seed $`s_0 = 1`. The outputs are 7, 10, 5, 9, 11, 12, 6, 3, 8, 4, 2, then back to 1: the cycle has length 12. Knowing the parameters and a single output, an attacker computes every past and future value with simple arithmetic — the sequence only *looks* random. A CSPRNG with a 256-bit state behaves the same way internally, but the state update is a cryptographic function, so recovering the state from outputs costs about $`2^{256}` operations.
 
 <svg viewBox="0 0 560 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="PRNG as a state machine: state, update function, output">
   <defs><marker id="arrRng" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#444"/></marker></defs>
@@ -66,9 +66,9 @@ A **PRNG** (Pseudo-Random Number Generator) is a deterministic function $`f: \{0
   </g>
 </svg>
 
-**Step 3 — Authoritative sources.** The standard for random bit generation is [NIST SP 800-90A: Recommendation for Random Bit Generation](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf).
+**Authoritative sources.** The standard for random bit generation is [NIST SP 800-90A: Recommendation for Random Bit Generation](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-90Ar1.pdf).
 
-**Step 4 — Example problem.**
+**Example problem.**
 
 <details><summary>Example problem: why an LCG must never guard a secret</summary>
 
@@ -85,7 +85,7 @@ The current state *is* the last output. Solve for it: $`s_t = a^{-1}(s_{t+1} - c
 
 ## Block and stream ciphers
 
-A **one-time pad** (OTP) encrypts $`m` with a uniform random key $`k` of the same length: $`c = m \oplus k`. It is information-theoretically secure (Shannon, 1949) but requires a key as long as the message. The security rests on the entropy of the key: if $`H(k) = |m|` bits, the ciphertext is independent of the plaintext (see [Coding and entropy](./Coding-and-Entropy.md) for the entropy definitions). The OTP is the only cipher with unconditional security; all practical ciphers rely on computational assumptions.
+A **one-time pad** (OTP) encrypts $`m` with a uniform random key $`k` of the same length: $`c = m \oplus k`. It is information-theoretically secure (Shannon, 1949) but requires a key as long as the message. The security rests on the entropy of the key: if $`H(k) = |m|` bits, the ciphertext is independent of the plaintext (see [Entropy](./Entropy.md) for the entropy definitions). The OTP is the only cipher with unconditional security; all practical ciphers rely on computational assumptions.
 
 A **PRF** (Pseudo-Random Function) $`F_k: \{0,1\}^* \to \{0,1\}^n` is a keyed function indistinguishable from a uniform random function to any efficient adversary. A **PRP** (Pseudo-Random Permutation) is a keyed bijection indistinguishable from a uniform random permutation.
 
@@ -99,11 +99,11 @@ A **PRF** (Pseudo-Random Function) $`F_k: \{0,1\}^* \to \{0,1\}^n` is a keyed fu
 
 **IND-CCA** (Indistinguishability under Chosen-Ciphertext Attack): the adversary can also query a decryption oracle. Requires an **AEAD** (Authenticated Encryption with Associated Data) scheme — see [Authentication and hashing](#authentication-and-hashing) below.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The global picture.** Practical ciphers are built by climbing from the OTP: a **PRG** (PRF on a counter) stretches a short seed into a long keystream, giving a **stream cipher**; a **PRP** on fixed-size blocks gives a **block cipher**, and **modes of operation** chain the blocks. The security ladder goes: OTP (unconditional) → IND-CPA (safe against eavesdroppers) → IND-CCA (safe against active tampering, needs authentication).
+**The global picture.** Practical ciphers are built by climbing from the OTP: a **PRG** (PRF on a counter) stretches a short seed into a long keystream, giving a **stream cipher**; a **PRP** on fixed-size blocks gives a **block cipher**, and **modes of operation** chain the blocks. The security ladder goes: OTP (unconditional) → IND-CPA (safe against eavesdroppers) → IND-CCA (safe against active tampering, needs authentication).
 
-**Step 2 — A concrete example: ECB leaks patterns.** Encrypt the two-block message $`m_1 = m_2`. ECB applies $`E_k` to each block independently, so $`c_1 = c_2`: the repetition in the plaintext is copied to the ciphertext. CBC mixes each block with the previous ciphertext (or the IV) before encrypting, so identical plaintext blocks produce different ciphertext blocks. CTR encrypts a counter to make a keystream, so no plaintext block ever meets $`E_k` directly.
+**A concrete example: ECB leaks patterns.** Encrypt the two-block message $`m_1 = m_2`. ECB applies $`E_k` to each block independently, so $`c_1 = c_2`: the repetition in the plaintext is copied to the ciphertext. CBC mixes each block with the previous ciphertext (or the IV) before encrypting, so identical plaintext blocks produce different ciphertext blocks. CTR encrypts a counter to make a keystream, so no plaintext block ever meets $`E_k` directly.
 
 <svg viewBox="0 0 640 110" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ECB mode: identical plaintext blocks give identical ciphertext blocks">
   <defs><marker id="arrEcb" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#444"/></marker></defs>
@@ -176,7 +176,7 @@ A **PRF** (Pseudo-Random Function) $`F_k: \{0,1\}^* \to \{0,1\}^n` is a keyed fu
 
 You can reproduce all three modes interactively in the [Interactive exploration](#interactive-exploration) section at the end of this page.
 
-**Step 3 — Building a block cipher: the Feistel network.** A Feistel round splits the block into halves $`L, R` and computes $`L_{i+1} = R_i`, $`R_{i+1} = L_i \oplus F_k(R_i)`. The magic: because only the $`F` output is XORed, the round is invertible *even if $`F` is not* — decryption runs the same rounds with reversed key order. Luby–Rackoff (1986) proved that 3 rounds turn a PRF into a PRP (IND-CPA secure) and 4 rounds into a *strong* PRP (IND-CCA secure).
+**Building a block cipher: the Feistel network.** A Feistel round splits the block into halves $`L, R` and computes $`L_{i+1} = R_i`, $`R_{i+1} = L_i \oplus F_k(R_i)`. The magic: because only the $`F` output is XORed, the round is invertible *even if $`F` is not* — decryption runs the same rounds with reversed key order. Luby–Rackoff (1986) proved that 3 rounds turn a PRF into a PRP (IND-CPA secure) and 4 rounds into a *strong* PRP (IND-CCA secure).
 
 <svg viewBox="0 0 620 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One Feistel round: L and R halves, round function F_k, XOR, then swap">
   <defs><marker id="arrFei" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#444"/></marker></defs>
@@ -199,11 +199,11 @@ You can reproduce all three modes interactively in the [Interactive exploration]
   </g>
 </svg>
 
-**Step 4 — AES and cryptanalysis.** **AES** (Rijndael): 128-bit block, 128/192/256-bit key, 10/12/14 rounds. Each round: SubBytes (S-box), ShiftRows, MixColumns, AddRoundKey. The S-box is a nonlinear permutation over $`\mathbb{F}_{2^8}` (the finite field with 256 elements, built over $`\mathbb{F}_2`). AES implements Shannon's two principles: **diffusion** spreads the influence of one plaintext bit across many ciphertext bits; **confusion** makes the key–ciphertext relationship complex. The two generic attacks on such designs are **linear cryptanalysis** (Matsui, 1993: find linear approximations holding with probability away from 1/2, recover key bits) and **differential cryptanalysis** (Biham & Shamir, 1990: find input differences predicting output differences, recover key bits). AES's round count is chosen so both attacks cost more than brute force.
+**AES and cryptanalysis.** **AES** (Rijndael): 128-bit block, 128/192/256-bit key, 10/12/14 rounds. Each round: SubBytes (S-box), ShiftRows, MixColumns, AddRoundKey. The S-box is a nonlinear permutation over $`\mathbb{F}_{2^8}` (the finite field with 256 elements, built over $`\mathbb{F}_2`). AES implements Shannon's two principles: **diffusion** spreads the influence of one plaintext bit across many ciphertext bits; **confusion** makes the key–ciphertext relationship complex. The two generic attacks on such designs are **linear cryptanalysis** (Matsui, 1993: find linear approximations holding with probability away from 1/2, recover key bits) and **differential cryptanalysis** (Biham & Shamir, 1990: find input differences predicting output differences, recover key bits). AES's round count is chosen so both attacks cost more than brute force.
 
-**Step 5 — Authoritative sources.** The modes above are specified in [NIST SP 800-38A](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf), and AES in [FIPS 197](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf); the Feistel result is [Luby & Rackoff, "How to Construct Pseudorandom Permutations from Pseudorandom Functions" (1988)](https://epubs.siam.org/doi/10.1137/0218058).
+**Authoritative sources.** The modes above are specified in [NIST SP 800-38A](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-38a.pdf), and AES in [FIPS 197](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197.pdf); the Feistel result is [Luby & Rackoff, "How to Construct Pseudorandom Permutations from Pseudorandom Functions" (1988)](https://epubs.siam.org/doi/10.1137/0218058).
 
-**Step 6 — Example problem.**
+**Example problem.**
 
 <details><summary>Example problem: nonce reuse in CTR mode</summary>
 
@@ -222,13 +222,13 @@ CTR computes $`c = m \oplus E_k(\text{nonce} \| i)` and $`c' = m' \oplus E_k(\te
 
 A **hash** $`H: \{0,1\}^* \to \{0,1\}^n` is collision-resistant and preimage-resistant: it fingerprints data without any key. A **MAC** (Message Authentication Code) $`\text{MAC}_k(m)` is a keyed hash: only holders of $`k` can produce a valid tag, so a valid tag authenticates both the message and its origin. An **AEAD** (Authenticated Encryption with Associated Data, e.g., AES-GCM, ChaCha20-Poly1305) combines encryption and authentication in one primitive, achieving IND-CCA security.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The global picture.** Three tools, three questions: *has this data changed?* (hash), *did someone with the key vouch for this data?* (MAC), *is this ciphertext both secret and vouched for?* (AEAD). When composing encryption and a MAC by hand, order matters: **EtM** (Encrypt-then-MAC) is the only composition provably secure in general (given a CPA-secure encryption and a secure MAC; Bellare & Namprempre, 2000). **MtE** (MAC-then-Encrypt) and **E&M** (Encrypt-and-MAC) are not provably secure in general — MtE's flaws led to real padding-oracle attacks (e.g., Lucky 13 on TLS).
+**The global picture.** Three tools, three questions: *has this data changed?* (hash), *did someone with the key vouch for this data?* (MAC), *is this ciphertext both secret and vouched for?* (AEAD). When composing encryption and a MAC by hand, order matters: **EtM** (Encrypt-then-MAC) is the only composition provably secure in general (given a CPA-secure encryption and a secure MAC; Bellare & Namprempre, 2000). **MtE** (MAC-then-Encrypt) and **E&M** (Encrypt-and-MAC) are not provably secure in general — MtE's flaws led to real padding-oracle attacks (e.g., Lucky 13 on TLS).
 
-**Step 2 — A concrete example.** To authenticate $`m` with HMAC: compute $`\text{HMAC}_k(m) = H((k \oplus \text{opad}) \| H((k \oplus \text{ipad}) \| m))` — the two pads make the construction a secure MAC even though plain $`H(k \| m)` is not. To encrypt *and* authenticate with **GCM**: run CTR mode for confidentiality, then compute a Galois-field MAC (GHASH) over the ciphertext and associated data; the tag covers both, so headers can be authenticated without being encrypted.
+**A concrete example.** To authenticate $`m` with HMAC: compute $`\text{HMAC}_k(m) = H((k \oplus \text{opad}) \| H((k \oplus \text{ipad}) \| m))` — the two pads make the construction a secure MAC even though plain $`H(k \| m)` is not. To encrypt *and* authenticate with **GCM**: run CTR mode for confidentiality, then compute a Galois-field MAC (GHASH) over the ciphertext and associated data; the tag covers both, so headers can be authenticated without being encrypted.
 
-**Step 3 — The sponge construction.** **SHA-3** (Keccak) is built as a **sponge**: a permutation $`\pi` on $`b` bits; absorb the message into the state block by block, then squeeze out the output. The **rate** is the part of the state touched per block; the **capacity** is the untouched part. Security: preimage resistance up to $`\text{capacity}/2` bits, and collision resistance up to $`\min(\text{output\_length}/2,\; \text{capacity}/2)` bits. For example, SHAKE128 has rate 1344 and capacity 256, giving 128 bits of preimage security ($`256/2`), independent of the large rate.
+**The sponge construction.** **SHA-3** (Keccak) is built as a **sponge**: a permutation $`\pi` on $`b` bits; absorb the message into the state block by block, then squeeze out the output. The **rate** is the part of the state touched per block; the **capacity** is the untouched part. Security: preimage resistance up to $`\text{capacity}/2` bits, and collision resistance up to $`\min(\text{output\_length}/2,\; \text{capacity}/2)` bits. For example, SHAKE128 has rate 1344 and capacity 256, giving 128 bits of preimage security ($`256/2`), independent of the large rate.
 
 <svg viewBox="0 0 620 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sponge construction: absorb phase then squeeze phase over rate and capacity">
   <defs><marker id="arrSpg" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#444"/></marker></defs>
@@ -253,11 +253,11 @@ A **hash** $`H: \{0,1\}^* \to \{0,1\}^n` is collision-resistant and preimage-res
   </g>
 </svg>
 
-**Step 4 — Modern AEAD properties.** **Key-committing AEAD**: the ciphertext commits to the key (no different key decrypts it to the same plaintext) — important when the decrypted plaintext is fed to another key-dependent component. **Misuse-resistant AEAD** (e.g., SIV mode): remains secure even if the nonce is accidentally reused, at the cost of two passes over the data.
+**Modern AEAD properties.** **Key-committing AEAD**: the ciphertext commits to the key (no different key decrypts it to the same plaintext) — important when the decrypted plaintext is fed to another key-dependent component. **Misuse-resistant AEAD** (e.g., SIV mode): remains secure even if the nonce is accidentally reused, at the cost of two passes over the data.
 
-**Step 5 — Authoritative sources.** [FIPS 202: SHA-3 Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf), [RFC 8439: ChaCha20-Poly1305](https://datatracker.ietf.org/doc/html/rfc8439), and [Bellare & Namprempre, "Authenticated Encryption" (2000)](https://eprint.iacr.org/2000/025).
+**Authoritative sources.** [FIPS 202: SHA-3 Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf), [RFC 8439: ChaCha20-Poly1305](https://datatracker.ietf.org/doc/html/rfc8439), and [Bellare & Namprempre, "Authenticated Encryption" (2000)](https://eprint.iacr.org/2000/025).
 
-**Step 6 — Example problem.**
+**Example problem.**
 
 <details><summary>Example problem: choosing the composition order</summary>
 
@@ -287,17 +287,17 @@ T_i = U_1^{(i)} \oplus U_2^{(i)} \oplus \cdots \oplus U_c^{(i)}
 
 KDFs bridge the symmetric and asymmetric worlds: in TLS 1.3, HKDF derives session keys from the shared secret produced by an asymmetric key exchange (ECDHE or ML-KEM). In hybrid encryption, a KEM produces a shared secret that a KDF then expands into encryption and authentication keys (see [Networks](../Distributed-Systems/Networks.md) for the full TLS protocol).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The global picture.** A KDF solves two different problems depending on the input. If the input is *high-entropy but non-uniform* (a Diffie–Hellman shared secret), use an **extract-then-expand** KDF like HKDF: extract a uniform pseudorandom key, then expand it into as many labeled keys as needed. If the input is *low-entropy* (a human password), no construction can create entropy — instead, a **PBKDF** makes each guess expensive, so the attacker's offline search is slowed.
+**The global picture.** A KDF solves two different problems depending on the input. If the input is *high-entropy but non-uniform* (a Diffie–Hellman shared secret), use an **extract-then-expand** KDF like HKDF: extract a uniform pseudorandom key, then expand it into as many labeled keys as needed. If the input is *low-entropy* (a human password), no construction can create entropy — instead, a **PBKDF** makes each guess expensive, so the attacker's offline search is slowed.
 
-**Step 2 — A concrete example.** Storing a password: pick a random 128-bit salt $`S`, run PBKDF2-HMAC-SHA256 with $`c = 600{,}000` iterations, store $`(S, \text{DK})`. A legitimate login costs one run (milliseconds); an attacker with the stolen database must run 600,000 HMACs *per guessed password*, per user (because of the salt). **Key separation** then splits the result: from a master key $`K`, derive $`K_{enc} = \text{KDF}(K, \text{"enc"})` and $`K_{mac} = \text{KDF}(K, \text{"mac"})`, so a leak in one context cannot compromise the other.
+**A concrete example.** Storing a password: pick a random 128-bit salt $`S`, run PBKDF2-HMAC-SHA256 with $`c = 600{,}000` iterations, store $`(S, \text{DK})`. A legitimate login costs one run (milliseconds); an attacker with the stolen database must run 600,000 HMACs *per guessed password*, per user (because of the salt). **Key separation** then splits the result: from a master key $`K`, derive $`K_{enc} = \text{KDF}(K, \text{"enc"})` and $`K_{mac} = \text{KDF}(K, \text{"mac"})`, so a leak in one context cannot compromise the other.
 
-**Step 3 — The main constructions.** **bcrypt**: Blowfish-based, $`2^w` iterations (work factor $`w`), 60-character output, slow by design. **scrypt**: memory-hard; requires $`N` blocks of $`128 \cdot r` bytes, resisting GPU/ASIC attacks. **Argon2**: winner of the Password Hashing Competition (2015); variants Argon2i (side-channel resistant), Argon2d (data-dependent), Argon2id (hybrid); parameters: memory cost $`m`, iterations $`t`, parallelism $`p`. **HKDF** (RFC 5869): extract $`\text{PRK} = \text{HMAC}(\text{salt}, \text{IKM})`, then expand $`OKM_i = \text{HMAC}(\text{PRK}, \text{OKM}_{i-1} \| \text{info} \| i)`; used in TLS 1.3, SSH, and IPsec.
+**The main constructions.** **bcrypt**: Blowfish-based, $`2^w` iterations (work factor $`w`), 60-character output, slow by design. **scrypt**: memory-hard; requires $`N` blocks of $`128 \cdot r` bytes, resisting GPU/ASIC attacks. **Argon2**: winner of the Password Hashing Competition (2015); variants Argon2i (side-channel resistant), Argon2d (data-dependent), Argon2id (hybrid); parameters: memory cost $`m`, iterations $`t`, parallelism $`p`. **HKDF** (RFC 5869): extract $`\text{PRK} = \text{HMAC}(\text{salt}, \text{IKM})`, then expand $`OKM_i = \text{HMAC}(\text{PRK}, \text{OKM}_{i-1} \| \text{info} \| i)`; used in TLS 1.3, SSH, and IPsec.
 
-**Step 4 — Authoritative sources.** [RFC 2898: PBKDF2](https://datatracker.ietf.org/doc/html/rfc2898) and [RFC 5869: HKDF](https://datatracker.ietf.org/doc/html/rfc5869).
+**Authoritative sources.** [RFC 2898: PBKDF2](https://datatracker.ietf.org/doc/html/rfc2898) and [RFC 5869: HKDF](https://datatracker.ietf.org/doc/html/rfc5869).
 
-**Step 5 — Example problem.**
+**Example problem.**
 
 <details><summary>Example problem: why the salt is stored in the clear</summary>
 
@@ -326,15 +326,15 @@ Now that we have a way to derive keys, the remaining question is how to establis
 
 **KEM** (Key Encapsulation Mechanism): generates a random key and an encapsulation (ciphertext) that allows the recipient to recover the key. KEMs are asymmetric primitives used in hybrid encryption (e.g., ML-KEM in TLS 1.3). The sender encapsulates a key; the recipient decapsulates it using their private key.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The global picture.** Symmetric cryptography assumes a shared key; asymmetric cryptography removes that assumption using computational asymmetry: operations that are easy in one direction and hard in the other. Three primitives follow: **key exchange** (build a shared secret over a public channel), **public-key encryption** (anyone can encrypt to you), and **signatures** (only you can vouch for data). All three rest on one-way or trapdoor functions.
+**The global picture.** Symmetric cryptography assumes a shared key; asymmetric cryptography removes that assumption using computational asymmetry: operations that are easy in one direction and hard in the other. Three primitives follow: **key exchange** (build a shared secret over a public channel), **public-key encryption** (anyone can encrypt to you), and **signatures** (only you can vouch for data). All three rest on one-way or trapdoor functions.
 
-**Step 2 — A concrete example: toy RSA.** Take $`p = 3`, $`q = 11`, so $`n = 33` and $`\varphi(n) = 20`. Pick $`e = 3` (coprime to 20); then $`d = e^{-1} \bmod 20 = 7` (since $`3 \times 7 = 21 \equiv 1`). To encrypt $`m = 4`: $`c = 4^3 \bmod 33 = 64 \bmod 33 = 31`. To decrypt: $`31^7 \bmod 33 = 4`. Anyone can encrypt with $`(n, e) = (33, 3)`; only the holder of $`d = 7` can invert — and with real 2048-bit primes, recovering $`d` from $`(n, e)` requires factoring $`n`, which is infeasible. You can watch the same structure interactively with the Diffie–Hellman tab of the [Interactive exploration](#interactive-exploration) section.
+**A concrete example: toy RSA.** Take $`p = 3`, $`q = 11`, so $`n = 33` and $`\varphi(n) = 20`. Pick $`e = 3` (coprime to 20); then $`d = e^{-1} \bmod 20 = 7` (since $`3 \times 7 = 21 \equiv 1`). To encrypt $`m = 4`: $`c = 4^3 \bmod 33 = 64 \bmod 33 = 31`. To decrypt: $`31^7 \bmod 33 = 4`. Anyone can encrypt with $`(n, e) = (33, 3)`; only the holder of $`d = 7` can invert — and with real 2048-bit primes, recovering $`d` from $`(n, e)` requires factoring $`n`, which is infeasible. You can watch the same structure interactively with the Diffie–Hellman tab of the [Interactive exploration](#interactive-exploration) section.
 
-**Step 3 — Signature schemes.** **ECDSA** operates on points of an elliptic curve $`E: y^2 = x^3 + ax + b \bmod p`; signatures are $`(r, s)` pairs; it is more efficient than RSA for the same security level (256-bit EC ≈ 3072-bit RSA). **EdDSA** uses Edwards curves ($`x^2 + y^2 = 1 + dt^2`); simpler implementation, constant-time, resistant to side-channel attacks; used in SSH, TLS 1.3, and Bitcoin (via Schnorr).
+**Signature schemes.** **ECDSA** operates on points of an elliptic curve $`E: y^2 = x^3 + ax + b \bmod p`; signatures are $`(r, s)` pairs; it is more efficient than RSA for the same security level (256-bit EC ≈ 3072-bit RSA). **EdDSA** uses Edwards curves ($`x^2 + y^2 = 1 + dt^2`); simpler implementation, constant-time, resistant to side-channel attacks; used in SSH, TLS 1.3, and Bitcoin (via Schnorr).
 
-**Step 4 — Hybrid encryption.** TLS 1.3 uses an asymmetric KEM (or ECDHE) to establish a shared secret, then a symmetric AEAD for bulk data — the efficiency of symmetric crypto with the convenience of public keys. See [Networks](../Distributed-Systems/Networks.md) for the full TLS handshake.
+**Hybrid encryption.** TLS 1.3 uses an asymmetric KEM (or ECDHE) to establish a shared secret, then a symmetric AEAD for bulk data — the efficiency of symmetric crypto with the convenience of public keys. See [Networks](../Distributed-Systems/Networks.md) for the full TLS handshake.
 
 ### Post-quantum cryptography
 
@@ -346,9 +346,9 @@ Shor's algorithm (1994) solves integer factoring and discrete log in polynomial 
 
 Lattice-based schemes rely on the hardness of the Learning With Errors (LWE) problem; hash-based schemes rely only on the security of a hash function. FALCON (FN-DSA, FIPS 206) is a lattice-based signature scheme still in development and was not in the first finalized batch.
 
-**Step 5 — Authoritative sources.** [RSA: "A Method for Obtaining Digital Signatures and Public-Key Cryptosystems" (1978)](https://dl.acm.org/doi/10.1145/359340.359342) and [FIPS 186-5: Digital Signature Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf).
+**Authoritative sources.** [RSA: "A Method for Obtaining Digital Signatures and Public-Key Cryptosystems" (1978)](https://dl.acm.org/doi/10.1145/359340.359342) and [FIPS 186-5: Digital Signature Standard](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.186-5.pdf).
 
-**Step 6 — Example problem.**
+**Example problem.**
 
 <details><summary>Example problem: why eavesdroppers cannot follow a Diffie–Hellman exchange</summary>
 
@@ -369,15 +369,15 @@ A **commitment scheme** lets a party commit to a value (publish a commitment) an
 
 A **zero-knowledge proof** (ZKP) lets a prover convince a verifier that a statement is true without revealing any information beyond its truth. It must satisfy **completeness** (an honest prover convinces the verifier), **soundness** (a cheating prover cannot convince the verifier of a false statement), and **zero-knowledge** (the verifier learns nothing else). These primitives underpin blockchain (e.g., zk-SNARKs in Zcash), secure multi-party computation, and privacy-preserving authentication. They build on the same one-way and trapdoor functions as public-key cryptography but add the properties of *hiding* and *knowledge transfer without information leakage*.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The global picture.** Encryption hides data; signatures vouch for data. Commitments and ZKPs do something neither does: they let you *prove things about hidden data*. A commitment is the cryptographic equivalent of sealing a value in an envelope; a ZKP is the equivalent of convincing someone the envelope contains a valid solution without opening it.
+**The global picture.** Encryption hides data; signatures vouch for data. Commitments and ZKPs do something neither does: they let you *prove things about hidden data*. A commitment is the cryptographic equivalent of sealing a value in an envelope; a ZKP is the equivalent of convincing someone the envelope contains a valid solution without opening it.
 
-**Step 2 — A concrete example: Schnorr identification.** Alice wants to prove she knows the discrete log $`a` of $`A = g^a` (her private key) without revealing $`a`. She picks a random $`r`, sends the **commitment** $`e = g^r`; Bob replies with a random **challenge** $`c`; Alice answers with $`z = r + c a`; Bob checks $`g^z = e \cdot A^c`. The protocol is complete (honest Alice always passes), sound (a cheater without $`a` fails for a random $`c` except with negligible probability), and zero-knowledge (Bob could simulate the whole transcript himself with random $`z` and a fitted $`e`, so the transcript proves nothing beyond Alice's honesty). This *commit–challenge–response* shape is the skeleton of most ZK protocols.
+**A concrete example: Schnorr identification.** Alice wants to prove she knows the discrete log $`a` of $`A = g^a` (her private key) without revealing $`a`. She picks a random $`r`, sends the **commitment** $`e = g^r`; Bob replies with a random **challenge** $`c`; Alice answers with $`z = r + c a`; Bob checks $`g^z = e \cdot A^c`. The protocol is complete (honest Alice always passes), sound (a cheater without $`a` fails for a random $`c` except with negligible probability), and zero-knowledge (Bob could simulate the whole transcript himself with random $`z` and a fitted $`e`, so the transcript proves nothing beyond Alice's honesty). This *commit–challenge–response* shape is the skeleton of most ZK protocols.
 
-**Step 3 — Authoritative sources.** [The Knowledge Complexity of Interactive Proof-Systems (Goldwasser, Micali & Rackoff, 1985)](https://ieeexplore.ieee.org/document/1056985) and [How to Construct Random Functions (for commitments from one-way functions)](https://ieeexplore.ieee.org/document/1056332).
+**Authoritative sources.** [The Knowledge Complexity of Interactive Proof-Systems (Goldwasser, Micali & Rackoff, 1985)](https://ieeexplore.ieee.org/document/1056985) and [How to Construct Random Functions (for commitments from one-way functions)](https://ieeexplore.ieee.org/document/1056332).
 
-**Step 4 — Example problem.**
+**Example problem.**
 
 <details><summary>Example problem: binding and hiding of a hash commitment</summary>
 

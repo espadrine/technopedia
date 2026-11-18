@@ -17,7 +17,7 @@ Probability and statistics studies uncertainty, random behavior, and inference f
 <tr><td>[Probability](./Probability/Readme.md)</td><td>random variables, distributions, expectation, stochastic processes, statistical inference</td><td>models uncertainty and random behavior; uses analysis (convergence, integration), algebra (structure of probability spaces), and measure theory</td><td>randomness, distributions, expectation, stochastic processes, statistical inference</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Use the table as a map:
 - For the rigorous foundation of integration and probability measures, begin with [Measure theory](./Measure-theory/Readme.md).

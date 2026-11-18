@@ -75,7 +75,7 @@ A single random 64-byte read from DRAM takes 100 cycles (100 ns) but transfers o
 
 DRAM achieves peak bandwidth through **bank interleaving**: a DRAM chip is divided into 8–32 banks, each with its own row buffer. While one bank is in row-activation (tRCD), another can be in column-read (tCL), and a third can be precharging (tRAS). The memory controller issues commands to different banks in parallel, so the aggregate throughput approaches the bus limit even though each individual access takes the full tRCD + tCL sequence.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why sequential access saturates bandwidth**: A DRAM column read returns 64 bytes per burst. If the next request is to the adjacent column in the same row, the row is already open and the controller skips tRCD, issuing only tCL. For a fully sequential stream, every access after the first is a "row hit" and the effective latency drops to tCL (~13 cycles). The bus is never idle, so bandwidth equals the bus rate.
 
@@ -89,7 +89,7 @@ DRAM achieves peak bandwidth through **bank interleaving**: a DRAM chip is divid
 
 A **cache** is a small, fast memory that stores copies of frequently accessed data. The **L1 cache** (32–64 KB, 4 cycles) is per-core; the **L2 cache** (256 KB–1 MB, 12 cycles) is per-core or per-pair; the **L3 cache** (8–64 MB, 40 cycles) is shared. A cache miss stalls the [CPU pipeline](./CPU-Architecture.md) until the data arrives.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Cache line and mapping
 
@@ -158,7 +158,7 @@ A 4-way set-associative L1 has 64 KB, 64-byte lines. How many sets does it have?
 
 A **hardware prefetcher** predicts future memory accesses and loads data into the cache before it is requested, hiding latency and improving effective bandwidth. Prefetching is the primary mechanism that turns a latency-bound random access pattern into a bandwidth-bound sequential one.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Types of prefetchers
 
@@ -192,7 +192,7 @@ A program accesses `a[0], a[4], a[8], …` over a 1 MB array (16,384 elements of
 
 In a multicore system, each core has its own private L1 (and sometimes L2) cache. When two cores access the same memory location, their cache copies can diverge. **Cache coherence** is the mechanism that ensures all cores see a consistent view of memory.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### MESI protocol
 
@@ -271,7 +271,7 @@ A coherence miss (e.g., a write to a line in Shared state) requires: (1) invalid
 
 **DRAM** (Dynamic RAM) is the main memory: 100 cycles, 8–128 GB per system. It is volatile (loses data on power loss). **SRAM** (Static RAM) is used for L1–L3 caches: 4–40 cycles, but 6× the area of DRAM, making it impractical for main memory. **NVRAM** (Non-Volatile RAM) retains data without power; a small, emerging tier (Intel Optane was discontinued in 2022; CXL-attached persistent memory is the current direction). The register file (flip-flop based) is 1 cycle.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The DRAM cell and why DRAM is slow
 
@@ -328,31 +328,8 @@ An SRAM cell is a **6T latch** (two cross-coupled inverters + two access transis
 
 ## Virtual memory
 
-Each process sees a contiguous virtual address space (e.g., 48-bit = 256 TB). The **MMU** (Memory Management Unit) translates virtual addresses to physical addresses using **page tables**. The **TLB** (Translation Lookaside Buffer) is a hardware cache of recent translations.
+**Virtual memory** — per-process virtual address spaces, page tables, the TLB, swap, and page faults — is implemented by the **operating system** (the hardware MMU only performs the translation mechanically); it is covered in [Operating System](./Operating-System.md). The physical side (caches, RAM, disk) is this page.
 
-<details><summary>Details</summary>
-
-### Page tables
-
-A **page table** maps virtual page numbers to physical frame numbers. On x86-64, a 4-level table: PML4 → PDPT → PD → PT. Each level is a 512-entry table (9 bits of address per level). The default page size is 4 KB (12 bits of offset).
-
-### TLB and huge pages
-
-The **TLB** is a small, fully-associative hardware cache of recent page-table entries (typically 64–1024 entries). A TLB hit: 1 cycle. A TLB miss: 4–5 memory accesses (walk the page table), adding 400–500 cycles.
-
-**Huge pages** reduce TLB pressure dramatically:
-- A **2 MB page** (512 × 4 KB) reduces the number of TLB entries needed by 512×. A 1 GB working set needs only 512 TLB entries with 2 MB pages instead of 262,144 with 4 KB pages.
-- A **1 GB page** (512 × 2 MB) reduces entries by 262,144×. Used for very large, contiguous allocations (e.g., database buffers, GPU mappings).
-
-The OS enables huge pages via `madvise(MADV_HUGEPAGE)` or the `hugetlbfs` filesystem. Linux **Transparent Huge Pages (THP)** automatically coalesce 4 KB pages into 2 MB pages in the background. Huge pages are critical for workloads with large, sequential working sets (databases, JVM heaps, scientific computing) where TLB misses dominate.
-
-### Page faults
-
-A **page fault** occurs when a virtual address is not mapped to a physical frame. The OS loads the page from disk (SSD: $`\approx 100 \mu s`, HDD: $`\approx 10` ms). A **major fault** (page on disk) is expensive; a **minor fault** (page in RAM but not mapped to this process) is cheap (~1 µs).
-
-The software management of virtual memory—swap policy, working-set model, thrashing mitigation, and per-process memory layout (text, data, heap, stack)—is covered in [Operating System](./Operating-System.md).
-
-</details>
 
 ## NUMA
 
@@ -393,7 +370,7 @@ NUMA (Non-Uniform Memory Access) exists because each CPU socket has its own DRAM
 
 Accessing local DRAM takes 100 cycles; accessing remote DRAM takes 140–200 cycles (extra hop through the interconnect plus coherence snoop). This non-uniformity means that thread-to-memory placement affects performance.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A 2-socket server with 2 NUMA nodes: each socket has its own DRAM channels (see [Physical memory](#physical-memory)). The interconnect connects the two memory controllers. A core on node 0 reading from node 1's memory incurs the interconnect latency on top of the DRAM latency, and the coherence protocol must snoop node 1's caches (see [Cache coherence](#cache-coherence)).
 
@@ -414,7 +391,7 @@ A common anti-pattern: allocating a large array on node 0 (because the allocatin
 
 **Sectors**: the minimum unit of disk I/O (512 bytes for HDD, 4 KB for SSD). A **block** (file system level) is typically 4 KB.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **HDD anatomy**: platters (magnetic storage), actuator arm (positions the read/write head), spindle motor (spins the platter at 5400–15000 RPM). **Seek time** (5–10 ms) dominates; **rotational latency** (2.5–4 ms) is the wait for the sector to rotate under the head.
 
@@ -424,7 +401,7 @@ A common anti-pattern: allocating a large array on node 0 (because the allocatin
 
 ### Redundancy and striping
 
-**RAID** (Redundant Array of Independent Disks) combines multiple disks for throughput and/or [fault tolerance](../Distributed-Systems/Robustness/Fault-Tolerance.md):
+**RAID** (Redundant Array of Independent Disks) combines multiple disks for throughput and/or [Durability](../Distributed-Systems/Robustness/Durability.md):
 
 <table>
 <tr><th>Level</th><th>Minimum disks</th><th>Usable capacity</th><th>Fault tolerance</th><th>Use case</th></tr>
@@ -434,7 +411,7 @@ A common anti-pattern: allocating a large array on node 0 (because the allocatin
 <tr><td>RAID 6</td><td>4</td><td>(<i>n</i>−2) × single</td><td>2 disks</td><td>Large arrays, long rebuild times</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **RAID 0** (striping): data is interleaved across $`n` disks. Read throughput scales linearly; a single disk failure loses all data.
 - **RAID 1** (mirroring): each disk has an identical copy. Read throughput doubles (read from either mirror); write throughput is unchanged (write to both).

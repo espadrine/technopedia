@@ -39,7 +39,7 @@ where $`\text{Pa}(X_i)` are the parents of $`X_i` in the graph and $`U_i` are ex
   <text x="175" y="70" font-size="11" fill="#666">confounds</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The DAG encodes causal assumptions: an edge $`X \to Y` means $`X` is a direct cause of $`Y`. The model generates a joint distribution $`P(X_1, \ldots, X_n)` that is *Markov* with respect to the graph: each variable is independent of its non-descendants given its parents.
 
@@ -63,7 +63,7 @@ The **do-operator** $`\text{do}(X = x)` represents an intervention: setting $`X`
 P(Y \mid \text{do}(X = x))
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The do-operator modifies the SCM: the structural equation for $`X` is replaced by $`X = x` (a constant), and all incoming edges to $`X` are removed. The resulting distribution is the **interventional distribution**.
 
@@ -105,7 +105,7 @@ Pearl and Mackenzie organize all causal reasoning into three rungs, each answeri
 
 Each rung strictly subsumes the ones below it: a model rich enough for counterfactuals answers interventional and associational questions, but an associational model alone cannot answer interventional questions. The sections of this page climb the ladder: [structural causal models](#structural-causal-models) and [the do-operator](#the-do-operator) set up the language; [identifiability and do-calculus](#identifiability-and-do-calculus), [potential outcomes](#potential-outcomes-framework), and [instrumental variables](#instrumental-variables) all work at rung 2; [counterfactuals](#counterfactuals) work at rung 3. Note that rung 1 is the domain of ordinary statistics — see [Estimation](./Estimation.md) and [Conditional probability](../Conditional-probability.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The ladder explains *why* causal inference needs extra assumptions: the observed distribution $`P(V)` is a rung-1 object, and the map from rung-1 objects to rung-2 or rung-3 objects is not unique without causal assumptions. Two different SCMs can induce the same observational distribution but different interventional distributions; only the causal structure (the arrows) breaks the tie. This is why identifying $`P(Y \mid \text{do}(X))` from data requires either an experiment (which intervenes directly) or untestable structural assumptions (which the graphical criteria below encode).
 
@@ -165,7 +165,7 @@ P(Y \mid \text{do}(X = x)) = \sum_m P(M = m \mid X = x) \sum_{x'} P(Y \mid M = m
   <text x="160" y="130" text-anchor="middle" font-size="10" fill="#c0392b">confounded direct path</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the front-door works.** The effect of $`X` on $`M` is identifiable by the back-door criterion with $`Z = \emptyset` (condition (i) rules out confounding of $`X`–$`M`). The effect of $`M` on $`Y` is identifiable by adjusting for $`X` (condition (ii)). Condition (iii) ensures the effect of $`X` on $`Y` is fully transmitted through $`M`, so the two identifiable pieces compose into the front-door formula. The derivation is a short chain of do-calculus rules — this is exactly what the calculus is for.
 
@@ -189,7 +189,7 @@ The **individual causal effect** is $`Y_i(1) - Y_i(0)`, but only one of the two 
 \text{ATE} = E[Y(1) - Y(0)] = E[Y(1)] - E[Y(0)]
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The two main frameworks for causal inference are:
 
@@ -222,7 +222,7 @@ Both frameworks rest on the **Stable Unit Treatment Value Assumption** (SUTVA), 
 
 Under SUTVA, the observed data are simply the potential outcomes with one of the two masked per unit, which is what makes the identification results above applicable.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 as functions of the full assignment vector $`\mathbf{x}`.
 
@@ -263,7 +263,7 @@ An **instrumental variable** $`Z` for the effect of $`X` on $`Y` satisfies:
   <text x="160" y="135" text-anchor="middle" font-size="10" fill="#666">No Z → Y edge (exclusion restriction)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 When a valid instrument exists, the causal effect can be estimated by the **Wald estimator** (ratio of two differences):
 
@@ -287,7 +287,7 @@ Y_{x'} \quad \text{(the outcome this unit would have had if } X = x' \text{ inst
 
 This is the top rung of the [ladder of causation](#the-ladder-of-causation): it combines observation (the evidence $`X = x, Y = y`) with intervention (setting $`X` to $`x'`).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Counterfactuals are the most specific level of causal reasoning. They require the full SCM, not just the graph: two SCMs with the same graph can induce different counterfactuals.
 
@@ -331,7 +331,7 @@ When the identifying assumptions hold, several methods estimate causal effects f
 
   identifies the local effect at the cutoff: manipulation of $`S` near $`c` aside, assignment is *as if* randomized in a narrow window.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the propensity score suffices.** By Rosenbaum and Rubin (1983), $`e(Z)` is a balancing score: $`X \perp\!\!\!\perp Z \mid e(Z)`. Hence, under conditional unconfoundedness $`(Y(0), Y(1)) \perp\!\!\!\perp X \mid Z`, adjusting for the scalar $`e(Z)` removes all confounding — this is the back-door adjustment with the score replacing the full covariate vector. In practice one estimates $`e(Z)` (e.g., by logistic regression) and either matches treated to control units with similar scores, or weights units by $`1/e(Z)` (treated) and $`1/(1 - e(Z))` (controls) to build a pseudo-population with no confounding.
 
@@ -351,7 +351,7 @@ Throughout this page, the DAG $`G` is assumed *known* (from domain knowledge). *
 
 Modern machine learning enters causal inference on both ends: as a *flexible estimator* for the nuisance functions that identification results leave free (the propensity score $`e(Z)`, the outcome regressions $`E[Y \mid X, Z]`), and as a *consumer* of causal reasoning (predictive models trained on observational data answer rung-1 questions and break under interventions or distribution shift).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Key causal ML methods:
 
@@ -448,7 +448,7 @@ where $`\text{Pa}(X_i)` are the parents of $`X_i` in the graph and $`U_i` are ex
   <text x="175" y="70" font-size="11" fill="#666">confounds</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The DAG encodes causal assumptions: an edge $`X \to Y` means $`X` is a direct cause of $`Y`. The model generates a joint distribution $`P(X_1, \ldots, X_n)` that is *Markov* with respect to the graph: each variable is independent of its non-descendants given its parents.
 
@@ -472,7 +472,7 @@ The **do-operator** $`\text{do}(X = x)` represents an intervention: setting $`X`
 P(Y \mid \text{do}(X = x))
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The do-operator modifies the SCM: the structural equation for $`X` is replaced by $`X = x` (a constant), and all incoming edges to $`X` are removed. The resulting distribution is the **interventional distribution**.
 
@@ -500,7 +500,7 @@ The key graphical criterion is the **back-door criterion**: a set $`Z` satisfies
 P(Y \mid \text{do}(X = x)) = \sum_z P(Y \mid X = x, Z = z)\, P(Z = z)
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The do-calculus is a complete decision procedure: if an interventional quantity is identifiable, the do-calculus can derive its expression in terms of observed quantities.
 
@@ -552,7 +552,7 @@ The **individual causal effect** is $`Y_i(1) - Y_i(0)`, but only one of the two 
 \text{ATE} = E[Y(1) - Y(0)] = E[Y(1)] - E[Y(0)]
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The two main frameworks for causal inference are:
 
@@ -607,7 +607,7 @@ An **instrumental variable** $`Z` for the effect of $`X` on $`Y` satisfies:
   <text x="160" y="135" text-anchor="middle" font-size="10" fill="#666">No Z → Y edge (exclusion restriction)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 When a valid instrument exists, the causal effect can be estimated by the **Wald estimator** (ratio of two differences):
 
@@ -629,7 +629,7 @@ A **counterfactual** asks: what would have happened to this specific unit under 
 Y_{x'} \quad \text{(the outcome this unit would have had if } X = x' \text{ instead)}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Counterfactuals are the most specific level of causal reasoning (Pearl's "ladder of causation": association → intervention → counterfactual). They require the full SCM, not just the graph.
 
@@ -647,7 +647,7 @@ When the identifying assumptions hold, several methods estimate causal effects f
 - **Difference-in-differences**: compare the change in outcomes over time between a treated group and a control group, assuming parallel trends.
 - **Regression discontinuity**: exploit a known threshold (cutoff) that determines treatment assignment; compare outcomes just above and below the cutoff.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 These methods are the applied counterparts of the theoretical frameworks above:
 

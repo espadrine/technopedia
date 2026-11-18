@@ -50,7 +50,7 @@ A = \sqrt{x_0^2 + \left(\frac{v_0}{\omega}\right)^2}, \qquad \phi = -\arctan\!\l
 
 (with the quadrant of $`\phi` determined by the signs of $`x_0` and $`v_0`).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The equation is second-order, linear, and homogeneous. Two initial conditions ($`x(0)` and $`\dot{x}(0)`) determine $`A` and $`\phi`. The solution can also be written as $`x(t) = C_1\cos(\omega t) + C_2\sin(\omega t)`.
 
@@ -101,7 +101,7 @@ $`\phi = -\arctan(0.5/(5 \times 0.1)) = -\arctan(1) = -\pi/4` rad.
 
 The period $`T = 2\pi\sqrt{m/k}` is **independent of amplitude**—this is the defining property of harmonic motion (isochronism). It depends only on the system's inertia and stiffness, not on how far the mass is displaced.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Isochronism is a direct consequence of linearity: the restoring force is proportional to displacement, so the effective stiffness the mass feels is the same at every point of the trajectory. In nonlinear oscillators the period depends on amplitude (see [Nonlinear oscillations](./Nonlinear-oscillations.md)).
 
@@ -191,7 +191,7 @@ so $`A = \sqrt{5} \approx 2.24` and $`\phi \approx 0.464` rad.
   <text x="364" y="164" fill="#2c3e50" font-size="9">x</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Superposition is the foundation for [Coupled oscillations](./Coupled-oscillations.md) (normal modes) and [Wave propagation](./Wave-Propagation.md) (Fourier decomposition). It fails for [Nonlinear oscillations](./Nonlinear-oscillations.md), where modes interact.
 

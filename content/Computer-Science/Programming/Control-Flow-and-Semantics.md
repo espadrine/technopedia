@@ -11,7 +11,7 @@ Control flow and semantics define what a program means: how statements execute, 
 
 Every imperative language rests on two primitive rules. **Skip** ($`\text{skip}`) does nothing: it is the identity on state. **Sequencing** ($`S_1; S_2`) composes two statements: evaluate $`S_1` to an intermediate state $`\sigma'`, then evaluate $`S_2` in $`\sigma'`. A **state** $`\sigma` is a mapping from variables to values ($`\sigma : \text{Var} \to \text{Val}`), and **assignment** $`x := e` is a state update: it produces $`\sigma[x := v]`, the state identical to $`\sigma` except that $`x` now maps to the value $`v` of $`e`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 These three notions — state, skip, composition — are the foundation on which every other control-flow rule builds: `if` and `while` are just different ways of choosing *which* sequence of assignments to run.
 
@@ -74,7 +74,7 @@ The first statement $`x := 2` can be replaced by `skip` only if $`x` already hol
 
 **if**: $`\text{if } b \text{ then } S_1 \text{ else } S_2` executes $`S_1` if $`b` is true, else $`S_2`. **while**: $`\text{while } b \text{ do } S` repeats $`S` while $`b` is true. **for**: a bounded loop with three components — initialization, condition, and update — that desugars directly to a `while` loop.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Conditionals and loops are *derived* rules: each one selects which sequence of assignments (the primitive from the previous section) to run, and how many times.
 
@@ -113,7 +113,7 @@ No: the call's result is used by the pending operation `1 + …`, so the caller'
 
 A **variable** is a named binding in an environment. **Scope** determines where a binding is visible. **Closures** capture the environment in which a function is defined, allowing the function to access variables that are no longer in scope. The physical layout of environments and stack frames is covered in [Memory Management](./Memory-Management.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Lexical scope** (static): a variable's scope is determined by its textual position. $`let x = 1; let f = () => x; let x = 2; f() // returns 1`.
 
@@ -190,7 +190,7 @@ It returns 3: `inner` is called from `caller`, so dynamic resolution picks `call
 
 A **function** maps inputs to outputs. **Recursion** is a function that calls itself. **Higher-order functions** take functions as arguments or return functions: `map`, `filter`, `reduce`, `fold`. The type system that constrains which functions can be composed is studied in [Language Theory](./Language-Theory.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Composition**: $`(g \circ f)(x) = g(f(x))`, type $`(A \to B) \to (B \to C) \to (A \to C)`. Composition is associative — $`h \circ (g \circ f) = (h \circ g) \circ f` — which is why pipelines of transformations can be regrouped freely.
 
@@ -235,7 +235,7 @@ Functors, applicatives, and monads generalize plain function composition to comp
 
 The progression: a plain function maps $`A \to B`; a functor maps that function over a wrapper $`F`; an applicative applies a wrapped function to a wrapped value; a monad chains when the next step depends on the previous result.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Global picture**: each layer adds one degree of dependency. Functor: the function is total and independent per element. Applicative: the *shape* of the computation is fixed in advance (all arguments known up front). Monad: the shape may depend on intermediate results — which is why monads can model effects like exceptions (stop early) and state (thread $`\sigma` through).
 
@@ -262,7 +262,7 @@ Given `safeDiv : Int -> Int -> Maybe Int`, why can `safeDiv 6 3` be written with
 
 An **evaluation strategy** specifies the order in which sub-expressions are reduced and when function arguments are evaluated. This is a semantic choice that affects both performance and expressiveness.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Call-by-value (strict / eager)**: arguments are fully evaluated *before* the function body executes. This is the strategy of C, Java, Python, and most imperative languages. Side effects in arguments are visible to the callee.
 
@@ -315,7 +315,7 @@ All three strategies return 1, but the side effects differ. Call-by-value evalua
 
 Exceptions are a control-flow mechanism that transfers control from a throwing site to the nearest enclosing handler, bypassing intermediate frames. They generalize the `break`/`return` pattern to arbitrary nesting depths.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **try / catch / finally**:
 
@@ -387,7 +387,7 @@ The new exception propagates from `readFile`'s frame *upward* — it is not caug
 
 Formal semantics gives a mathematical definition of what a program means, independent of any particular implementation. The primitives it must define first are exactly the ones from the [sequencing section](#sequencing-state-and-assignment): the state $`\sigma`, assignment $`\sigma[x := v]`, `skip`, and composition $`S_1; S_2`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Operational semantics** defines meaning as a sequence of state transitions:
 

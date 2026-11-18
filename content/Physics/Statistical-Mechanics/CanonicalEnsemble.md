@@ -20,7 +20,7 @@ where $`Z` is the **partition function** (normalization):
 Z(T,V,N) = \sum_\alpha e^{-\beta E_\alpha}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation from the microcanonical reservoir.** Imagine a small system $`S` (the "system") in contact with a very large reservoir $`R` (the "heat bath"), with total energy $`E_{\text{tot}}` fixed. The combined system is isolated, so it is described by the [microcanonical ensemble](./MicrocanonicalEnsemble.md): every microstate of $`S+R` with energy $`E_{\text{tot}}` is equally likely.
 
@@ -130,7 +130,7 @@ Z_{\text{tot}} = Z_A \times Z_B
 
 More generally, for $`N` independent subsystems: $`Z_{\text{tot}} = \prod_i Z_i`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the product?** If $`A` is in state $`i` with energy $`E_i^A` and $`B` is in state $`j` with energy $`E_j^B`, the combined state $(i,j)$ has energy $`E_i^A + E_j^B` (additivity of energy for independent systems). The joint Boltzmann factor is:
 
@@ -219,7 +219,7 @@ All thermodynamic quantities are derivatives of $`F`:
 S = -\left(\frac{\partial F}{\partial T}\right)_{V,N}, \qquad P = -\left(\frac{\partial F}{\partial V}\right)_{T,N}, \qquad \mu = \left(\frac{\partial F}{\partial N}\right)_{T,V}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why $`F`?** The Helmholtz free energy $`F = U - TS` is the Legendre transform of the internal energy $`U(S,V,N)` that replaces the entropy variable $`S` with its conjugate $`T = (\partial U/\partial S)_{V,N}`. At fixed $`T, V, N`, the equilibrium state minimizes $`F`. This is the statistical-mechanical statement of the second law for systems in a heat bath.
 
@@ -280,7 +280,7 @@ The entropy of a system in the canonical ensemble is:
 S = k_B\!\left(\ln Z + \beta\langle E \rangle\right) = \frac{\langle E \rangle - F}{T}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation.** Start from the Gibbs entropy formula applied to the canonical distribution $`P_\alpha = e^{-\beta E_\alpha}/Z`:
 
@@ -364,7 +364,7 @@ P = k_B T \left(\frac{\partial \ln Z}{\partial V}\right)_{T,N}
 
 This is equivalent to $`P = -(\partial F/\partial V)_{T,N}` since $`F = -k_B T \ln Z`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation.** From $`F = -k_B T \ln Z`, the thermodynamic relation $`P = -(\partial F/\partial V)_{T,N}` gives:
 
@@ -427,7 +427,7 @@ The mean energy and its variance are
 
 The **fluctuation–dissipation relation** $`\operatorname{Var}(E) = k_B T^2 C_V` ties the energy variance to the heat capacity: a system with large $`C_V` (readily absorbs heat) has large energy fluctuations.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation of the variance.** The mean energy is:
 
@@ -510,7 +510,7 @@ The expectation value of any observable $`\hat{A}` is:
 \langle A \rangle = \operatorname{Tr}(\rho\, \hat{A})
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **From classical to quantum.** In the classical canonical ensemble, microstates are points in phase space and $`P(\alpha)` is a probability density. In quantum mechanics, the state is a density operator $`\rho` on Hilbert space. The classical Boltzmann weight $`e^{-\beta E_\alpha}` becomes the operator $`e^{-\beta \hat{H}}` (defined by the spectral decomposition of $`\hat{H}`):
 

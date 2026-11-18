@@ -25,7 +25,7 @@ The sections below build on each other in a fixed order: we pin down the process
 
 A **Poisson process** with rate $`\lambda > 0` is a counting process $`(N_t)_{t \geq 0}` such that $`N_0 = 0`, the increments $`N_{t+s} - N_t` are mutually independent for disjoint intervals, and $`N_{t+s} - N_t \sim \mathrm{Poisson}(\lambda s)` for all $`t, s \geq 0`. Equivalently, $`N_t \sim \mathrm{Poisson}(\lambda t)` and the process has stationary independent increments, so it is a Lévy process.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A **counting process** is a non-decreasing, integer-valued process that jumps by exactly $`1` at each event; $`N_t` is the number of events that have occurred by time $`t`. The two increment axioms are the heart of the definition:
 
@@ -84,7 +84,7 @@ So there is only about an $`11.8\%` chance of $`10` or fewer calls in five minut
 
 Let $`X_i = S_i - S_{i-1}` be the time between the $(i-1)$-th and the $i$-th event. The **inter-arrival times** $`(X_i)_{i \geq 1}` are i.i.d. exponential random variables with rate $`\lambda`: $`X_i \sim \mathrm{Exp}(\lambda)`, with density $`f(x) = \lambda e^{-\lambda x}` for $`x \geq 0`, mean $`1/\lambda`, and survival function $`P(X_i > x) = e^{-\lambda x}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The inter-arrival times are where the exponential distribution enters. The key fact is the **memoryless property** of the exponential: for $`s, x \geq 0`,
 
@@ -136,7 +136,7 @@ By the memoryless property, the additional wait $`X` is a fresh $`\mathrm{Exp}(0
 
 The time of the $`n`-th event is $`S_n = X_1 + \cdots + X_n`, a sum of $`n` i.i.d. exponentials. The **arrival time** $`S_n` has an **Erlang** (equivalently Gamma) distribution with shape $`n` and rate $`\lambda`: density $`f_{S_n}(t) = \lambda\, e^{-\lambda t}\, (\lambda t)^{n-1}/(n-1)!` for $`t \geq 0`, mean $`E[S_n] = n/\lambda`, variance $`\mathrm{Var}(S_n) = n/\lambda^2`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The arrival times are just the partial sums of the inter-arrival times. Since each $`X_i \sim \mathrm{Exp}(\lambda)` and the $`X_i` are independent, $`S_n` is a sum of $`n` i.i.d. exponentials. Such a sum is called an **Erlang** random variable (a special case of the Gamma distribution with integer shape). The convolution of $`n` identical exponential densities produces the Erlang density, which is zero until $`t = 0`, rises to a peak near $`(n-1)/\lambda`, and then decays.
 
@@ -176,7 +176,7 @@ The $`10`-th part arrives at $`S_{10} \sim \mathrm{Erlang}(10, 4)`. Its mean is 
 
 Given a Poisson process $`(N_t)` with rate $`\lambda` and an independent coin of success probability $`p`, keep each event with probability $`p` and discard it with probability $`1-p`. The **thinned** (kept) process $`(N_t^+)` and the discarded process $`(N_t^-)` are independent Poisson processes with rates $`\lambda p` and $`\lambda(1-p)` respectively.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Thinning** (or splitting) is the operation of randomly filtering a Poisson stream. Each event is independently tagged "keep" with probability $`p` or "drop" with probability $`1-p`. The remarkable conclusion is that the two resulting streams are not merely Poisson — they are **independent** Poisson processes.
 
@@ -233,7 +233,7 @@ P(\text{exactly 2}) = e^{-6}\,\frac{6^2}{2!} = 18\,e^{-6} \approx 0.025.
 
 If $`(N_t^{(1)})` and $`(N_t^{(2)})` are **independent** Poisson processes with rates $`\lambda_1` and $`\lambda_2`, then their sum $`N_t = N_t^{(1)} + N_t^{(2)}` is a Poisson process with rate $`\lambda_1 + \lambda_2`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Superposition** (or aggregation) is the reverse of thinning: merge several independent Poisson streams into one. The merged count in an interval is the sum of the two independent counts in that interval, and the sum of independent Poisson variables is Poisson with the summed means. So in an interval of length $`t`, $`N_t \sim \mathrm{Poisson}(\lambda_1 t + \lambda_2 t) = \mathrm{Poisson}((\lambda_1+\lambda_2)t)`, and the independent-increments property is inherited from the two inputs.
 
@@ -295,7 +295,7 @@ P(N_1 = 4) = e^{-8}\,\frac{8^4}{4!} = \frac{4096}{24}\,e^{-8} \approx 0.134.
 
 Let $`(N_t)` be a Poisson process with rate $`\lambda` and let $`Y_1, Y_2, \dots` be i.i.d. random variables (the **jump sizes**), independent of $`(N_t)`. The **compound Poisson process** is $`X_t = \sum_{i=1}^{N_t} Y_i` (with $`X_0 = 0`). It has mean $`E[X_t] = \lambda t\, E[Y_1]` and variance $`\mathrm{Var}(X_t) = \lambda t\, E[Y_1^2]`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A plain Poisson process counts events; a **compound Poisson process** adds a random *size* to each event. At each arrival the process jumps by an amount $`Y_i` drawn from the jump-size distribution, so $`X_t` is the total accumulated by time $`t`. This is the workhorse model for aggregate losses (insurance), queue arrivals with batch sizes, and price jumps.
 

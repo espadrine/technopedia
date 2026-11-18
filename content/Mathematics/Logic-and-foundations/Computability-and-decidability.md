@@ -2,7 +2,7 @@
 
 Computability and decidability is the study of what can and cannot be computed by a mechanical procedure. It answers "what can be mechanically decided?" and thereby bounds what proofs, algorithms, and machines can achieve. It is relevant whenever you must establish a *hard* limit — that no algorithm exists at all, not merely that none is known — for a decision problem.
 
-This page takes the **decidability** angle: which problems are decidable, which are merely semi-decidable, and how the undecidable ones are ranked by the arithmetical hierarchy. The **complexity-class** angle — how *fast* a decidable problem can be solved (P, NP, and their relatives) — is treated on the Computer-Science side in [Computability and Complexity Classes](../../Computer-Science/Algorithmics/Computability-and-Complexity-Classes.md). The formal 7-tuple definition of a Turing machine and the P/NP machinery live there; this page builds on them rather than re-deriving them.
+This page takes the **decidability** angle: which problems are decidable, which are merely semi-decidable, and how the undecidable ones are ranked by the arithmetical hierarchy. The **complexity-class** angle — how *fast* a decidable problem can be solved (P, NP, and their relatives) — is treated on the Computer-Science side in [Theory of Computation](../../Computer-Science/Algorithmics/Theory-of-Computation/Readme.md). The formal 7-tuple definition of a Turing machine and the P/NP machinery live there; this page builds on them rather than re-deriving them.
 
 > **Authoritative sources**
 > - [A. Turing (1936), On Computable Numbers, with an Application to the Entscheidungsproblem](https://doi.org/10.1112/plms/s2-42.1.230)
@@ -14,9 +14,9 @@ This page takes the **decidability** angle: which problems are decidable, which 
 
 A **model of computation** is a precise formal definition of "mechanical procedure." The three canonical models — Turing machines, the lambda calculus, and the general recursive functions — compute exactly the same class of functions, the **computable** (or **recursive**) functions. This robustness across independent definitions is the empirical content of the **Church–Turing thesis**: every effectively computable function is Turing-computable. The property that matters most for undecidability is **universality**: a single machine can take the description of any other machine as data and simulate it.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — What a model of computation is.** A model of computation fixes, in mathematical terms, what counts as a mechanical procedure, so that "computable" stops being a vague word. A Turing machine is the standard choice: a finite control (a finite set of states) that reads and writes one cell of an unbounded tape at a time. The full 7-tuple definition, the notion of a decidable language, and the complexity classes built on top of it are developed on the Computer-Science side in [Computability and Complexity Classes](../../Computer-Science/Algorithmics/Computability-and-Complexity-Classes.md); here we only need the machine as a black box that either halts or runs forever.
+**Step 1 — What a model of computation is.** A model of computation fixes, in mathematical terms, what counts as a mechanical procedure, so that "computable" stops being a vague word. A Turing machine is the standard choice: a finite control (a finite set of states) that reads and writes one cell of an unbounded tape at a time. The full 7-tuple definition, the notion of a decidable language, and the complexity classes built on top of it are developed on the Computer-Science side in [Theory of Computation](../../Computer-Science/Algorithmics/Theory-of-Computation/Readme.md); here we only need the machine as a black box that either halts or runs forever.
 
 **Step 2 — Universality and self-reference.** A Turing machine can be written down as a finite string of symbols, so a machine's description is itself data. A **universal machine** $`U` reads a pair $`(\langle M\rangle, w)` — the code of a machine $`M` and an input $`w` — and simulates $`M(w)` step for step. Because a machine's code is just a string, a machine can be handed *its own* code as input. This self-reference is the engine behind every undecidability proof on this page: it is what lets us build a machine $`D` that reasons about its own behavior.
 
@@ -40,7 +40,7 @@ Every undecidability proof on this page needs a machine to be given its *own* de
 
 A set $`S \subseteq \mathbb{N}` is **semi-decidable** (or **recursively enumerable**, r.e.) if some machine halts and accepts exactly the members of $`S`, and may run forever on non-members. $`S` is **decidable** iff both $`S` and its complement $`\overline{S}` are semi-decidable. $`S` is **co-semi-decidable** when its complement is semi-decidable. The decidable sets sit exactly at the intersection of the semi-decidable and the co-semi-decidable sets.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Decidable vs. semi-decidable.** A decider must answer *both* yes and no in finite time. A semi-decider only has to answer yes in finite time; on a "no" instance it is allowed to loop forever. So every decidable set is semi-decidable, but not conversely: a semi-decider can "miss" the negative answers by never halting on them.
 
@@ -78,7 +78,7 @@ The complement of the halting set, $`\overline{K} = \{e : \varphi_e(e) \text{ do
 
 A decision problem is **decidable** when some algorithm answers yes or no for every input in finite time. The **halting problem** — deciding whether a given machine halts on a given input — is **undecidable** (Turing 1936; Church 1936). Undecidability is not exotic: the satisfiability of first-order logic (the Entscheidungsproblem), the word problem for groups, and many tiling problems are undecidable as well.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Diagonalization.** Suppose a decider $`H(M, w)` existed, answering "halts" or "loops" for any machine $`M` and input $`w`. Build a machine $`D` that, on input $`m`, runs $`H(m, m)` and does the *opposite*: if $`H` says "$`m` halts on $`m`," then $`D` loops; otherwise $`D` halts. Now run $`D` on its own code $`D`: $`D` halts on $`D` exactly when it does not — a contradiction. So no such $`H` exists. (The same self-referential structure appears in Cantor's proof that the reals are uncountable. Gödel's incompleteness theorems reach a similar self-reference by a *different* route — arithmetization plus the fixed-point lemma, not direct diagonalization — see [Mathematical logic](./Mathematical-logic.md).)
 
@@ -167,7 +167,7 @@ Undecidable problems come in degrees. The **arithmetical hierarchy** classifies 
 
 The halting set $`K` is **Σ₁-complete** (it is Σ₁, and every Σ₁ set reduces to it); its complement is Π₁ and not semi-decidable.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The decidable base.** A **decidable** (Δ₀) predicate is one a machine can answer yes/no on in finite time. The hierarchy is built by stacking quantifiers over such a base. The base itself is level 0: a set defined by a decidable predicate with no quantifiers is just decidable.
 

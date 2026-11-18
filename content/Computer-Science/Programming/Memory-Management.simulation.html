@@ -12,6 +12,7 @@ h1 { font-size: 1.3em; margin-bottom: 12px; color: #fff; }
 .controls select, .controls button { padding: 6px 12px; border-radius: 4px; border: 1px solid #444; background: #2a2a4a; color: #e0e0e0; font-size: 0.85em; cursor: pointer; }
 .controls button:hover { background: #3a3a6a; }
 .controls button.active { background: #4a6fa5; border-color: #6a9fd8; }
+.controls .hint { font-size: 0.8em; color: #999; }
 #heap { display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 16px; min-height: 40px; padding: 8px; background: #111; border-radius: 6px; border: 1px solid #333; }
 .block { height: 36px; display: flex; align-items: center; justify-content: center; font-size: 0.65em; border-radius: 3px; color: #fff; font-weight: 600; min-width: 20px; transition: all 0.3s; }
 .block.free { background: #2d5a27; }
@@ -39,7 +40,8 @@ h1 { font-size: 1.3em; margin-bottom: 12px; color: #fff; }
 <option value="buddy">Buddy</option>
 </select>
 <button id="btnAlloc">Allocate</button>
-<button id="btnFree">Free</button>
+<button id="btnFree">Free random</button>
+<span class="hint">Click any allocated block to free it.</span>
 <button id="btnRandom">Random 10</button>
 <button id="btnReset">Reset</button>
 <label>Size: <input type="number" id="size" value="64" min="16" max="512" step="16" style="width:60px;padding:4px;border-radius:3px;border:1px solid #444;background:#2a2a4a;color:#e0e0e0;"></label>
@@ -98,8 +100,10 @@ function render() {
       totalAlloc += b.size;
       div.classList.add('alloc');
       div.textContent = b.size + 'A';
+      div.style.cursor = 'pointer';
+      div.onclick = () => freeById(b.id);
     }
-    div.title = (b.free ? 'Free' : 'Allocated') + ' ' + b.size + ' bytes';
+    div.title = (b.free ? 'Free' : 'Allocated — click to free') + ' ' + b.size + ' bytes';
     heap.appendChild(div);
   }
   document.getElementById('sTotal').textContent = HEAP_SIZE + ' B';
@@ -184,24 +188,23 @@ function buddyAlloc(size) {
   render();
 }
 
+function freeById(id) {
+  const i = blocks.findIndex(b => b.id === id);
+  if (i < 0 || blocks[i].free) return;
+  const b = blocks[i];
+  b.free = true;
+  if (b.buddy) buddyMerge(i);
+  else coalesce();
+  log('Freed block #' + id + ' (' + b.size + ' B)');
+  render();
+}
+
 function freeBlock() {
-  // Free the last allocated block
-  for (let i = blocks.length - 1; i >= 0; i--) {
-    if (!blocks[i].free) {
-      const wasBuddy = blocks[i].buddy;
-      blocks[i].free = true;
-      if (wasBuddy) {
-        // Try to merge with buddy
-        buddyMerge(i);
-      } else {
-        coalesce();
-      }
-      log('Freed block ' + i);
-      render();
-      return;
-    }
-  }
-  log('Nothing to free');
+  // Free a random allocated block
+  const allocs = blocks.filter(b => !b.free);
+  if (allocs.length === 0) { log('Nothing to free'); return; }
+  const b = allocs[Math.floor(Math.random() * allocs.length)];
+  freeById(b.id);
 }
 
 function buddyMerge(idx) {

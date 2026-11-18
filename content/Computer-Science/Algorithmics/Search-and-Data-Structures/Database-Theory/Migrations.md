@@ -15,7 +15,7 @@ Each migration is a numbered script (e.g., `001_create_users.sql`, `002_add_emai
 - **Track**: the `schema_migrations` table stores `(version, applied_at, checksum)`. The checksum detects tampering.
 - **Idempotency**: a well-designed migration is safe to re-run (e.g., `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE … ADD COLUMN IF NOT EXISTS`).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Tools**:
 - **Flyway** (Java): directory of numbered SQL or Java-based migrations. Supports `baseline` (adopt an existing schema) and `repair` (fix checksum mismatches).
@@ -44,7 +44,7 @@ The original table is briefly locked only at the final rename (milliseconds).
 
 <iframe src="./Migrations.simulation.html" title="Step-by-step animation of the online migration shadow-table algorithm"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why not just `ALTER TABLE`?** In PostgreSQL, `ADD COLUMN` (without a default) is metadata-only (instant). But `ADD COLUMN … DEFAULT <expr>` rewrites the entire table. `CREATE INDEX` (without `CONCURRENTLY`) locks the table. `CREATE INDEX CONCURRENTLY` builds the index in the background but takes longer and cannot run inside a transaction.
 
@@ -76,7 +76,7 @@ A **down-migration** (rollback) reverts an up-migration. In practice:
 
 This is the **expand → migrate → contract** pattern. It avoids downtime and data loss.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Feature flags**: combine migrations with feature flags. The migration adds the schema; the feature flag controls whether the application uses the new schema. This decouples schema changes from code changes, allowing the schema to be deployed independently.
 
@@ -92,19 +92,19 @@ This is the **expand → migrate → contract** pattern. It avoids downtime and 
 
 <details><summary>Solution</summary>
 
-**Step 1: Add column (instant in PostgreSQL)**
+**Add column (instant in PostgreSQL)**
 ```sql
 ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
 ```
 In PostgreSQL 11+, adding a column with a constant default is metadata-only (no table rewrite). The new column is visible immediately; existing rows return the default without being physically updated.
 
-**Step 2: Add index (online)**
+**Add index (online)**
 ```sql
 CREATE INDEX CONCURRENTLY idx_users_status ON users(status);
 ```
 `CONCURRENTLY` builds the index in the background without locking the table. Takes longer but does not block writes.
 
-**Step 3: Deploy code**
+**Deploy code**
 Deploy application code that sets `status` on new inserts and updates. No dual-write needed (the default handles existing rows).
 
 **Why not `gh-ost`?** Because PostgreSQL 11+ makes `ADD COLUMN … DEFAULT <const>` instant, there is no need for a shadow table. The online migration tool is only needed for operations that rewrite the table (e.g., changing a column type, adding a computed default).

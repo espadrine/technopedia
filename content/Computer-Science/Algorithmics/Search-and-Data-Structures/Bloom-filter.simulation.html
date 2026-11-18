@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lists Simulation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { text-align: center; margin-bottom: 16px; color: #fff; font-size: 1.4em; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; justify-content: center; }
+.tab { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; background: #16213e; color: #a0a0c0; font-size: 0.9em; transition: all 0.2s; }
+.tab:hover { background: #0f3460; color: #fff; }
+.tab.active { background: #e94560; color: #fff; }
+.panel { display: none; background: #16213e; border-radius: 10px; padding: 20px; min-height: 300px; }
+.panel.active { display: block; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.controls button { padding: 6px 14px; border: none; border-radius: 5px; cursor: pointer; background: #0f3460; color: #fff; font-size: 0.85em; transition: background 0.2s; }
+.controls button:hover { background: #e94560; }
+.controls input { padding: 6px 10px; border: 1px solid #333; border-radius: 5px; background: #1a1a2e; color: #fff; width: 60px; font-size: 0.85em; }
+.viz { margin-top: 16px; }
+.cell { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 2px solid #0f3460; margin: 2px; font-size: 0.85em; font-weight: bold; border-radius: 4px; background: #1a1a2e; transition: all 0.3s; }
+.cell.filled { background: #0f3460; border-color: #e94560; color: #fff; }
+.cell.highlight { background: #e94560; color: #fff; transform: scale(1.1); }
+.cell.empty { border-style: dashed; opacity: 0.4; }
+.node { display: inline-flex; align-items: center; margin: 2px; }
+.node-box { width: 50px; height: 44px; border: 2px solid #e94560; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; }
+.node-box.highlight { background: #e94560; color: #fff; }
+.arrow { font-size: 1.2em; color: #e94560; margin: 0 4px; }
+.bit { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #333; margin: 1px; font-size: 0.75em; border-radius: 3px; background: #1a1a2e; transition: all 0.3s; }
+.bit.set { background: #e94560; color: #fff; }
+.bit.highlight { border-color: #ffd700; box-shadow: 0 0 6px #ffd700; }
+.info { margin-top: 12px; padding: 10px; background: #1a1a2e; border-radius: 6px; font-size: 0.85em; color: #a0a0c0; min-height: 40px; }
+.label { font-size: 0.8em; color: #666; margin-top: 4px; }
+.stack-viz { display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; min-height: 200px; justify-content: flex-start; }
+.stack-cell { width: 80px; height: 36px; border: 2px solid #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; transition: all 0.3s; }
+.stack-cell.top { border-color: #e94560; background: #0f3460; }
+.queue-viz { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.queue-cell { width: 50px; height: 44px; border: 2px solid #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; transition: all 0.3s; }
+.queue-cell.head { border-color: #4ecdc4; }
+.queue-cell.tail { border-color: #ffd700; }
+.cap-label { font-size: 0.75em; color: #666; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Bloom Filter</h1>
+<div id="bloom" class="panel active">
+<div class="controls">
+<button onclick="bloomInsert()">Insert</button>
+<button onclick="bloomQuery()">Query</button>
+<input id="bloomVal" type="text" value="A" style="width:60px">
+<span style="font-size:0.8em;color:#666">element</span>
+</div>
+<div class="viz" id="bloomViz"></div>
+<div class="info" id="bloomInfo">Bloom filter: probabilistic membership test. No false negatives, tunable false positives.</div>
+</div>
+<script>
+// Bloom Filter
+let bloomBits = new Array(16).fill(0);
+let bloomElements = [];
+function hash(s, k) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+  return (h * (k + 7) + k * 13) % 16;
+}
+function renderBloom(hlBits) {
+  let h = '';
+  bloomBits.forEach((b, i) => {
+    let cls = b ? 'set' : '';
+    if (hlBits && hlBits.includes(i)) cls += ' highlight';
+    h += `<div class="bit ${cls}">${b}</div>`;
+  });
+  document.getElementById('bloomViz').innerHTML = h;
+}
+function bloomInsert() {
+  let el = document.getElementById('bloomVal').value || 'X';
+  let positions = [hash(el, 0), hash(el, 1), hash(el, 2)];
+  positions.forEach(p => bloomBits[p] = 1);
+  bloomElements.push(el);
+  renderBloom(positions);
+  document.getElementById('bloomInfo').textContent = `Inserted "${el}": set bits at positions [${positions.join(', ')}]. O(k) = O(3).`;
+}
+function bloomQuery() {
+  let el = document.getElementById('bloomVal').value || 'X';
+  let positions = [hash(el, 0), hash(el, 1), hash(el, 2)];
+  let allSet = positions.every(p => bloomBits[p] === 1);
+  renderBloom(positions);
+  if (allSet) {
+    let actuallyPresent = bloomElements.includes(el);
+    document.getElementById('bloomInfo').textContent = `Query "${el}": all bits set → "maybe present". ${actuallyPresent ? '✓ True positive.' : '⚠ False positive (element was never inserted).'}`;
+  } else {
+    document.getElementById('bloomInfo').textContent = `Query "${el}": bit(s) clear at [${positions.filter(p => bloomBits[p]===0).join(', ')}] → "definitely absent". ✓ No false negatives.`;
+  }
+}
+renderBloom(null);
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Program Execution: function call in the virtual address space</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 12px; background: #fafafa; }
+h1 { font-size: 1.2em; margin-bottom: 4px; }
+.controls { margin: 8px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.controls button { padding: 4px 12px; cursor: pointer; background: #1565c0; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0d47a1; }
+.info { font-size: 0.85em; color: #555; }
+svg { display: block; margin: 6px 0; }
+#regs { margin-top: 6px; }
+.reg { display: inline-block; border: 1px solid #ccc; border-radius: 4px; padding: 2px 8px; margin: 2px; font-size: 0.78em; font-family: monospace; background: #fff; }
+</style>
+</head>
+<body>
+<h1>Program execution: a function call in the virtual address space</h1>
+<p class="info">A tiny x86-64 program computes <code>sum(3, 4)</code>. Step through it: the IP moves through the text segment (left), registers load, and the stack (right) pushes/pops around the <code>call</code>.</p>
+<div class="controls">
+<button onclick="step()">Step</button>
+<button onclick="run()">▶ Run</button>
+<button onclick="reset()">Reset</button>
+<span class="info" id="status"></span>
+</div>
+<svg id="mem" width="520" height="230"></svg>
+<div id="regs"></div>
+<script>
+const TEXT_BASE = 0x400000;
+const STACK_TOP = 0x7fffffffe000;
+const prog = [
+  { addr: 0x400000, text: 'mov edi, 3',     op: 'movri', dst: 'rdi', imm: 3 },
+  { addr: 0x400005, text: 'mov esi, 4',     op: 'movri', dst: 'rsi', imm: 4 },
+  { addr: 0x40000a, text: 'call 0x400010',  op: 'call', target: 0x400010 },
+  { addr: 0x40000f, text: 'hlt',            op: 'hlt' },
+  { addr: 0x400010, text: 'push rbp',       op: 'push', src: 'rbp' },
+  { addr: 0x400011, text: 'mov rbp, rsp',   op: 'movrr', dst: 'rbp', src: 'rsp' },
+  { addr: 0x400014, text: 'mov eax, edi',   op: 'movrr32', dst: 'rax', src: 'rdi' },
+  { addr: 0x400016, text: 'add eax, esi',   op: 'add32', dst: 'rax', src: 'rsi' },
+  { addr: 0x400018, text: 'pop rbp',        op: 'pop', dst: 'rbp' },
+  { addr: 0x400019, text: 'ret',            op: 'ret' },
+];
+let R, stackMem, timer;
+const fmt = a => '0x' + a.toString(16);
+function reset() {
+  R = { rax: 0, rbx: 0, rcx: 0, rdx: 0, rsi: 0, rdi: 0, rbp: 0, rsp: STACK_TOP, rip: TEXT_BASE };
+  stackMem = {};
+  clearInterval(timer);
+  document.getElementById('status').textContent = 'Press Step to execute one instruction.';
+  draw();
+}
+const r32 = n => R[n] & 0xffffffff;
+const setR32 = (n, v) => { R[n] = (R[n] & 0xffffffff00000000) | (v >>> 0); };
+function setStatus(t) { document.getElementById('status').textContent = t; }
+function step() {
+  const i = prog.findIndex(p => p.addr === R.rip);
+  if (i < 0) { clearInterval(timer); setStatus('Halted.'); return; }
+  const ins = prog[i], next = prog[i + 1];
+  setStatus(`Executing ${fmt(R.rip)}: ${ins.text}`);
+  switch (ins.op) {
+    case 'movri': R[ins.dst] = ins.imm; R.rip = next.addr; break;
+    case 'movrr': R[ins.dst] = R[ins.src]; R.rip = next.addr; break;
+    case 'movrr32': setR32(ins.dst, R[ins.src]); R.rip = next.addr; break;
+    case 'add32': setR32(ins.dst, r32(ins.dst) + r32(ins.src)); R.rip = next.addr; break;
+    case 'push': R.rsp -= 8; stackMem[R.rsp] = R[ins.src]; R.rip = next.addr; break;
+    case 'pop': R[ins.dst] = stackMem[R.rsp] ?? 0; delete stackMem[R.rsp]; R.rsp += 8; R.rip = next.addr; break;
+    case 'call': R.rsp -= 8; stackMem[R.rsp] = next.addr; R.rip = ins.target; break;
+    case 'ret': R.rip = stackMem[R.rsp] ?? 0; delete stackMem[R.rsp]; R.rsp += 8; break;
+    case 'hlt':
+      clearInterval(timer);
+      setStatus(`Halted. sum returned rax = ${r32('rax')} (3 + 4 = 7).`);
+      draw(); return;
+  }
+  draw();
+}
+function run() {
+  clearInterval(timer);
+  timer = setInterval(() => {
+    step();
+    if (document.getElementById('status').textContent.startsWith('Halted')) clearInterval(timer);
+  }, 700);
+}
+function draw() {
+  let s = '';
+  // text segment (program), left
+  s += `<rect x="10" y="14" width="250" height="206" fill="#e3f2fd" stroke="#1565c0" stroke-width="2" rx="6"/>`;
+  s += `<text x="135" y="32" text-anchor="middle" font-weight="bold">text segment (program)</text>`;
+  s += `<text x="20" y="47" font-size="10" fill="#555">base ${fmt(TEXT_BASE)}</text>`;
+  prog.forEach((p, i) => {
+    const y = 64 + i * 15;
+    if (p.addr === R.rip) s += `<rect x="16" y="${y - 11}" width="238" height="14" fill="#ffe082" stroke="#f9a825"/>`;
+    s += `<text x="20" y="${y}" font-size="9" font-family="monospace">${fmt(p.addr)}  ${p.text}</text>`;
+  });
+  s += `<text x="20" y="212" font-size="10" fill="#c62828" font-weight="bold">IP (rip) = ${fmt(R.rip)}</text>`;
+  // stack segment, right
+  s += `<rect x="280" y="14" width="230" height="206" fill="#f3e5f5" stroke="#8e24aa" stroke-width="2" rx="6"/>`;
+  s += `<text x="395" y="32" text-anchor="middle" font-weight="bold">stack segment</text>`;
+  s += `<text x="290" y="47" font-size="10" fill="#555">top ${fmt(STACK_TOP)} — grows down</text>`;
+  const addrs = Object.keys(stackMem).map(Number).sort((a, b) => b - a);
+  addrs.forEach((a, i) => {
+    const y = 64 + i * 18;
+    s += `<rect x="290" y="${y - 12}" width="210" height="16" fill="#fff" stroke="#8e24aa"/>`;
+    s += `<text x="296" y="${y}" font-size="9" font-family="monospace">${fmt(a)}: ${fmt(stackMem[a])}</text>`;
+  });
+  s += `<text x="290" y="${70 + addrs.length * 18}" font-size="10" fill="#8e24aa" font-weight="bold">rsp = ${fmt(R.rsp)}</text>`;
+  document.getElementById('mem').innerHTML = s;
+  // registers as compact chips
+  document.getElementById('regs').innerHTML =
+    Object.keys(R).map(k => `<span class="reg"><b>${k}</b> ${fmt(R[k])}</span>`).join('');
+}
+reset();
+</script>
+</body>
+</html>

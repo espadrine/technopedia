@@ -18,7 +18,7 @@ Doping changes the electrical properties of a semiconductor region *in place*: a
 
 **Definition.** Silicon is tetravalent. Replacing one Si atom with a group-V atom (P, As, Sb) leaves a loosely bound fifth electron that is donated to the conduction band (**donor**, n-type); replacing it with a group-III atom (B) leaves a missing bond — a hole — that accepts an electron (**acceptor**, p-type). At room temperature essentially every dopant atom is ionized, so the carrier concentration equals the dopant concentration: n ≈ N_D (donors) or p ≈ N_A (acceptors).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The step-by-step picture.** In a pure silicon crystal every valence electron is locked in a bond; only the rare thermal excitation across the 1.12 eV band gap provides carriers (intrinsic concentration n_i ≈ 1×10¹⁰ cm⁻³ at 300 K). A dopant atom changes this locally:
 
@@ -78,7 +78,7 @@ N(x) = (dose / (√(2π) · ΔR_p)) · exp( −(x − R_p)² / (2ΔR_p²) )
 
 The dose (ions/cm²) is measured by integrating the wafer current — implantation is the only major fab step whose recipe is literally an electric charge.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.**
 
@@ -130,7 +130,7 @@ limited source: N(x,t) = (Q/√(πDt)) · exp(−x²/(4Dt)), with D = D₀·exp(
 
 Diffusion was the dominant doping method before ~1980; today it survives mainly as the *drive-in* half of implantation — the implant sets the dose, the furnace moves it.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.**
 
@@ -159,7 +159,7 @@ Junction depth scales as √(Dt), so equal depth requires D₁t₁ = D₂t₂: t
 
 **Definition.** A thermal step (typically 950–1050 °C for seconds to minutes, or ~1300 °C for milliseconds) that (1) recrystallizes the amorphized layer by solid-phase epitaxy, (2) moves dopant atoms onto substitutional lattice sites where they are electrically active, and (3) must fit inside the wafer's thermal budget without smearing the junctions it activates.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why it is needed.** Each implanted ion knocks hundreds of atoms off their lattice sites; at high dose the surface layer amorphizes. A dopant atom that is not on a lattice site is *not* electrically active — it neither donates nor accepts. The anneal does three things in one thermal cycle:
 
@@ -194,7 +194,7 @@ t_max = (3×10⁻⁷ cm)²/D = 9×10⁻¹⁴/1×10⁻¹³ = 0.9 s. A 10 s RTP gi
 
 **Definition.** Heating silicon in O₂ (dry, 800–1200 °C) or H₂O (wet) ambient grows SiO₂ *by consuming the silicon*: 1 nm of oxide grown consumes 0.46 nm of silicon. Growth follows the Deal–Grove law x² + Ax = B(t + τ).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How it works, step by step.** Oxidizer molecules (O₂ or H₂O) diffuse *through* the already-grown oxide to the Si/SiO₂ interface, react there (Si + O₂ → SiO₂), and the interface advances into the wafer. The Deal–Grove model balances the fluxes: thin oxides grow reaction-limited (linear, x ∝ t), thick oxides diffusion-limited (parabolic, x ∝ √t). Because growth consumes the substrate, oxidation is self-limiting and perfectly conformal in a way no deposited film is. It belongs on this page because it shares the furnace, the thermal budget, and the "modify existing material" character of doping: no layer is added from outside — the substrate itself is transformed.
 

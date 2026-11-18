@@ -14,7 +14,7 @@ $`f'(a) = \lim_{h \to 0} \frac{f(a+h) - f(a)}{h},`
 
 when the limit exists. $`f` is differentiable at $`a` if this limit exists.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From slope to derivative
 
@@ -52,7 +52,7 @@ The right-hand difference quotient is $`\frac{|h| - 0}{h} = 1` for $`h > 0`, and
 
 $`f'(c) = \frac{f(b) - f(a)}{b - a}.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why it matters
 
@@ -86,7 +86,7 @@ By the MVT applied to $`\sin` on the interval between $`x` and $`y`, there is $`
 
 $`f(x) = \sum_{k=0}^{n} \frac{f^{(k)}(a)}{k!}(x-a)^k + \frac{f^{(n+1)}(\xi)}{(n+1)!}(x-a)^{n+1}.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The idea
 
@@ -124,7 +124,7 @@ $`(f^{-1})'(f(a)) = \frac{1}{f'(a)}.`
 
 $`y'(x) = -\frac{F_x}{F_y}.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why the non-vanishing derivative matters
 

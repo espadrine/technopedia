@@ -12,7 +12,7 @@ Integration measures accumulated quantity — area, volume, total mass, expected
 
 $`\int_a^b f(x)\, dx = \lim_{\|P\| \to 0} \sum_i f(x_i^*) \Delta x_i.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The idea
 
@@ -54,7 +54,7 @@ The Riemann integral is also awkward for functions with "too many" discontinuiti
 
 **Definition (sketch).** The Lebesgue integral integrates by slicing the *range* rather than the *domain*: it measures the set of points where $`f` takes values in a given interval, and sums $`\text{value} \times \text{measure}`. It is defined first for non-negative measurable functions as a supremum of integrals of simple functions, then extended to general measurable functions.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why slice the range?
 
@@ -88,7 +88,7 @@ $`\lim_{n \to \infty} \int f_n = \int f.`
 
 $`\lim_{n \to \infty} \int f_n = \int f.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why these matter
 

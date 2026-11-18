@@ -2,11 +2,11 @@
 
 On-chip interconnects are the metallic or polysilicon wires that carry signals between functional units within a single silicon die. They are relevant whenever a processor or SoC must move data between its own components: between a core and its L1 cache, between cores in a multicore chip, or between a CPU and an on-die memory controller. At the µm–mm scale, the dominant physics is RC delay, and the design discipline is transistor-level timing closure.
 
-This page covers the three canonical topologies in increasing order of scale and complexity — **shared bus**, **crossbar**, **network-on-chip** — plus the innermost interconnect of all, the **register file**. The consumer of these wires on the core side (pipelines, renaming, out-of-order execution) is described in [CPU Architecture](../../Computer-Hardware/CPU-Architecture.md); the latency and bandwidth context that motivates the whole design is in [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md); and the boundary where an "interconnect" stops being on-chip (chiplets, package substrates, PCB traces) is covered in [Board-level electrical interconnects](./Board-level-interconnects.md).
+This page covers the three canonical topologies in increasing order of scale and complexity — **shared bus**, **crossbar**, **network-on-chip** — plus the innermost interconnect of all, the **register file**. The consumer of these wires on the core side (pipelines, renaming, out-of-order execution) is described in [CPU Architecture](../../Computer-Hardware/CPU-Architecture.md); the latency and bandwidth context that motivates the whole design is in [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md); and the boundary where an "interconnect" stops being on-chip (chiplets, package substrates, PCB traces) is covered in [Board-level electrical interconnects](./Board-level-electrical-interconnects.md).
 
 ## The physics: RC delay
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Why is RC delay the dominant physics on-die, when board-level traces are transmission lines? A wire must be treated as a transmission line only when its length is a significant fraction of the signal's rise-time distance ($`L \gtrsim t_\text{rise} \cdot v` where $`v` is the propagation speed, roughly $`c/2` in silicon dioxide). On-die wires are µm to a few mm long with sub-100-ps rise times, so they behave as **lumped RC circuits**: no reflections, no impedance matching, no termination. The wire is a resistance in series with a capacitance to the substrate and to neighbouring wires.
 
@@ -67,7 +67,7 @@ The quadratic dependence on length is the single most important fact on this pag
   <text x="320" y="285" text-anchor="middle" font-size="12" fill="#555">One master granted at a time; all others tri-state their drivers</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A shared bus is the simplest interconnect topology. All masters (CPU, DMA, GPU) connect to the same address, data, and control lines. An arbiter (typically a priority encoder or round-robin) grants bus access to one master at a time; every other master tri-states its drivers.
 
@@ -157,7 +157,7 @@ Master A gets the bus (higher priority). Master B waits until Master A releases 
   <text x="320" y="330" text-anchor="middle" font-size="12" fill="#555">A valid configuration is a matching: at most one connection per input and per output</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A crossbar (or crosspoint switch) provides a dedicated path between any input and any output. If there are $`N` inputs and $`N` outputs, the crossbar has $`N^2` **crosspoints** — one connection point where an input row crosses an output column, each a pass-gate plus its control logic. (A 2×2 switch is a small building block assembled from several crosspoints, not a crosspoint itself.) Each cycle the configured connections must form a *matching*: at most one connection per input and per output, which is the only way a crossbar "blocks".
 
@@ -260,7 +260,7 @@ Core 0→MC 2, Core 2→MC 0, and Core 3→MC 3 can all be served simultaneously
 })();
 </script>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 
 As core counts grew beyond ~16, the quadratic wire cost of a crossbar became prohibitive. A mesh NoC connects each router to its north, south, east, and west neighbours; a ring connects each node to exactly two neighbours. A packet traverses multiple hops, each adding one router latency (~1–2 cycles). The animation above walks a packet from router (0,0) to router (3,3) — six hops, the mesh's diameter.
@@ -293,7 +293,7 @@ The diameter of a 4×4 mesh is 6 hops (corner to opposite corner: 3 + 3). A 4×4
 
 **Definition.** The register file is the innermost interconnect: the multi-ported array of flip-flop-based bit-cells and the metal routing that lets execution units read operands and write results in a single cycle, over wires only tens of µm long.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A register file is not a bus in the traditional sense, but it is where all on-chip interconnect begins: the ALU reads two registers and writes one result per cycle, and the "interconnect" is the metal routing from the execution units to the register file, typically 10–100 µm. In the [memory hierarchy](../../Computer-Hardware/Memory-Hierarchy.md) it is the top level — and structurally it is *not* an SRAM array: SRAM optimises density with few ports, while a register file needs many ports, so it is built from flip-flop/latch bit-cells with dedicated access paths per port.
 
@@ -317,7 +317,7 @@ Capacity: $`32 \times 64 = 2048` bit-cells. Each bit-cell needs one access path 
 
 ## The package boundary: die-to-die
 
-When the "interconnect" crosses from one silicon die to another inside a single package — chiplets linked by UCIe, AMD's Infinity Fabric, Intel's EMIB — the engineering regime changes: the distances (1–10 mm) and the bump/TSV parasitics belong to packaging, not to on-die RC design. That subject is treated in [Board-level electrical interconnects](./Board-level-interconnects.md), and the fabrication side (TSV formation, microbump placement, CoWoS assembly) in [Interconnect and packaging](../../../Manufacturing/Electronics/Interconnect-and-packaging.md).
+When the "interconnect" crosses from one silicon die to another inside a single package — chiplets linked by UCIe, AMD's Infinity Fabric, Intel's EMIB — the engineering regime changes: the distances (1–10 mm) and the bump/TSV parasitics belong to packaging, not to on-die RC design. That subject is treated in [Board-level electrical interconnects](./Board-level-electrical-interconnects.md), and the fabrication side (TSV formation, microbump placement, CoWoS assembly) in [Interconnect and packaging](../../../Manufacturing/Electronics/Interconnect-and-packaging.md).
 
 ## Scaling summary
 

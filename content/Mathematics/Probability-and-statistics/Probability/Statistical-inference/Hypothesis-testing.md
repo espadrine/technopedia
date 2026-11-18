@@ -16,7 +16,7 @@ H_0: \theta \in \Theta_0 \quad \text{vs.} \quad H_1: \theta \in \Theta_1
 
 A **test function** $`\varphi(x) \in [0,1]` gives the probability of rejecting $`H_0` given data $`x`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Every test trades off two kinds of mistakes, and the whole theory is about controlling them:
 
@@ -68,7 +68,7 @@ E_{\theta_1}[\varphi^*] - E_{\theta_1}[\varphi] \;\geq\; k\,\big(E_{\theta_0}[\v
 
 since $`E_{\theta_0}[\varphi^*] = \alpha \geq E_{\theta_0}[\varphi]`. Hence $`\varphi^*` has power at least as large. (Randomization on the boundary $`f_1 = k f_0` handles the case where no deterministic threshold achieves size exactly $`\alpha`.)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Worked example.** Let $`X \sim N(\theta, 1)` with $`\theta_0 = 0` and $`\theta_1 = 1`. The likelihood ratio is
 
@@ -108,7 +108,7 @@ The p-value is the probability, under $`H_0`, of observing a test statistic as e
 p = P_{H_0}(T(X) \geq T(x_{\text{obs}}))
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A small p-value indicates that the observed data would be unlikely if $`H_0` were true. The p-value is **not** the probability that $`H_0` is true. It is a tail probability computed under the assumption that $`H_0` holds.
 
@@ -155,7 +155,7 @@ Before computing a p-value you must decide which departures from $`H_0` count as
 - **Two-sided** ($`H_1: \theta \neq \theta_0`): reject for extreme values in **either** direction. Rejection region $`|T| > t_{1-\alpha/2}`; p-value $`p = 2\,P_{H_0}(T \geq |T_{\text{obs}}|)` — both tails.
 - **One-sided** ($`H_1: \theta > \theta_0` or $`\theta < \theta_0`): reject only in the pre-declared direction. Rejection region $`T > t_{1-\alpha}`; p-value $`p = P_{H_0}(T \geq T_{\text{obs}})` — one tail.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **When is each appropriate?** A one-sided test is legitimate only when departures in the other direction would be practically meaningless or would lead to the same action (e.g., "is the new drug worse than placebo?" — if it is better, you would not switch). The direction must be chosen **before** seeing the data: choosing the side after observing the statistic doubles your effective Type I error rate, because a one-sided test at level $`\alpha` rejects half as often as a two-sided test at the same level.
 
@@ -194,7 +194,7 @@ The likelihood ratio statistic is
 
 Under $`H_0`, $`-2 \log \Lambda \xrightarrow{d} \chi^2_k` where $`k` is the difference in dimensionality (Wilks' theorem). The limiting $`\chi^2_k` distribution is covered on the [Distributions](../Distributions/Readme.md) page, and the asymptotic argument (a Taylor expansion of the log-likelihood around the MLE, combined with the [CLT](../Limit-theorems.md)) is a direct application of [Limit theorems](../Limit-theorems.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The likelihood ratio test (LRT) is a general-purpose test that works for composite hypotheses. It compares the best fit under the null to the best fit under the full model. It is the natural extension of the [Neyman–Pearson lemma](#the-neymanpearson-lemma) to composite hypotheses: when the alternative is composite, replacing $`f_1` by the supremum over $`\Theta_1` (equivalently over $`\Theta`, since $`\Lambda \leq 1`) yields a test that is asymptotically optimal.
 
@@ -232,7 +232,7 @@ P_\theta(\theta \in C(X)) = P_\theta(X \in A(\theta)) = 1 - \alpha
 
 so $`C(X)` is a $`(1-\alpha)` confidence set, and by construction $`\theta_0 \notin C(x)` exactly when the test rejects. Conversely, any $`(1-\alpha)` confidence set inverted the same way yields a level-$`\alpha` test.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Worked example.** With $`\bar{x} = 0.5`, $`\sigma = 2`, $`n = 50`, the 95% confidence interval for $`\mu` is
 
@@ -265,7 +265,7 @@ When testing $`m` hypotheses simultaneously, the family-wise error rate (FWER) i
 > **Authoritative sources**
 > - [Y. Benjamini & Y. Hochberg, Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing, J. R. Statist. Soc. B 57(1), 289–300 (1995)](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The multiple comparisons problem arises in genomics (testing millions of genes), multiple regression, and any setting with many simultaneous tests. With $`m` independent tests each at level $`\alpha`, the probability of at least one false positive is $`1 - (1-\alpha)^m`, which is $`0.40` for $`m = 10` and $`\alpha = 0.05` — the Bonferroni correction restores the family-wise rate to $`\alpha` at the price of power.
 

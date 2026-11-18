@@ -33,7 +33,7 @@ The rest of this page builds the machinery in order: the definition and its fair
 
 In each case the process must be **adapted** ($`X_t` is measurable w.r.t. $`\mathcal{F}_t` — you can observe it at time $`t`), **integrable** ($`\mathbb{E}[|X_t|] < \infty`), and the conditional expectation must exist.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Read the definition as a prediction rule.** The conditional expectation $`\mathbb{E}[X_{t+1} \mid \mathcal{F}_t]` is the best (mean-square) prediction of the next value using everything you know so far. A martingale says: *the best prediction of the future is exactly where you are now.* There is no edge to exploit, no trend to ride. A submartingale says the future is, on average, at least as large as the present (a favorable game); a supermartingale says at most as large (an unfavorable game). The martingale is the knife-edge between the two.
 
@@ -89,7 +89,7 @@ Each increment $`\varepsilon_i` has $`\mathbb{E}[\varepsilon_i] = 1(0.6) + (-1)(
 
 The stopped process $`X_{t \wedge \tau}` (frozen at $`\tau`) is itself a martingale.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Why stopping times are the right notion of "a rule."** A strategy that says "stop when your fortune first hits 150" is a stopping time: at each moment you can check whether the target has been reached using only the past. A rule like "stop at the time of the maximum" is *not* a stopping time, because you cannot know a time is the maximum until you see the future. The OST applies only to the honest kind.
 
@@ -136,7 +136,7 @@ For a martingale, $`\mathbb{E}[X_T] = \mathbb{E}[X_0]`, so the bound is simply $
 \mathbb{E}\Big[\sup_{0 \le t \le T} |X_t|^p\Big] \le \Big(\frac{p}{p-1}\Big)^p \mathbb{E}[|X_T|^p].
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — What the inequality controls.** A martingale has constant mean, but its *path* can spike far above that mean before settling. Doob's inequality bounds the probability of such a spike in terms of the terminal (or initial) size: the chance the running maximum ever exceeds $`a` is at most the mean divided by $`a`. It is the maximal-function analogue of Markov's inequality.
 
@@ -166,7 +166,7 @@ By Doob's maximal inequality, $`\mathbb{P}(\sup_{t \ge 0} X_t \ge 20) \le \mathb
 
 **Martingale convergence theorem.** If $`(X_t)_{t \ge 0}` is a martingale with $`\sup_t \mathbb{E}[|X_t|] < \infty` (an $`L^1`-bounded martingale), then $`X_t` converges almost surely to a finite random variable $`X_\infty` as $`t \to \infty`. If in addition the family $`\{X_t\}` is uniformly integrable, then the convergence also holds in $`L^1`, i.e. $`\mathbb{E}[|X_t - X_\infty|] \to 0`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Bounded mean forces convergence.** An $`L^1`-bounded martingale cannot keep oscillating forever: the upcrossing argument of Doob's inequality shows the expected number of upcrossings of any level $`[a,b]` is finite, which forces the path to settle down. Hence $`X_t \to X_\infty` a.s.
 
@@ -200,7 +200,7 @@ The martingale property is not a family of processes but a structural property t
 - **The compensated Poisson process (jump martingale).** The [Poisson counting process](./Poisson-processes.md) $`(N_t)` has upward drift $`\lambda t` and is a submartingale. Subtracting the drift, $`M_t = N_t - \lambda t`, removes the trend and leaves a martingale: the jumps are exactly balanced, on average, by the continuous downward drift. This is the standard way to turn a counting process into a martingale.
 - **Martingale-difference sequences (discrete-time building block).** A sequence $`(X_n)` with filtration $`\mathcal{F}_n` is a **martingale-difference sequence** if $`\mathbb{E}[X_n \mid \mathcal{F}_{n-1}] = 0`. Any such sequence, accumulated as $`S_n = \sum_{i=1}^n X_i`, is a martingale. This is the discrete-time definition in its most useful form and the reason martingales appear in the analysis of [Lévy processes](./Levy-processes.md) (whose compensated jump part is a martingale) and in stochastic approximation.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — One property, many families.** The martingale condition only asks that the *conditional mean of the increment* vanish. It does not care whether the increments are Gaussian (Brownian), Poisson (compensated counting), or arbitrary (martingale-difference). That is why a single set of tools — optional stopping, Doob's inequalities, convergence theorems — applies uniformly across all of [stochastic processes](./Readme.md).
 

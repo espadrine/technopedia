@@ -48,7 +48,7 @@ with $`\mathbf{B}_0=\tfrac{1}{c}\,\hat{\mathbf{k}}\times\mathbf{E}_0`, so $`|\ma
   <text x="250" y="205" font-size="13" fill="#555">E and B are in phase, both ⊥ to propagation k</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — a self-sustaining feedback loop.** In free space there are no charges or currents. Two of Maxwell's equations then say: a *changing* magnetic field produces an electric field (Faraday's law), and a *changing* electric field produces a magnetic field (the Maxwell–Ampère term). Each field regenerates the other, and the pair detaches from its source and travels. This is the whole mechanism of radiation.
 
@@ -94,7 +94,7 @@ So $`E_0 \approx 750\ \text{V/m}`.
 
 whose propagation speed is $`v=1/\sqrt{\mu_0\varepsilon_0}=c\approx3.0\times10^8\ \text{m/s}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — decouple the equations.** Start from Faraday's law $`\nabla\times\mathbf{E}=-\partial\mathbf{B}/\partial t`. Take the curl of both sides: $`\nabla\times(\nabla\times\mathbf{E})=-\partial(\nabla\times\mathbf{B})/\partial t`.
 
@@ -153,7 +153,7 @@ which matches the measured speed of light to three figures.
   <text x="120" y="205" font-size="13" fill="#555">Energy flows along S = E × B</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — where the energy goes.** The Poynting vector $`\mathbf{S}=\tfrac{1}{\mu_0}\mathbf{E}\times\mathbf{B}` is the electromagnetic analogue of a fluid's velocity times density: it is power per unit area, and it points where the energy is going. For the plane wave of Section 1, $`\mathbf{E}\times\mathbf{B}` points exactly along $`\mathbf{k}`, so the energy travels with the wave.
 
@@ -214,7 +214,7 @@ Tiny, but real — it is the force that drives light sails and, on a cosmic scal
   <text x="250" y="140" font-size="12" fill="#555">ν increases →  (λ = c / ν)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — one phenomenon, many names.** There is no physical boundary between "radio" and "microwave" or between "visible" and "ultraviolet"; the bands are human conventions chosen because different technologies and different interactions with matter dominate in each range. A 10 GHz microwave and a 10 PHz infrared wave are both just solutions of the same wave equation.
 
@@ -258,7 +258,7 @@ This is why 2.4 GHz antennas are on the order of a few centimeters to a decimete
   <text x="410" y="148" font-size="12" fill="#555" text-anchor="middle">Elliptical</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — what is being polarized.** Only the *electric* field is usually meant, because $`\mathbf{E}` is what pushes charges in a detector. As the wave travels, watch the tip of the $`\mathbf{E}` vector at one fixed point in space.
 
@@ -295,7 +295,7 @@ constant in time — the hallmark of circular polarization.
 
 **Definition.** Electromagnetic radiation is quantized into **photons**, massless spin-1 quanta, each carrying energy $`E=h\nu=hc/\lambda` and momentum $`p=h/\lambda`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — from a continuous wave to discrete quanta.** Classically the wave's energy is continuous and set by its amplitude. Quantum mechanically, the energy of a mode of frequency $`\nu` comes in integer multiples of a single quantum, $`E=h\nu`, where $`h=6.626\times10^{-34}\ \text{J·s}` is Planck's constant. Each quantum is a photon.
 
@@ -341,7 +341,7 @@ This is in the ultraviolet, consistent with the spectrum in Section 4.
 
 **Definition.** Electromagnetic radiation is produced by **accelerating charges** and absorbed by driving charges. An **antenna** is a conductor that converts an oscillating current into a radiated wave (transmit) and a received wave into an oscillating current (receive); a **photodetector** converts photons into an electric signal via the photoelectric effect.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — why accelerating charges radiate.** A charge at rest makes a static field; a charge moving at constant velocity drags its field along. But an *accelerated* charge (an oscillating current in an antenna) shakes its field, and that disturbance propagates outward at $`c` as a wave. This is the source term behind the free-space wave of Section 1. The full near-field and radiation-zone analysis lives in [Electrodynamics](./Electrodynamics.md).
 

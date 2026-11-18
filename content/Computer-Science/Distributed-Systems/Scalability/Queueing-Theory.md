@@ -1,10 +1,9 @@
-# Queueing and Latency
+# Queueing Theory
 
-Queueing and latency models how load translates into response time, when a system saturates, and how to protect against overload. It is relevant whenever a system's throughput, latency, or tail-latency SLO must be predicted or guaranteed under variable demand.
+Queueing theory models how load translates into response time, when a system saturates, and how to protect against overload. It is relevant whenever a system's throughput, latency, or tail-latency SLO must be predicted or guaranteed under variable demand.
 
 > **Authoritative sources**
 > - [Queueing Systems, Volume 1: Theory (Kleinrock, 1975) — author's book list, UCLA](https://www.lk.cs.ucla.edu/LK/B/Books.html)
-> - [The Tail at Scale (Dean & Barroso, CACM 2013)](https://research.google/pubs/pub40801/)
 > - [The Tail at Scale (Dean & Barroso, CACM 2013)](https://research.google/pubs/pub40801/)
 
 ## Queueing theory
@@ -12,6 +11,8 @@ Queueing and latency models how load translates into response time, when a syste
 A **queue** forms whenever work arrives faster than it is served, even temporarily. **Little's law**: $`L = \lambda W` where $`L` is the average number of items in the system, $`\lambda` is the arrival rate, and $`W` is the average time in the system.
 
 **M/M/1 queue** (Poisson arrivals, exponential service times, 1 server): the utilization is $`\rho = \lambda / \mu`. The average time in the system is $`W = 1 / (\mu - \lambda)`. The average waiting time in the queue (excluding service) is $`W_q = \rho / (\mu - \lambda) = \lambda / (\mu(\mu - \lambda))`. As $`\rho \to 1`, both $`W` and $`W_q` diverge to $`\infty`.
+
+**Where queues form**: anywhere work can arrive faster than it is served — the NIC's ring buffer, the kernel's TCP stack, an application worker pool, a [message queue](../Concurrency/Message-Passing.md) between services. Every request spends part of its life *queued* and part *in processing*, which gives the operational form of Little's law: **pending requests = throughput (RPS) × latency (s)**, i.e. $`L = \lambda W`, or equivalently throughput = (queued + in processing) / (time in queue + time to process).
 
 <svg viewBox="0 0 660 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="M/M/1 queue: arrivals at rate lambda enter a FIFO queue, are served at rate mu, and depart. Total time W = queueing time Wq plus service time S.">
   <defs>
@@ -35,7 +36,7 @@ A **queue** forms whenever work arrives faster than it is served, even temporari
   <text x="325" y="150" text-anchor="middle" font-size="13" fill="#334">time in system  W = Wq (queueing) + S (service)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Little's law in practice**: if a server handles 1000 requests/second with an average response time of 10 ms, the average number of in-flight requests is $`L = 1000 \times 0.01 = 10`: the server only needs 10 concurrent request slots, no matter how fast individual requests are. Little's law is remarkably general — it holds for any stable queue, regardless of the arrival or service distributions, which is why it is the first tool to reach for when sizing connection pools, thread pools, or worker counts.
 
@@ -61,7 +62,7 @@ A **queue** forms whenever work arrives faster than it is served, even temporari
   <text x="410" y="160" text-anchor="middle" font-size="11" fill="#e67e22">ρ = 0.9 → 10×</text>
 </svg>
 
-Waiting until 95% utilization already means users experience 20× the baseline latency. When this happens, the fix is to add capacity — vertically, horizontally, or automatically. The concrete techniques (bottleneck analysis, vertical vs horizontal scaling, load balancers, caching, sharding, cost models, and autoscaling) are covered in [Scaling Strategies](./Scaling-Strategies.md).
+Waiting until 95% utilization already means users experience 20× the baseline latency. When this happens, the fix is to add capacity — vertically, horizontally, or automatically. The concrete techniques (bottleneck analysis, vertical vs horizontal scaling, load balancers, caching, sharding, cost models, and autoscaling) are covered in [Throughput Scaling](./Throughput-Scaling.md).
 
 **Where latency comes from**: the end-to-end response time a user sees is the sum of network transit time (propagation, transmission, and congestion delays in [Networks](../Networks.md)), queueing delay at each hop ($`W_q` above), and service time ($`S`). Queueing theory only models the last two; a 200 ms round trip across an ocean cannot be improved by adding servers, only by moving content closer (CDNs) or reducing round trips.
 
@@ -83,13 +84,39 @@ A web cache answers in 2 ms of service time ($`\mu = 500`/s) and receives 450 re
 
 </details>
 
+## Sizing a service: from a target latency to a number of servers
+
+Given the arrival rate $`\lambda` and the per-server processing rate $`\mu` (service time $`1/\mu`), model the service as an **M/M/c queue**: $`c` identical servers behind one queue, with utilization $`\rho = \lambda / (c \mu)` — the arrival rate over the maximum total processing rate. The exact average latency is given by the Erlang-C formula: with offered load $`a = \lambda/\mu` and $`C(c,a)` the probability an arrival must wait,
+
+```math
+W_q = \frac{C(c,a)}{c\mu - \lambda}, \qquad W = W_q + \frac{1}{\mu}, \qquad C(c,a) = \frac{\frac{a^c}{c!} \cdot \frac{c}{c-a}}{\sum_{k=0}^{c-1} \frac{a^k}{k!} + \frac{a^c}{c!} \cdot \frac{c}{c-a}}
+```
+
+As with M/M/1, $`W \to \infty` as $`\rho \to 1`$. A simpler approximation — splitting the Poisson arrivals evenly across $`c` independent M/M/1 servers, each at rate $`\lambda/c` — gives $`W = 1/(\mu - \lambda/c)`$, which is what the simulation below measures; Erlang-C refines it by modeling one shared queue.
+
+**The sizing derivation.** For a target maximum latency $`W_{max}` (typically the client timeout), find the target utilization $`\rho^*` such that $`W(\rho^*) \le W_{max}`, then size the system so its maximum processing rate supports the target arrival rate at that utilization: $`c \, \mu \ge \lambda / \rho^*`. With the M/M/1-per-server approximation this is exact algebra:
+
+```math
+\frac{1}{\mu - \lambda/c} \le W_{max} \iff c \ge \frac{\lambda}{\mu - 1/W_{max}}
+```
+
+<details><summary>EXPLANATION</summary>
+
+**Worked example.** A service processes requests in 10 ms on average ($`\mu = 100` req/s per server) and must answer within $`W_{max} = 50` ms even at peak load $`\lambda = 950` req/s. Then $`c \ge 950 / (100 - 1/0.05) = 950/80 = 11.9`$, so **12 servers** are required. Check: with $`c = 12`$, each server sees $`\lambda/c \approx 79` req/s, $`\rho \approx 0.79`$, and $`W = 1/(100 - 79) \approx 47` ms ≤ 50 ms. With 11 servers, $`\rho \approx 0.86`$ and $`W \approx 72` ms — the timeout would be violated.
+
+**Why this works backwards from the timeout.** The timeout is what the *user* experiences, so it is the natural SLO; queueing theory converts it into a target utilization via $`W(\rho)`; and the utilization determines how many servers to run, $`c = \lambda/(\mu \rho^*)`. Note that at $`\rho^* = 0.8`$ you already pay $`W = 5/\mu` — five times the bare service time — which is why target utilizations are typically 0.7–0.8, not 0.95.
+
+**IO-bound vs compute-bound.** This model assumes the processing rate $`\mu`$ is fixed. If the bottleneck is compute, raise $`\mu`$ with faster CPUs or a better algorithm; if it is I/O (disk, network), adding cores does not raise $`\mu`$ — use faster storage, caching, or [asynchrony](../Concurrency/Asynchrony.md) to overlap I/O. See [bottleneck analysis](./Throughput-Scaling.md) for how to tell which one you have.
+
+</details>
+
 ## Tail latency
 
-**Tail latency** (p99, p999) is the response-time threshold that 99% (resp. 99.9%) of requests beat. Averages hide the tail: a system with 99% of requests at 10 ms and 1% at 500 ms has an average of 14 ms but a p99 of 500 ms.
+**Tail latency** (p99, p999) is the response-time threshold that 99% (resp. 99.9%) of requests beat. Averages hide the tail: a system with 99% of requests at 10 ms and 1% at 500 ms has an average of 14.9 ms but a p99 of 500 ms.
 
 **Fan-out amplification**: when a request makes $`n` sequential sub-calls, the total latency is the sum of the sub-call latencies. By the union bound, the sum of the per-call $`(1 - \varepsilon/n)`-quantiles is an upper bound on the $`(1 - \varepsilon)`-quantile of the total. To bound the p99 of a request that makes 10 sequential calls, sum the per-call p99.9 values — not the per-call p99s, which only bound the p90 of the total. A system with 10 sequential calls at p99.9 = 15 ms each has a p99 of at most 150 ms.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why averages hide the tail**: the mean is dominated by the bulk of requests. A single slow request (a GC pause, a disk seek, a network retransmission) inflates the p99 without visibly moving the mean. SLOs are therefore stated in percentiles — "99% of requests complete in under 200 ms" — because the mean says nothing about the worst user experience, and in a service with millions of users even the p99.999 describes thousands of real requests per day.
 
@@ -107,7 +134,7 @@ where $`x_i` is the $`(1 - \varepsilon/n)`-quantile of $`X_i`. Hence $`\sum_i x_
 W_{99} = \frac{\ln 100}{\mu (1 - \rho)} \approx \frac{4.6}{\mu(1-\rho)}
 ```
 
-At $`\rho = 0.95`, $`W_{99} \approx 92/\mu`: the p99 response time is about 92× the service time, while the mean is only 20×. The tail degrades roughly five times faster than the mean as the server saturates — percentiles are the sensitive overload detector.
+At $`\rho = 0.95`, $`W_{99} \approx 92/\mu`: the p99 response time is about 92× the service time, while the mean is only 20×. Both the mean and the p99 scale as $`1/(1-\rho)`$, so their ratio is constant (p99 ≈ 4.6× the mean at every utilization) — but near saturation the absolute values explode: at $`\rho = 0.95`$ the p99 is ~92× the service time. Percentiles are the sensitive overload detector.
 
 **Mitigations**: hedging (send a duplicate request if the first is slower than the p95, and keep the faster reply — cheap when the tail is rare), prioritized scheduling of short requests, and per-request deadlines with early abandonment. These are described in "The Tail at Scale" (authoritative source above).
 
@@ -153,7 +180,7 @@ By the union bound, $`P(\text{some request} > 100\text{ ms}) \le 20 \times 0.01 
   <text x="560" y="133" text-anchor="middle" font-size="13" fill="#334" font-style="italic">≤ r</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Token bucket**: a bucket holds at most $`b` tokens; tokens are added at a constant rate $`r` (e.g. 100 tokens/second). Each request consumes one token; a request that finds the bucket empty is rejected or queued. This allows short bursts of up to $`b` requests while enforcing the long-term rate $`r` — exactly the knob you need to keep $`\lambda` below the $`\mu` that queueing theory says you must not exceed.
 
@@ -179,13 +206,13 @@ The bucket holds $`b = 200` tokens, so 200 of the 300 burst requests are accepte
 
 ## From saturation to capacity
 
-When measurement shows $`\rho` approaching the danger zone, the response is to add capacity. The decision tree — identify the bottleneck (IO-bound vs compute-bound), scale vertically or horizontally (load balancers, reverse proxies, caching, CDNs, sharding), automate with autoscaling (metric-driven scale-out with cooldowns, e.g. Kubernetes HPA or AWS Auto Scaling groups), and weigh the cost per request — is covered in [Scaling Strategies](./Scaling-Strategies.md). The simulation below shows the simplest such decision quantitatively: how response time $`W` falls as load is split across $`N` servers.
+When measurement shows $`\rho` approaching the danger zone, the response is to add capacity. The decision tree — identify the bottleneck (IO-bound vs compute-bound), scale vertically or horizontally (load balancers, reverse proxies, caching, CDNs, sharding), automate with autoscaling (metric-driven scale-out with cooldowns, e.g. Kubernetes HPA or AWS Auto Scaling groups), and weigh the cost per request — is covered in [Throughput Scaling](./Throughput-Scaling.md). The simulation below shows the simplest such decision quantitatively: how response time $`W` falls as load is split across $`N` servers.
 
 ## Simulation
 
 The simulation below is a discrete-event M/M/1 simulator. Arrivals are Poisson at rate $`\lambda`; each arrival is sent to one of $`N` servers chosen uniformly at random, so each server runs its own independent M/M/1 queue fed at rate $`\lambda/N` (splitting a Poisson stream keeps each sub-stream Poisson, which is what makes the per-server M/M/1 formulas exact). Adjust the sliders to see the measured average time in system track the theoretical $`W = 1/(\mu - \lambda/N)`, and watch it diverge as $`\rho = \lambda/(N\mu) \to 1` — then increase $`N` to see horizontal scaling pull the system back from saturation.
 
-<iframe src="./Queueing-and-Latency.simulation.html" title="M/M/1 queue simulation: effect of arrival rate, service rate, and number of servers N on response time" style="width:100%;height:560px;border:1px solid #ccd;border-radius:6px;"></iframe>
+<iframe src="./Queueing-Theory.simulation.html" title="M/M/1 queue simulation: effect of arrival rate, service rate, and number of servers N on response time" style="width:100%;height:560px;border:1px solid #ccd;border-radius:6px;"></iframe>
 
 ## Example problem
 

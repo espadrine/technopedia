@@ -384,6 +384,7 @@ export function evaluateTopicPagePrompt(segments, pageContent, findings, authorN
     findings.length > 0
       ? `Mechanical checks found these violations of the structural rules:
 ${findings.map((f) => `- ${f}`).join('\n')}
+
 The review must include notes to fix them (create the missing page, add the
 subtopic to the categorization table, reference the page in its parent, ...).`
       : 'Mechanical checks found no violations of the structural rules.';
@@ -400,11 +401,13 @@ ${pageContent}
 
 ${findingsText}
 
-Produce an evaluation of this topic page. The evaluation must check:
+Produce an evaluation of this topic page. The evaluation must check, in order of priority:
 - adherence to the rules (from the style guide),
+- adherence to the author notes,
 - whether the categorization is the optimal one,
-- whether the categorization table's first column is "Page", holding the title of each subpage as a link to it,
 - whether there is a missing topic.
+
+List the rules in your thinking to check them one by one.
 
 Use find_files, grep, and read_file to inspect the rest of the encyclopedia
 when checking the categorization or looking for missing or misplaced topics.
@@ -452,8 +455,9 @@ ${pageContent}
 
 ${notesText}${findingsText}
 
-Produce an evaluation of this explanation page. The evaluation must check:
+Produce an evaluation of this explanation page. The evaluation must check, in order of priority:
 - adherence to the rules (from the style guide),
+- adherence to the author notes,
 - whether each section has its title, terse definition, and tutorial in a folded DETAILS block, each tutorial step flowing with no sizable leap (global explanation, specific example, diagrams and simulations, authoritative sources, example problem with folded solution),
 - whether the diagrams are SVG or HTML+JS (never ASCII art) and each shows a single concept,
 - whether the page ends with the folded quizz section with its example problem and solution,

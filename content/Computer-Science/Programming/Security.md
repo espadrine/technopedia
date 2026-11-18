@@ -34,7 +34,7 @@ Memory errors (buffer overflow, use-after-free, double free, dangling pointer, s
 
 <iframe src="./Security.simulation.html" title="Buffer overflow exploit chain with mitigations"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Exploit chain** (from a security perspective): the attacker overwrites the return address with the address of shellcode placed in the buffer. ASLR makes the target address unpredictable; the canary detects the overwrite; DEP prevents executing the stack. All three must be defeated simultaneously for the exploit to succeed.
 
@@ -56,7 +56,7 @@ Injection occurs when untrusted input is interpreted as code, a query, or a comm
 
 <iframe src="./Security.simulation.html" title="SQL injection: string concatenation vs parameterized queries"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **OWASP Top 10** (2025): A01 Broken Access Control, A02 Security Misconfiguration, A03 Software Supply Chain Failures, A04 Cryptographic Failures, A05 Injection, A06 Insecure Design, A07 Authentication Failures, A08 Software or Data Integrity Failures, A09 Security Logging and Alerting Failures, A10 Mishandling of Exceptional Conditions.
 
@@ -78,7 +78,7 @@ Injection occurs when untrusted input is interpreted as code, a query, or a comm
 
 **Salt**: a random per-password value prepended to the password before hashing. Prevents rainbow table attacks and ensures identical passwords produce different hashes.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Multi-factor authentication (MFA)**: combine something you know (password) with something you have (TOTP, hardware key) or something you are (biometric).
 
@@ -92,7 +92,7 @@ Injection occurs when untrusted input is interpreted as code, a query, or a comm
 
 **RBAC** (Role-Based Access Control): assign permissions to roles; assign roles to users. `admin → {read, write, delete}`, `user → {read}`. Simpler than ACLs for large systems.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **ABAC** (Attribute-Based Access Control): policies are expressions over attributes (user role, resource type, time of day, IP address). More flexible than RBAC but harder to reason about.
 
@@ -106,7 +106,7 @@ Injection occurs when untrusted input is interpreted as code, a query, or a comm
 
 TLS encrypts the channel between client and server, providing confidentiality, integrity, and authentication; the full handshake, certificate validation, and forward secrecy are described in [Networks](../Distributed-Systems/Networks.md), and the cipher suites and key-exchange mechanisms in [Cryptography](../Information-Theory/Cryptography.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Certificate validation**: the client checks that the server's certificate is signed by a trusted CA, is not expired, and matches the hostname. A misconfigured or expired certificate breaks the trust chain and the browser warns the user.
 

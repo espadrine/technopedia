@@ -17,7 +17,7 @@ Given a prior $`\pi(\theta)` and a likelihood $`p(x \mid \theta)`:
 
 The denominator (marginal likelihood or evidence) normalizes the posterior.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Bayes' theorem is an application of [Conditional probability](../Conditional-probability.md) to the parameter. The key components:
 
@@ -54,7 +54,7 @@ The posterior mean, median, and mode are all valid point summaries. The posterio
 
 When no strong prior knowledge exists, the choice of prior still matters. **Objective priors** are constructed from the model structure itself, aiming to encode minimal or "indifference" information.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Jeffreys prior.** Derived from the Fisher information matrix $`I(\theta)`: $`\pi(\theta) \propto \sqrt{\det I(\theta)}`. It is invariant under reparameterization and is the most common "default" objective prior. For a Bernoulli model, $`I(\theta) = 1/[\theta(1-\theta)]`, giving $`\pi(\theta) \propto [\theta(1-\theta)]^{-1/2}`, i.e., $`\text{Beta}(1/2, 1/2)` (the Haldane–Jeffreys prior).
 
@@ -76,7 +76,7 @@ The choice of prior affects the posterior, especially with small samples. With l
 
 A prior $`\pi(\theta)` is **conjugate** to a likelihood $`p(x \mid \theta)` if the posterior belongs to the same parametric family as the prior.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Conjugacy gives closed-form posteriors, enabling exact computation without MCMC. It also makes sequential updating trivial: the posterior after batch 1 becomes the prior for batch 2.
 
@@ -98,7 +98,7 @@ Conjugacy gives closed-form posteriors, enabling exact computation without MCMC.
 
 When the posterior has no closed form, Markov Chain Monte Carlo (MCMC) methods approximate it by constructing a Markov chain whose stationary distribution is the target posterior.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Metropolis–Hastings.** At each step, given the current state $`\theta_t`, draw a proposal $`\theta^* \sim q(\cdot \mid \theta_t)` from a proposal distribution $`q` (often a symmetric random walk, e.g., $`\theta^* = \theta_t + \epsilon` with $`\epsilon \sim \mathcal{N}(0, \sigma^2)`). Accept the move with probability
 
@@ -137,7 +137,7 @@ To predict a new observation $`x_{\text{new}}` given the data $`x`, one integrat
 p(x_{\text{new}} \mid x) = \int p(x_{\text{new}} \mid \theta)\, \pi(\theta \mid x)\, d\theta
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The posterior predictive distribution accounts for both the data-generating uncertainty (aleatoric) and the parameter uncertainty (epistemic). It is wider than the likelihood evaluated at the posterior mean because it averages over the spread of the posterior.
 
@@ -159,7 +159,7 @@ The Bayes factor comparing models $`M_0` and $`M_1` is
 BF_{10} = \frac{p(x \mid M_1)}{p(x \mid M_0)} = \frac{\int p(x \mid \theta_1)\, \pi(\theta_1)\, d\theta_1}{\int p(x \mid \theta_0)\, \pi(\theta_0)\, d\theta_0}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A Bayes factor $`BF_{10} > 1` favors $`M_1`; $`BF_{10} < 1` favors $`M_0`. It is the ratio of marginal likelihoods and automatically penalizes model complexity (Occam's factor): a more complex model spreads its prior over more parameter values, reducing the marginal likelihood.
 

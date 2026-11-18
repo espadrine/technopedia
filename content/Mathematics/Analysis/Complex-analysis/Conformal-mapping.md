@@ -10,7 +10,7 @@ A conformal map is a holomorphic function with non-zero derivative, and it prese
 
 **Definition.** A holomorphic function $`f` is **conformal** (or angle-preserving) at $`z_0` if $`f'(z_0) \neq 0`. At such a point, $`f` maps the tangent direction of any curve through $`z_0` to the tangent direction of its image, preserving both the magnitude and the orientation of the angle between curves.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why a non-zero derivative preserves angles
 
@@ -61,7 +61,7 @@ $`f(z) = \frac{az + b}{cz + d}, \qquad ad - bc \neq 0,`
 
 defined on the Riemann sphere $`\widehat{\mathbb{C}} = \mathbb{C} \cup \{\infty\}`. Möbius transformations are conformal automorphisms of the Riemann sphere and map generalized circles (circles and lines) to generalized circles.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why they are conformal and circle-preserving
 
@@ -103,7 +103,7 @@ We want a map sending the boundary circle $`|z| = 1` to the real axis and $`z = 
 
 **Theorem (Riemann mapping).** Let $`\Omega \subsetneq \widehat{\mathbb{C}}` be a simply connected domain whose boundary contains more than one point. Then there exists a conformal map $`f: \Omega \to \mathbb{D}` (the unit disk). Moreover, $`f` is unique up to post-composition with a rotation of the disk: if $`f(0) = 0` and $`f'(0) > 0`, then $`f` is unique.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### What the theorem says, in plain terms
 

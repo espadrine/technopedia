@@ -23,7 +23,7 @@ v = \omega\,R, \qquad a = \alpha\,R
 
 with $`\alpha = \dot{\omega}` the angular acceleration. This constraint is what makes a rolling disk accelerate more slowly down a ramp than a sliding block (see the [Quizz](#quizz)).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 $`\vec{\omega}` is the angular velocity vector. The cross-product form encodes that all points rotate about an instantaneous axis. The acceleration adds a centripetal term:
 
@@ -57,7 +57,7 @@ I_{ij} = \int \rho(\vec{r})\,(r^2\delta_{ij} - x_i x_j)\,d^3r
 
 For a point mass: $`I = mr^2` about an axis at distance $`r`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The inertia tensor as a geometric object.** The inertia tensor $`\mathbf{I}` is a symmetric $`3\times 3` matrix. Its eigenvalues are the principal moments of inertia; the eigenvectors define the principal axes. The tensor can be visualized as an ellipsoid (the *inertia ellipsoid*): the surface $`\vec{x}^{\mathsf{T}}\mathbf{I}\,\vec{x} = 1` has semi-axes of length 1/√I₁, 1/√I₂, and 1/√I₃ along the principal directions.
 
@@ -143,7 +143,7 @@ For $`r \ll R`, the correction is small and $`I \approx \tfrac{2}{5}mR^2`.
 \vec{L} = \mathbf{I}\,\vec{\omega}, \quad \vec{\tau} = \frac{d\vec{L}}{dt}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 In general $`\vec{L}` and $`\vec{\omega}` are not parallel (they are parallel only along principal axes).
 
@@ -212,7 +212,7 @@ For a symmetric top ($`I_1 = I_2`), torque-free precession carries the angular v
 
 **Intermediate axis theorem:** rotation about the intermediate principal axis of a triaxial body is unstable — a tiny perturbation grows and the body tumbles (the Dzhanibekov effect).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Euler's equations for a symmetric top.** For a body with $`I_1 = I_2 \neq I_3` (e.g., a spinning top, a bicycle wheel), Euler's equations with $`\vec{\tau} = 0` give:
 
@@ -292,7 +292,7 @@ The moments of inertia about the center are $`I_a = \tfrac{1}{12}mb^2` (about th
 T_{\text{rot}} = \tfrac{1}{2}\vec{\omega} \cdot \mathbf{I}\,\vec{\omega} = \tfrac{1}{2}\vec{\omega} \cdot \vec{L}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 In principal axes: $`T_{\text{rot}} = \tfrac{1}{2}(I_1\omega_1^2 + I_2\omega_2^2 + I_3\omega_3^2)`.
 

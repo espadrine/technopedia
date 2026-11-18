@@ -22,7 +22,7 @@ The two are related by the material (substantial) derivative:
 
 which converts an Eulerian rate into the rate following a material point. Solids are naturally described in the Lagrangian frame (small displacements from a reference configuration); fluids in the Eulerian frame (particles pass through every point).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why two descriptions?** In a solid, each atom stays near its equilibrium position, so it is natural to label particles by their reference location $`\vec{X}` and ask "where did this particle go?" In a fluid, particles flow past every point, so it is natural to fix a spatial location $`\vec{x}` and ask "what is the velocity here right now?"
 
@@ -69,7 +69,7 @@ Given the displacement field $`\vec{u}(\vec{X})` (Lagrangian setting), the infin
 
 This tensor is valid under the **small-strain assumption**: both displacements and displacement gradients must be small, $`|\nabla \vec{u}| \ll 1`. For finite deformations, the full deformation gradient $`\mathbf{F} = \partial \vec{x}/\partial \vec{X}` and the Green–Lagrange strain $`\mathbf{E} = \tfrac{1}{2}(\mathbf{F}^T\mathbf{F} - \mathbf{I})` must be used instead.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: What is a displacement field?** A displacement field assigns to every material point (labelled by $`\vec{X}`) a vector $`\vec{u}(\vec{X})` telling how far and in what direction the point has moved. Physically, if you mark a grid on a rubber sheet and then stretch it, the displacement of each grid intersection is a point in the displacement field.
 
@@ -144,7 +144,7 @@ t_i = \sigma_{ij}\,n_j
 
 The tensor is symmetric ($`\sigma_{ij} = \sigma_{ji}`), giving 6 independent components in 3-D. The symmetry follows from the **balance of angular momentum** (zero body couple): taking the moment of the momentum balance about an arbitrary point and requiring the net torque to vanish for any volume yields $`\sigma_{ij} = \sigma_{ji}`. See the [Conservation laws](#conservation-laws) section for the momentum balance that the stress tensor enters.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: Traction and stress.** The traction vector $`\vec{t}` on a surface element $`dA` with normal $`\hat{n}` is the force per unit area exerted by the material on one side on the material on the other. Cauchy's theorem states that $`\vec{t}` depends only on $`\hat{n}` (not on the shape of the surface) and is linear in $`\hat{n}`: $`\vec{t} = \boldsymbol{\sigma}\,\hat{n}`. 
 
@@ -228,7 +228,7 @@ The three fundamental balance laws, in local (differential) form, are:
 
 where $`e` is specific internal energy, $`\vec{q}` the heat flux, $`r` a volumetric heat source, and $`D_{ij} = \tfrac{1}{2}(\partial v_i/\partial x_j + \partial v_j/\partial x_i)` the strain-rate tensor. See [Thermodynamics](../Thermodynamics/Readme.md) for the thermodynamic context.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: From integral to local form.** The integral balance laws (e.g., $`\frac{d}{dt}\int_{V(t)} \rho\,dV = 0` for mass) hold for any material volume $`V(t)`. Applying the Reynolds transport theorem (converting the material derivative of an integral to an integral of the material derivative) and then the divergence theorem (converting the surface integral of flux to a volume integral of divergence), and requiring the result to hold for *any* sub-volume, yields the local (pointwise) form. The local form is what is used in PDE solvers.
 
@@ -298,7 +298,7 @@ where $`\lambda` and $`\mu` are Lamé parameters. In terms of Young's modulus $`
 
 where $`D_{ij} = \tfrac{1}{2}\left(\frac{\partial v_i}{\partial x_j} + \frac{\partial v_j}{\partial x_i}\right)` is the strain-rate tensor (distinct from the elastic strain $`\varepsilon_{ij}`). 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: Why a constitutive law is needed.** The balance laws (mass, momentum, energy) are universal—they apply to any continuum. But they contain the stress tensor $`\boldsymbol{\sigma}` as an unknown. The constitutive law provides the material-specific relation between stress and deformation, closing the system.
 
@@ -336,7 +336,7 @@ The **principle of virtual work** states: for every admissible virtual displacem
 
 This is the foundation of the finite element method (FEM): the balance laws + constitutive law + boundary conditions form a closed PDE system, and the variational statement provides the weak form that FEM discretizes into a linear (or nonlinear) algebraic system $`\mathbf{K}\,\mathbf{u} = \mathbf{F}`. 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: From strong to weak form.** Start with the strong form (local momentum balance): $`\nabla\cdot\boldsymbol{\sigma} + \vec{f} = \rho\vec{a}` in $`\Omega`, with $`\vec{u} = \bar{\vec{u}}` on $`\Gamma_u` and $`\boldsymbol{\sigma}\hat{n} = \bar{\vec{t}}` on $`\Gamma_t`. Multiply by a test function $`\delta\vec{u}` (zero on $`\Gamma_u`) and integrate over $`\Omega`:
 

@@ -20,7 +20,7 @@ Functional analysis is organized around four distinct objects of study: the **sp
 <tr><td>[Applications](./Applications.md)</td><td>Where does this machinery solve real problems?</td><td>quantum mechanics (Hilbert spaces, observables), PDEs (existence via weak solutions)</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How the branches nest.** [Spaces](./Spaces.md) is the foundation: everything else lives on a space. [Operators](./Operators.md) is the layer of maps between spaces — the "derivatives" and "integrals" of functional analysis — and its central result, the spectral theorem, is the infinite-dimensional analogue of diagonalizing a matrix. [Distributions](./Distributions.md) widens the class of objects a space can contain, so that differentiation becomes always defined (at the cost of giving up pointwise values). [Applications](./Applications.md) shows the payoff: the same Hilbert-space and operator language that abstracts Euclidean geometry is exactly the language of quantum mechanics, and the same weak/compact-operator ideas give existence theorems for PDEs.
 

@@ -24,7 +24,7 @@ This page modifies **all** field classes — [Electrostatics](./Electrostatics.m
 
 In vacuum $`\varepsilon=\varepsilon_0`, $`\mu=\mu_0`, $`\sigma=0`. In a material these become the medium's constitutive parameters.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -82,7 +82,7 @@ The relative parameters are the ratios to the vacuum values; the absolute parame
 
 **Definition.** The **permittivity** $`\varepsilon` measures how strongly a material polarizes in response to an electric field. The **relative permittivity** (or **dielectric constant**) is $`\varepsilon_r = \varepsilon/\varepsilon_0 \ge 1`. Polarization $`\mathbf{P}` is the dipole moment per unit volume, and $`\mathbf{D} = \varepsilon_0 \mathbf{E} + \mathbf{P}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -137,7 +137,7 @@ Without the dielectric the capacitance would be four times smaller ($`\approx 88
 
 **Definition.** The **permeability** $`\mu` measures how strongly a material magnetizes in response to a magnetic field. The **relative permeability** is $`\mu_r = \mu/\mu_0`. Magnetization $`\mathbf{M}` is the magnetic dipole moment per unit volume, and $`\mathbf{B} = \mu_0(\mathbf{H} + \mathbf{M})`. Materials are classified by their response: **diamagnetic** ($`\mu_r < 1`, weakly repelled), **paramagnetic** ($`\mu_r > 1`, weakly attracted), and **ferromagnetic** ($`\mu_r \gg 1`, strongly attracted, with hysteresis and saturation).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -205,7 +205,7 @@ The high-$`\mu` core concentrates the flux: the same coil in air ($`\mu_r=1`) wo
 
 **Definition.** The **conductivity** $`\sigma` (units S/m) measures how easily free charges move in response to an electric field. **Ohm's law** in local form is $`\mathbf{J} = \sigma \mathbf{E}`. Its reciprocal is the **resistivity** $`\rho = 1/\sigma`. A conductor has large $`\sigma` (copper $`\approx 5.8\times10^7\,\text{S/m}`); an insulator has $`\sigma \approx 0`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -278,7 +278,7 @@ This is the microscopic form of $`I^2 R`: the field does work on the electrons, 
 \delta = \frac{1}{\sqrt{\pi f \mu \sigma}}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -340,7 +340,7 @@ v = \frac{1}{\sqrt{\mu\varepsilon}} = \frac{c}{\sqrt{\mu_r \varepsilon_r}},\qqua
 
 where $`\eta_0 = \sqrt{\mu_0/\varepsilon_0} \approx 377\,\Omega` is the impedance of free space.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -393,7 +393,7 @@ The wave travels at one-third the speed of light, and the impedance is one-third
 
 and the **transmission coefficient** is $`T = 1 + \Gamma = 2\eta_2/(\eta_2+\eta_1)`. The **Fresnel equations** generalize this to oblique incidence and both polarizations.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -460,7 +460,7 @@ so about **11%** of the incident power is reflected and 89% is transmitted. The 
 - **Nonlinear** media: the response depends on field strength, e.g. $`\mathbf{P} = \varepsilon_0(\chi^{(1)}\mathbf{E} + \chi^{(2)}\mathbf{E}^2 + \cdots)`, enabling frequency doubling and optical switching.
 - **Metamaterials**: subwavelength structures engineered to give **negative** $`\varepsilon` or $`\mu`, producing negative refraction, cloaking, and subwavelength lenses.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 

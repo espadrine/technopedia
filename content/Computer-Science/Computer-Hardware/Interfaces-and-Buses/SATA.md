@@ -59,7 +59,7 @@ SATA (Serial ATA) is the point-to-point storage link between a host and a drive:
 </svg>
 </div>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The payload rate is not a marketing rounding of the line rate — it follows from the coding. Work it through for SATA 3.0:
 
@@ -141,7 +141,7 @@ SATA 1.0's payload is 150 MB/s, so a 55 MB/s drive uses 55/150 ≈ 37% of the li
 </svg>
 </div>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Splitting data from power is a deliberate simplification: the data connector stays small (a 2.5-inch drive is only 7 mm thick), and devices that need only one function can omit the other — an eSATA bracket carries data with no power, and a powered enclosure carries power with no host data path. Compare USB-C, which multiplexes power and data on one 24-pin plug and therefore needs a negotiation protocol (USB-PD) just to agree on volts and amps; SATA's split is possible because both ends are fixed-function and the drive never negotiates its power rail.
 
@@ -279,7 +279,7 @@ A 3.5-inch drive spins up at 2 A on the 12 V rail and 0.5 A on the 5 V rail. Is 
 })();
 </script>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Where the FIS comes from.** SATA was designed for a frictionless transition from PATA, so its command FIS is a literal photograph of the old IDE task-file registers: the 8-bit command code, sector number, cylinder, drive/head, and count bytes that software used to write to I/O ports are carried field-for-field in the FIS payload. The same driver commands, the same register semantics — only the transport changed. This backward compatibility made adoption trivial, but it also caps the protocol: one command queue of depth 32, one device per cable, and a register-shaped command set that maps poorly to flash memory's parallelism (see [NCQ and AHCI](#ncq-and-ahci) below).
 
@@ -305,7 +305,7 @@ HOLD freezes the frame in place, so the link delivers payload for only 8 of ever
 
 **Definition.** **NCQ** (Native Command Queuing) lets the host hand the drive up to **32 queued commands** that the drive may execute in any order — so a hard drive can service them in seek order instead of arrival order. **AHCI** (Advanced Host Controller Interface) is the standard host-side controller interface above the FIS exchange: software writes command entries to memory-resident command lists, and the AHCI controller builds and transmits the FISes, reporting completion through interrupts.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The path of one read under AHCI (see the [AHCI 1.3.1 specification](https://www.intel.com/content/dam/www/public/us/en/documents/technical-specifications/serial-ata-ahci-spec-rev1-3-1.pdf) for the register and memory layouts):
 
@@ -343,7 +343,7 @@ With the queue keeping the drive busy, the effective service time per command is
 <tr><td>M.2 (SATA mode)</td><td>2013</td><td>M.2 card, B+M key</td><td>up to 6 Gb/s</td><td>no</td><td>standard for SATA SSDs</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Hot-plug.** SATA was designed for it from the start, unlike PATA: the data connector's ground pins are longer than the signal pins, so grounding happens before any signal line mates (a "staggered" pinout), and AHCI controllers support mechanical presence detection and cold-presence-detect interrupts so the OS can enumerate a drive inserted into a live port. eSATA makes this mandatory; internal hot-plug is optional but common on server backplanes, where a failed drive is swapped without powering down the chassis.
 
@@ -355,7 +355,7 @@ A laptop has one M.2 slot, key B+M, wired for both SATA and PCIe. You insert an 
 
 <details><summary>Solution</summary>
 
-The M.2 slot carries PCI Express lanes plus sideband signals on its edge connector; the SATA variant of the standard routes two of those pins to a SATA PHY instead of leaving them as PCIe lanes. Which protocol runs is decided by the module's *keying* and the chipset's configuration: a B+M-keyed SATA drive presents its pairs on the SATA pins, and the chipset's SATA controller claims the port. An M-keyed NVMe drive lands on the PCIe lanes instead (see [Board-level interconnects](./Board-level-interconnects.md) for what a PCIe lane is physically). One slot, two protocols, distinguished by key notches — the mechanical key is the protocol selector.
+The M.2 slot carries PCI Express lanes plus sideband signals on its edge connector; the SATA variant of the standard routes two of those pins to a SATA PHY instead of leaving them as PCIe lanes. Which protocol runs is decided by the module's *keying* and the chipset's configuration: a B+M-keyed SATA drive presents its pairs on the SATA pins, and the chipset's SATA controller claims the port. An M-keyed NVMe drive lands on the PCIe lanes instead (see [Board-level interconnects](./Board-level-electrical-interconnects.md) for what a PCIe lane is physically). One slot, two protocols, distinguished by key notches — the mechanical key is the protocol selector.
 
 </details>
 
@@ -367,9 +367,9 @@ The M.2 slot carries PCI Express lanes plus sideband signals on its edge connect
 
 **Definition.** NVMe is a command set and host interface designed for flash, running over PCIe lanes rather than a SATA PHY: up to **64K queues of 64K commands** each (versus one queue of 32), no ATA register legacy, and 128b/130b coding at PCIe Gen 3 (versus 8b/10b). A PCIe Gen 3 ×4 link moves ~3.94 GB/s — about 6.5× SATA 3.0's payload.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-The comparison is not "newer is faster" but a lesson in what legacy costs. SATA's command model — one queue, depth 32, register-shaped FISes, one device per cable — was engineered for 2003's hard drives, and every one of those choices is a ceiling for flash, which has no seek time to schedule around and many parallel NAND dies to keep busy. NVMe (see the [NVMe specification](https://nvmexpress.org/specifications/)) starts from PCIe's point-to-point lanes — the physical layer is described in [Board-level interconnects](./Board-level-interconnects.md) — and defines a scalable queue model that matches flash's parallelism. The bandwidth ratio (3.94 GB/s vs 0.6 GB/s) is the smaller half of the story; the queue-depth and latency differences are what make NVMe drives feel faster at small random I/O.
+The comparison is not "newer is faster" but a lesson in what legacy costs. SATA's command model — one queue, depth 32, register-shaped FISes, one device per cable — was engineered for 2003's hard drives, and every one of those choices is a ceiling for flash, which has no seek time to schedule around and many parallel NAND dies to keep busy. NVMe (see the [NVMe specification](https://nvmexpress.org/specifications/)) starts from PCIe's point-to-point lanes — the physical layer is described in [Board-level interconnects](./Board-level-electrical-interconnects.md) — and defines a scalable queue model that matches flash's parallelism. The bandwidth ratio (3.94 GB/s vs 0.6 GB/s) is the smaller half of the story; the queue-depth and latency differences are what make NVMe drives feel faster at small random I/O.
 
 SATA survives where its ceiling does not bind: hard drives (mechanically limited far below 600 MB/s), bulk storage, and budget SSDs — plus universal compatibility, since every OS and BIOS for 20 years speaks it.
 

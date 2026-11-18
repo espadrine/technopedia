@@ -21,7 +21,7 @@ where:
 
 A distribution is **mixed** if at least two of the three components are nonzero.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The decomposition is unique: the atomic part is determined by the atoms, the absolutely continuous part by the density, and the singular part is the remainder. The CDF of a mixed distribution has both jumps (from the atomic part) and a continuous component (from the absolutely continuous and singular parts).
 
@@ -45,7 +45,7 @@ where $`B_k` are i.i.d. Bernoulli(1/2) random variables. Its CDF is the **Cantor
 - $`F` increases only on the Cantor set $`C`, which has Lebesgue measure zero.
 - $`P(X \in C) = 1` but $`\lambda(C) = 0`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The Cantor set $`C` is constructed by iteratively removing the middle third of each interval. At stage $`n`, there are $`2^n` intervals of length $`3^{-n}`. The total length removed is $`\sum_{n=1}^{\infty} 2^{n-1}/3^n = 1`, so $`\lambda(C) = 0`. Yet $`C` is uncountable (cardinality $`2^{\aleph_0}`).
 
@@ -71,7 +71,7 @@ Common examples:
 - **Spike-and-slab**: $`P(X = 0) = \pi` plus $`P(X \in dx) = (1-\pi) f(x)\, dx` for $`x \neq 0`. Used in Bayesian variable selection.
 - **Lattice + noise**: $`X = Y + Z` where $`Y` is lattice-valued and $`Z` is continuous; the result is absolutely continuous (the convolution smooths the atoms).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The spike-and-slab prior is central in Bayesian sparse regression: each coefficient is either exactly zero (the spike) or drawn from a continuous distribution (the slab). The posterior probability of the spike gives a natural variable selection criterion.
 
@@ -94,7 +94,7 @@ This unifies the three cases:
 - Absolutely continuous: $`\int g(x) f(x)\, dx`.
 - Singular: the integral is with respect to the singular measure (no density exists).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The Stieltjes integral is the measure-theoretic Lebesgue integral with respect to the measure induced by $`F`. It is the correct tool when the distribution has both jumps and a continuous part, or when the continuous part is singular.
 

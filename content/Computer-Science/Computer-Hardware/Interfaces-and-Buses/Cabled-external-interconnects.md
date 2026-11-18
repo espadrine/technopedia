@@ -36,18 +36,18 @@ The five classes are separated by the **fundamental job and topology** of the li
 <tr><th>Page</th><th>Job &amp; topology</th><th>Signalling &amp; medium</th><th>Max length</th><th>Line rate</th><th>Examples</th></tr>
 <tr><td><a href="./USB.md">USB</a></td><td>Host–device peripheral tree; host enumerates up to 127 devices</td><td>Differential pairs, NRZ (≤20 Gb/s) or PAM3 (80 Gb/s); USB-C or legacy connectors</td><td>~2–5 m passive</td><td>1.5 Mb/s – 80 Gb/s</td><td>USB 1.0–3.2, USB4, USB-C PD</td></tr>
 <tr><td><a href="./Thunderbolt.md">Thunderbolt</a></td><td>Expansion &amp; docking; tunnels PCIe + DisplayPort over one cable, daisy-chained</td><td>PAM3 differential pairs over the USB-C connector</td><td>0.8 m passive, ~3 m active</td><td>40–80 Gb/s per direction (120 Gb/s asymmetric)</td><td>Thunderbolt 3/4/5</td></tr>
-<tr><td><a href="./Ethernet-copper.md">Ethernet (copper)</a></td><td>Peer LAN; switched star of equals</td><td>PAM5 / PAM16 (DSQ128) over 4 balanced twisted pairs</td><td>100 m (Cat 6a); 30 m (Cat 8, 25/40GBASE-T)</td><td>1–10 Gb/s; 25/40 Gb/s short reach</td><td>1000BASE-T, 10GBASE-T, 25GBASE-T</td></tr>
+<tr><td><a href="./Ethernet-over-copper-twisted-pair.md">Ethernet (copper)</a></td><td>Peer LAN; switched star of equals</td><td>PAM5 / PAM16 (DSQ128) over 4 balanced twisted pairs</td><td>100 m (Cat 6a); 30 m (Cat 8, 25/40GBASE-T)</td><td>1–10 Gb/s; 25/40 Gb/s short reach</td><td>1000BASE-T, 10GBASE-T, 25GBASE-T</td></tr>
 <tr><td><a href="./SATA.md">SATA</a></td><td>Storage block I/O; point-to-point host ↔ drive</td><td>One differential pair each way, 8b/10b coded</td><td>1 m</td><td>1.5 / 3 / 6 Gb/s</td><td>SATA 1.0–3.0, eSATA</td></tr>
 <tr><td><a href="./DisplayPort-and-HDMI.md">DisplayPort &amp; HDMI</a></td><td>Display stream; one-way source → sink video + audio</td><td>TMDS (HDMI) or 8b/10b &amp; 128b/132b differential lanes (DisplayPort)</td><td>~3 m passive; 100 m active-optical</td><td>4.95–48 Gb/s (HDMI), 8.64–80 Gb/s (DP 2.1)</td><td>HDMI 1.0–2.1, DisplayPort 1.4/2.1, DVI</td></tr>
 </table>
 
-The boundary between these families and the [board-level interconnects](./Board-level-interconnects.md) they attach to is a packaging boundary, not a physics boundary: a USB4 host is internally a PCIe root complex whose lanes are re-timed onto a cable; a SATA drive is internally an NVMe-like flash controller fed by a SATA PHY. And when a run exceeds what copper can drive — a 300 m link between buildings — the job passes to [optical interconnects](./Optical-interconnects.md).
+The boundary between these families and the [board-level interconnects](./Board-level-electrical-interconnects.md) they attach to is a packaging boundary, not a physics boundary: a USB4 host is internally a PCIe root complex whose lanes are re-timed onto a cable; a SATA drive is internally an NVMe-like flash controller fed by a SATA PHY. And when a run exceeds what copper can drive — a 300 m link between buildings — the job passes to [optical interconnects](./Optical-interconnects.md).
 
 ## The shared physics: why every cable has a length limit
 
 **Definition.** A cable is a lossy transmission line: signal power decays exponentially with length, and the decay constant grows with frequency because of the **skin effect** — at high frequency, current crowds into a thin layer of depth $`\delta = \sqrt{2\rho/(\omega\mu)}` at the conductor surface, shrinking the effective cross-section and raising resistance as $`\sqrt{f}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Drag the frequency slider: the shaded ring is where the current actually flows in a copper conductor of a twisted-pair cable (radius 250 µm, like a Cat 6a strand). Depth $`\delta` (copper) ≈ $`65.2/\sqrt{f_{\text{MHz}}}` µm.
 
@@ -126,7 +126,7 @@ Notice the pattern: **rate and reach trade off**. SATA trades reach (1 m) for si
 
 **Definition.** [USB](./USB.md) is a hot-pluggable, host-enumerated serial bus: one host polls a tree of up to 127 devices. USB4 v2 (2022) carries 80 Gb/s per direction over USB-C using PAM3, and tunnels USB 3, DisplayPort, and (optionally) PCIe traffic as packets over those lanes.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 USB's defining choice is the **host-device tree**: devices never talk to each other, only to the host, which assigns each an address during *enumeration* when it is plugged in. This makes devices cheap and hot-plug trivial, at the cost of host overhead. Power is part of the spec: 5 V at up to 500 mA (USB 2.0 unit load), 900 mA (USB 3.0), and up to 240 W with USB-C Power Delivery 3.1 (48 V, 5 A).
 
@@ -210,7 +210,7 @@ USB 3.2 Gen 2×2: 20 Gb/s line rate ≈ 2 GB/s after 128b/132b coding overhead. 
 
 **Definition.** [Thunderbolt](./Thunderbolt.md) is a cabled expansion interface that tunnels PCIe and DisplayPort — the two buses a computer already speaks internally — over a single USB-C cable, daisy-chained across up to six devices. Thunderbolt 5 (spec finalised 2024) provides 80 Gb/s in each direction simultaneously (full duplex), with a 120 Gb/s asymmetric boost for video-heavy setups, using PAM3 signalling.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Thunderbolt's insight is that a dock should not translate protocols: it should carry the computer's *native* buses. A Thunderbolt host packets PCIe transactions and DisplayPort video into "tunnels" over the same differential lanes, and a dock unpacks them to real PCIe slots, display connectors, and Ethernet. USB4 (2019) adopted this tunnel architecture — the difference is that Thunderbolt *guarantees* PCIe tunneling, while USB4 makes it optional.
 
@@ -218,7 +218,7 @@ Thunderbolt's insight is that a dock should not translate protocols: it should c
 
 - USB4 Gen 3×2 / Thunderbolt 3/4: 40 Gb/s **per direction** (full duplex) ≈ 5 GB/s. The 3.9 GB/s PCIe tunnel fits, leaving ~1 GB/s for a display tunnel — this is why 40 Gb/s eGPUs work but are the ceiling.
 - Thunderbolt 5 / USB4 v2: 80 Gb/s per direction ≈ 10 GB/s. Two PCIe Gen 3 ×4 tunnels, or one Gen 4 ×4 (64 Gb/s raw ≈ 7.9 GB/s effective), now fit.
-- No cable interface serves a GPU that needs 32 **GB/s** of host transfer (e.g. streaming large model weights every step): that exceeds even 10 GB/s, and needs a direct PCIe Gen 5 ×16 slot (64 GB/s) on the [board level](./Board-level-interconnects.md).
+- No cable interface serves a GPU that needs 32 **GB/s** of host transfer (e.g. streaming large model weights every step): that exceeds even 10 GB/s, and needs a direct PCIe Gen 5 ×16 slot (64 GB/s) on the [board level](./Board-level-electrical-interconnects.md).
 
 <details><summary>Example problem</summary>
 
@@ -236,9 +236,9 @@ Downstream budget: two 4K60 streams ≈ 2 × 12.5 Gb/s = 25 Gb/s; assume a worst
 
 ## Ethernet over copper (peer LAN)
 
-**Definition.** [Ethernet over twisted pair](./Ethernet-copper.md) (IEEE 802.3) is the cabled LAN physical layer: four balanced twisted pairs, 100 m at 1–10 Gb/s (1000BASE-T, 10GBASE-T), and 25/40 Gb/s over 30 m of Cat 8 (802.3bq). 10GBASE-T encodes with PAM16 and the DSQ128 constellation across pairs, with Tomlinson–Harashima precoding and LDPC forward error correction.
+**Definition.** [Ethernet over twisted pair](./Ethernet-over-copper-twisted-pair.md) (IEEE 802.3) is the cabled LAN physical layer: four balanced twisted pairs, 100 m at 1–10 Gb/s (1000BASE-T, 10GBASE-T), and 25/40 Gb/s over 30 m of Cat 8 (802.3bq). 10GBASE-T encodes with PAM16 and the DSQ128 constellation across pairs, with Tomlinson–Harashima precoding and LDPC forward error correction.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Ethernet's topology is the opposite of USB's: **peers**, joined through switches in a star. No host enumerates anybody; every port negotiates speed and duplex with its link partner automatically (autonegotiation), then the PHYs train on the actual cable before committing to a rate — which is why the *cable category*, not the port speed, sets the ceiling on a marginal run.
 
@@ -270,7 +270,7 @@ Ethernet's topology is the opposite of USB's: **peers**, joined through switches
 
 The protocol layers above the PHY (framing, MAC, switching, IP, TCP) are covered in [Networks](../../Distributed-Systems/Networks.md). For runs beyond 100 m, or between buildings, the same Ethernet frames move to fibre — see [Optical interconnects](./Optical-interconnects.md) (10GBASE-R vs. 10GBASE-T).
 
-The full treatment — the cable-category table (bandwidths, shielding, certified 10GBASE-T reach per category), the PAM5 → PAM16/DSQ128 signalling story, echo/NEXT/FEXT cancellation, autonegotiation and link training, the copper-vs-fibre crossover, and the Shannon-capacity worked example for one twisted pair — is on the [Ethernet over copper](./Ethernet-copper.md) page, together with an interactive link-budget simulator.
+The full treatment — the cable-category table (bandwidths, shielding, certified 10GBASE-T reach per category), the PAM5 → PAM16/DSQ128 signalling story, echo/NEXT/FEXT cancellation, autonegotiation and link training, the copper-vs-fibre crossover, and the Shannon-capacity worked example for one twisted pair — is on the [Ethernet over copper](./Ethernet-over-copper-twisted-pair.md) page, together with an interactive link-budget simulator.
 
 </details>
 
@@ -278,9 +278,9 @@ The full treatment — the cable-category table (bandwidths, shielding, certifie
 
 **Definition.** [SATA](./SATA.md) (Serial ATA) is a point-to-point host-to-drive storage link: one differential pair in each direction, 8b/10b coded, at 1.5, 3, or 6 Gb/s (SATA 3.0, 2009). The 7-pin data connector carries only the two differential pairs and three grounds; power arrives on a separate 15-pin connector.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-SATA (2003) replaced the wide PATA ribbon with two thin differential pairs — the same serialisation wave that produced PCIe at the [board level](./Board-level-interconnects.md). The protocol is a simple command/response exchange of *Frame Information Structures* (FISs): the host sends a command FIS, the drive returns data and status FISs, with CRC on every frame. Maximum cable length is 1 m; the external variant eSATA adds shielding for the same 1–2 m.
+SATA (2003) replaced the wide PATA ribbon with two thin differential pairs — the same serialisation wave that produced PCIe at the [board level](./Board-level-electrical-interconnects.md). The protocol is a simple command/response exchange of *Frame Information Structures* (FISs): the host sends a command FIS, the drive returns data and status FISs, with CRC on every frame. Maximum cable length is 1 m; the external variant eSATA adds shielding for the same 1–2 m.
 
 
 
@@ -334,8 +334,8 @@ A building is wired wall-to-wall with Cat 6 cable, and the longest run is 70 m. 
 
 ## Related pages
 
-- [USB](./USB.md), [Thunderbolt](./Thunderbolt.md), [Ethernet (copper)](./Ethernet-copper.md), [SATA](./SATA.md), [DisplayPort & HDMI](./DisplayPort-and-HDMI.md) — the five families, one explanation page each.
-- [Board-level interconnects](./Board-level-interconnects.md) — the PCIe and NVMe links that USB4 tunnels and SATA drives contain; the same transmission-line physics at centimetre scale.
+- [USB](./USB.md), [Thunderbolt](./Thunderbolt.md), [Ethernet (copper)](./Ethernet-over-copper-twisted-pair.md), [SATA](./SATA.md), [DisplayPort & HDMI](./DisplayPort-and-HDMI.md) — the five families, one explanation page each.
+- [Board-level interconnects](./Board-level-electrical-interconnects.md) — the PCIe and NVMe links that USB4 tunnels and SATA drives contain; the same transmission-line physics at centimetre scale.
 - [Optical interconnects](./Optical-interconnects.md) — what takes over when copper's length limit is hit (fibre Ethernet, 10GBASE-R).
 - [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md) — the skin effect, radiation, and crosstalk from first principles.
 - [Networks](../../Distributed-Systems/Networks.md) — the protocol layers (Ethernet MAC, IP, TCP) that ride on the copper PHY.

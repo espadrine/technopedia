@@ -40,7 +40,7 @@ Every stock form is produced by melting and refining a raw material, then reduci
 <tr><td>Ceramic green body</td><td>Powder → pressing (uniaxial, isostatic) → sintering</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Worked example — 6061-T6 flat bar, 200 × 200 × 50 mm.** A designer needs a machinable block for a CNC fixture. No standard stock form matches a 200 mm square cross-section directly, so the planner picks the closest standard form (extruded flat bar) and lets machining remove the rest. The route is: primary Al → continuous casting (billet) → hot extrusion (flat bar) → solution treatment and artificial aging to the T6 temper → sawing → CNC machining. Certification is per ASTM B221 mill test report.
 
@@ -64,7 +64,7 @@ A continuous caster cannot economically cast 50 mm thick sections at conventiona
 
 The composition of an alloy determines its phase diagram, which in turn sets the achievable strength, ductility, and corrosion resistance. Practically, a small change in carbon content (e.g., 0.2 % → 0.45 %) can shift a steel from a soft, weldable ferrite-pearlite microstructure to a hardenable martensite-capable one—this is the single most important lever in steel grade selection.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A phase diagram (e.g., Fe–C for steels) maps temperature and composition to stable phases (ferrite, austenite, cementite). Heat treatment—quenching, tempering, annealing—exploits these transitions to tailor microstructure. For polymers, molecular weight, branching, and crystallinity play the analogous role.
 
@@ -109,7 +109,7 @@ At 0.18 % C the steel sits far left of the eutectoid (0.77 % C): even fully quen
 
 Raw ore or scrap is melted, impurities are removed, and the melt is cast into a standard stock shape (ingot, billet, slab, rod). See [Casting](./Casting.md) for the casting process details.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Steelmaking**: BOF or EAF melts iron ore/scrap; ladle refining adjusts chemistry; continuous casting produces slabs, billets, or blooms.
 - **Aluminum**: Hall–Héroult electrolysis produces primary Al; scrap remelting cuts energy by ~95 %.
@@ -135,7 +135,7 @@ Hall–Héroult electrolysis breaks the very strong Al–O bond in alumina and c
 
 After melting, the solid is reduced to a standard cross-section by bulk forming operations—rolling, extrusion, and drawing. See [Forming](./Forming.md) for process details, force calculations, and die design.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The output of this stage is a standard cross-section (sheet, bar, rod, wire) ready for downstream forming or machining. The specific process mechanics—roll force, extrusion pressure, drawing reduction per pass—are covered in [Forming](./Forming.md).
 
@@ -188,7 +188,7 @@ Heating and cooling a solid stock form—without changing its shape—to rearran
 - **Tempering**: reheat a quenched part to 150–650 °C then air-cool; trades a little hardness for toughness.
 - **Solution treatment + aging**: dissolve alloying elements at high temperature, quench, then precipitate fine particles at moderate temperature (the basis of T4/T6 tempers in aluminum).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Whether the desired phase forms is a **time** question as much as a temperature one, captured in an isothermal transformation (TTT) diagram: cool fast enough to skip the nose of the C-curve and you get martensite; cool slowly and you get soft pearlite. A 0.45 % C steel quenched in water crosses the nose in seconds and reaches ~600 HB after tempering at 200 °C; the same steel furnace-cooled reaches only ~200 HB because pearlite forms instead of martensite.
 
@@ -237,7 +237,7 @@ Polymers skip melting-and-refining entirely: monomers are polymerized into resin
 - **Injection molding of preforms**: pellets are melted and injected into a mold; for PET bottles, a molded "preform" is later reheated and blow-molded.
 - **Fiber spinning**: molten or dissolved polymer is pushed through a spinneret (a plate of fine holes); the filaments are drawn 3–10× as they cool, which aligns the chains and multiplies tensile strength.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Worked example — PET bottle stock.** Polymerization produces PET pellets (~0.9 g each, dried to <50 ppm moisture or hydrolysis weakens the melt). The pellets are injection-molded into a 20 g preform that looks like a thick test tube with the bottle's threaded neck already formed. The preform is then reheated to ~100 °C, stretched, and blow-molded against a cold mold cavity. The stretch-aligning step raises the PET's strength roughly 2× versus unstretched material—same polymer, different processing history.
 
@@ -259,7 +259,7 @@ Preforms decouple the two rate-limiting steps: injection molding a preform takes
 
 Not all stock is produced by bulk reduction. Four additional routes cover the remaining stock forms:
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Metal powders**: Melt is atomized by high-pressure gas (Ar, N₂) or water, producing spherical particles (10–150 µm). Powders feed powder metallurgy (pressing + sintering) or additive manufacturing.
 - **Fiber / filament**: A bar or rod is drawn through a series of reducing dies (each pass 20–40 % area reduction) until the target diameter is reached. For optical fiber, a preform is drawn at ~2000 °C into a continuous strand.
@@ -306,7 +306,7 @@ Spherical particles roll and pack uniformly, giving a dense, even green compact;
 
 Every stock lot carries a mill test certificate specifying chemistry, mechanical properties (tensile, yield, elongation, hardness), and sometimes NDE results. Verification methods are covered in [Metrology and quality control](./Metrology-and-quality-control.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Standards such as ASTM A36 (structural steel), AMS 4928 (Ti-6Al-4V bars, wire, forgings, flash-welded rings, and drawn shapes), or ISO 6362 (aluminum extrusions) define the minimum properties. The buyer selects a grade that matches the downstream process: a casting grade has higher sulfur tolerance than a forging grade; a welding grade has controlled carbon equivalent.
 

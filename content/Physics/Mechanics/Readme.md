@@ -24,7 +24,7 @@ Mechanics models objects whose motion is predictable from position, velocity, fo
 <tr><td><a href='./Continuum-Mechanics.md'>Continuum Mechanics</a></td><td>How do deformable bodies and fluids respond to stress?</td><td>Elastomers, fluids, beams, shells</td><td>Stress–strain relations, conservation of mass and momentum</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Kinematics provides the language (position, velocity, acceleration) without asking why motion occurs. Dynamics adds the causal layer: forces produce acceleration, and the special case of zero acceleration is static equilibrium. The Lagrangian and Hamiltonian reformulations of dynamics (generalized coordinates, Noether's theorem, phase space) are treated inside the Dynamics page. Oscillations and Waves extend the equilibrium analysis to periodic and propagating solutions. Rigid-Body Mechanics handles extended bodies that do not deform, while Continuum Mechanics handles bodies that do.
 

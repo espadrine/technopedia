@@ -2,7 +2,7 @@
 
 Optical interconnects use photons in glass fibre or free space to carry data. They are relevant whenever the distance or bandwidth exceeds what copper can practically deliver: data-centre interconnects between racks and buildings, long-haul and transoceanic telecommunications, satellite laser links, and emerging silicon-photonics I/O on a chip. At the 10 m–1000 km scale, the dominant physics is attenuation and dispersion in the glass, and the design disciplines are photonics, wavelength management, and optical amplification.
 
-The copper side of the crossover is covered by the sibling pages: [Cabled external interconnects](./Cabled-external-interconnects.md) and [Ethernet over copper](./Ethernet-copper.md) own the 1–100 m regime where copper is still cheaper, [Board-level electrical interconnects](./Board-level-interconnects.md) owns the PCB traces that optical modules plug into, and [On-chip interconnects](./On-chip-interconnects.md) owns the in-die wires that optical I/O replaces.
+The copper side of the crossover is covered by the sibling pages: [Cabled external interconnects](./Cabled-external-interconnects.md) and [Ethernet over copper](./Ethernet-over-copper-twisted-pair.md) own the 1–100 m regime where copper is still cheaper, [Board-level electrical interconnects](./Board-level-electrical-interconnects.md) owns the PCB traces that optical modules plug into, and [On-chip interconnects](./On-chip-interconnects.md) owns the in-die wires that optical I/O replaces.
 
 > **Authoritative sources**
 > - [ITU-T G.652 (Single-mode fibre)](https://www.itu.int/rec/T-REC-G.652)
@@ -47,7 +47,7 @@ Attenuation depends on the fibre type and the wavelength; this table is the refe
 
 <iframe src="./Optical-interconnects.simulation.html" title="Link-budget calculator: distance × attenuation vs launch power and receiver sensitivity"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The key difference is modal dispersion: in MMF, different spatial modes travel at slightly different speeds, spreading the pulse (see the [dispersion](#dispersion-modal-and-chromatic) section). SMF avoids this by supporting only one mode, but requires a more precise (and more expensive) laser source.
 
@@ -78,7 +78,7 @@ Total attenuation: 100 km × 0.20 dB/km = 20 dB. Link margin = 0 dBm − 20 dB �
 
 <iframe src="./Optical-interconnects.simulation.html" title="Animation of a pulse spreading with distance by modal and chromatic dispersion"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Modal dispersion.** In MMF, rays at steep angles bounce along a longer zig-zag path than the axial ray, so a sharp input pulse arrives smeared over tens of ps per km. This is why MMF is capped at a few hundred metres even though its attenuation (≈3 dB/km) would allow kilometres.
 
@@ -116,7 +116,7 @@ $`\Delta T = D \cdot \Delta\lambda \cdot L = 17 \text{ ps/(nm·km)} \times 0.1 \
 
 <iframe src="./Optical-interconnects.simulation.html" title="Interactive DWDM spectrum visualizer on the ITU grid with aggregate capacity"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 WDM is the key technology that makes optical fibre a Tb/s medium. A single SMF pair carrying 96 DWDM channels at 100 Gb/s each moves 9.6 Tb/s; with 400G-per-wavelength coherent transceivers the same fibre carries 38.4 Tb/s.
 
@@ -147,7 +147,7 @@ Channel count: 35 nm ÷ 0.8 nm ≈ 44 channels. Spacing in GHz: $`\Delta f = c \
 
 **Definition.** An erbium-doped fibre amplifier (EDFA) is a spool of fibre doped with Er³⁺ ions that, pumped at 980 or 1480 nm, amplifies any wavelength in the ~1530–1565 nm band by 20–30 dB — without converting the signal to electricity. Gain-flattening filters keep the amplification uniform across the band.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The EDFA is the reason 1550 nm won. Two facts line up:
 
@@ -180,7 +180,7 @@ Total fibre loss: 300 × 0.20 = 60 dB. One EDFA recovers 20 dB, so two EDFAs at 
 
 **Definition.** DCI is the optical interconnect between data-centre buildings or campuses, typically 100 m–100 km. It uses SMF with 100G/400G/800G transceivers, either direct-detect (short reach) or coherent (long reach, one wavelength per 100–800G "lambda").
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 DCI is the dominant application of optical interconnects in computing. A hyperscale data centre has multiple buildings connected by SMF, with each link carrying 400G or 800G.
 
@@ -188,7 +188,7 @@ DCI is the dominant application of optical interconnects in computing. A hypersc
 
 **FEC matters here.** Coherent 100G-per-lambda links (400ZR / Open ROADM class) use ~20% soft-decision FEC (SD-FEC) or open FEC (oFEC) to survive the low OSNR of 80–120 km amplified spans. Do not confuse this with the 7% RS(544,514) FEC of IEEE 802.3 Clause 74/KR4, which protects *electrical* NRZ/PAM4 lanes inside a transceiver or on a PCB — a different layer of the same stack.
 
-The protocol stack above the optical PHY (Ethernet framing, IP, TCP) is covered by [Networks](../../Distributed-Systems/Networks.md). The information-theoretic limits (Shannon capacity, FEC overhead) are covered by [Communication](../../Information-Theory/Communication.md). The copper side of the 100 m crossover — where a DCI link degrades into an ordinary copper Ethernet run — is covered in [Ethernet over copper](./Ethernet-copper.md).
+The protocol stack above the optical PHY (Ethernet framing, IP, TCP) is covered by [Networks](../../Distributed-Systems/Networks.md). The information-theoretic limits (Shannon capacity, FEC overhead) are covered by [Communication](../../Information-Theory/Communication.md). The copper side of the 100 m crossover — where a DCI link degrades into an ordinary copper Ethernet run — is covered in [Ethernet over copper](./Ethernet-over-copper-twisted-pair.md).
 
 **Authoritative sources**
 
@@ -237,7 +237,7 @@ DP-QPSK carries 2 bits per symbol per polarisation, 2 polarisations: 4 bits/symb
   <text x="30" y="230" font-size="11" fill="#555">TX: electrical bits → modulator → waveguide → grating coupler → fibre. RX: fibre → coupler → waveguide → photodetector → electrical bits.</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Silicon photonics integrates modulators (Mach-Zehnder or micro-ring), waveguides, and photodetectors on a silicon chip, co-packaged with the electronic IC (EIC). The light is coupled to/from the chip via edge couplers or grating couplers into SMF. Optical I/O is the photonics answer to the same die-boundary problem that [On-chip interconnects](./On-chip-interconnects.md) solves electrically: getting Tb/s across a few millimetres of package without melting it.
 
@@ -257,7 +257,7 @@ An AI accelerator needs 50 Gb/s per lane across its package. A long-reach electr
 
 <details><summary>Solution</summary>
 
-Electrical: 64 × 50 Gb/s × 5 pJ/bit = 16 W. Optical: 64 × 50 Gb/s × 2 pJ/bit = 6.4 W — a saving of ~10 W per chip. The gap grows with rate because electrical loss in copper rises with frequency (skin effect, dielectric loss — see [Board-level electrical interconnects](./Board-level-interconnects.md)), forcing equalisation and more ADC/DSP power per bit, while the optical path loss is roughly frequency-independent; the laser and photodiode cost nearly the same energy whether they carry 25 or 100 Gb/s.
+Electrical: 64 × 50 Gb/s × 5 pJ/bit = 16 W. Optical: 64 × 50 Gb/s × 2 pJ/bit = 6.4 W — a saving of ~10 W per chip. The gap grows with rate because electrical loss in copper rises with frequency (skin effect, dielectric loss — see [Board-level electrical interconnects](./Board-level-electrical-interconnects.md)), forcing equalisation and more ADC/DSP power per bit, while the optical path loss is roughly frequency-independent; the laser and photodiode cost nearly the same energy whether they carry 25 or 100 Gb/s.
 
 </details>
 
@@ -269,7 +269,7 @@ Electrical: 64 × 50 Gb/s × 5 pJ/bit = 16 W. Optical: 64 × 50 Gb/s × 2 pJ/bit
 
 **Definition.** Free-space optics (FSO) replaces the fibre with a modulated laser beam through air or vacuum, used for building-to-building links, rack-to-rack links inside data centres, and inter-satellite laser communication.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 FSO keeps the transceiver physics of the fibre sections above but removes the glass: there is no fibre attenuation (the table's "free space" row) and no chromatic dispersion from silica, but new loss and noise sources appear — atmospheric turbulence and scattering (rain, fog), pointing/acquisition/tracking error between moving terminals, and eye-safety limits on launch power. In vacuum (satellite-to-satellite links) the channel is nearly ideal, which is why laser inter-satellite links carry hundreds of Gb/s over thousands of kilometres. Inside a data centre, FSO competes with fibre only where re-cabling is impossible, because alignment drift and dust make it fragile.
 

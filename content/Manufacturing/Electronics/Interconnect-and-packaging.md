@@ -37,7 +37,7 @@ Every packaged chip, from a small-outline transistor to a 2.5D GPU module, goes 
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Packaging is a *sequential* process: each step prepares the geometry the next step needs. The die cannot be wire-bonded before it is fixed to the die pad; it cannot be molded before the wires exist, or the wires would be frozen in place and untestable; it cannot be tested before singulation because dies on the wafer share common test resources only at wafer level.
 
@@ -75,7 +75,7 @@ A thin metal wire (18–50 µm diameter; Au, Cu, Al) is ultrasonically bonded be
 
 <iframe src="./Interconnect-and-packaging.wire-bond.simulation.html" title="Wire bonding: capillary forms a ball bond, pulls a loop, and places a stitch bond"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Wire bonding is the oldest and still the highest-volume die-to-package interconnect method. A capillary tool threads a wire, melts its tip into a ball (by electric flame-off spark), presses the ball onto the die pad with ultrasonic vibration and force (the **ball bond**), then pulls the wire through a loop profile and presses the wire flat onto the second pad (the **stitch bond**). The wire is then torn off and the cycle repeats at 10–20 bonds per second.
 
@@ -119,7 +119,7 @@ Solder (Sn-Ag-Cu, Pb-free) forms the electrical and mechanical joints for C4 bum
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Solder is a low-melting alloy that wets clean metal surfaces and freezes into a joint that is both electrical and mechanical. In electronics the workhorse is **SAC305** (Sn-96.5/Ag-3.0/Cu-0.5), liquidus 217 °C. The joint is made in a **reflow oven**: the assembly is heated on a controlled profile — ramp to 150–180 °C (solvent evaporation, flux activation), a soak that lets the whole board equalize, a short peak of 245–260 °C that melts the solder for 30–90 s, and a controlled cool-down that freezes the joint as fine, fatigue-resistant grains.
 
@@ -152,7 +152,7 @@ The die is flipped face-down and its solder bumps (C4, 75–200 µm diameter, 13
 
 <iframe src="./Interconnect-and-packaging.flip-chip.simulation.html" title="Flip-chip bonding: bump pitch sets I/O count; reflow collapses and self-aligns the die"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 In flip-chip, all pads connect *at once* during one reflow, instead of one-at-a-time as in wire bonding. The die is picked up, flux-dipped or flux-printed, placed bump-down on the substrate with a few µm of accuracy, and heated. As the solder melts, the surface tension of each molten blob pulls the die into alignment — this **self-alignment** is the key physics: the die corrects placement errors of up to ~50% of the bump diameter for free. The joint solidifies as a slightly squashed sphere whose height is set by the bump volume and the die weight.
 
@@ -182,7 +182,7 @@ At 150 µm pitch, one row holds 10 mm / 0.15 mm ≈ 66 bumps, so a full array ho
 
 Die attach fixes the back of the die to the die pad or substrate; it carries the die's mechanical load and part of its heat path, while the front-side interconnect (wire or bump) carries only the signals.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The interconnect technologies above are too thin or too compliant to hold the die against shock, vibration, and shear — so the die is attached separately, from the back. Three attachment materials dominate:
 
@@ -211,7 +211,7 @@ R = t/(kA) = 40×10⁻⁶ m / (7 W/(m·K) × 25×10⁻⁶ m²) ≈ 0.23 K/W. At 
 
 Molding buries the die and interconnects in a solid protective body — an epoxy molding compound for plastic packages, or a sealed metal/ceramic lid for high-power and hermetic packages.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Bare silicon with 25 µm wires cannot survive handling, moisture, or alpha particles. Encapsulation gives the package its mechanical body, blocks moisture and ionic contamination, and (for opaque compounds) blocks light that would photogenerate carriers in the die.
 
@@ -242,7 +242,7 @@ Vertical electrical connections that pass through the silicon die, enabling 3D s
 
 <iframe src="./Interconnect-and-packaging.tsv.simulation.html" title="3D die stack: TSVs carry signals vertically through thinned dies joined by micro-bumps"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A TSV is a copper-filled hole drilled through the silicon, so a signal can enter the *top* of a die and leave its *bottom* — the prerequisite for stacking dies vertically. The stack is built by bonding die-on-die (or wafer-on-wafer) with micro-bumps, so the TSVs of all dies line up into a vertical signal path.
 
@@ -274,7 +274,7 @@ Multiple dies (chiplets) are assembled on a large organic or silicon interposer 
 
 <iframe src="./Interconnect-and-packaging.simulation.html" title="CoWoS cross-section: logic die and HBM stacks on a silicon interposer over an organic FCBGA substrate — hover the layers"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 When one reticle-sized die becomes too large to yield economically, or when logic and memory want different process nodes, the monolithic die is split into **chiplets** assembled side-by-side (2.5D) or stacked (3D) inside one package. The interposer is the piece of substrate that carries the fine-pitch die-to-die routing that an organic package substrate cannot.
 
@@ -321,7 +321,7 @@ The package is the primary thermal path from the die to the ambient; its thermal
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Heat conduction follows Fourier's law: heat flows from hot to cold in proportion to the temperature gradient, and each material layer in the path adds a thermal resistance R = t/(kA) (thickness over conductivity times area). The fundamentals — thermal resistance, conduction, and the heat equation — are developed in [Thermodynamics](../../Physics/Thermodynamics/Readme.md); packaging applies them in a fixed, layered geometry.
 
@@ -358,7 +358,7 @@ The solder TIM buys ~19 K of headroom — the reason high-end CPUs/GPUs use **in
 
 Packaged interconnects are verified by non-destructive imaging (X-ray, acoustic microscopy) and by accelerated stress tests (temperature cycling, moisture preconditioning) that predict field life.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Most of a package's joints are hidden — under the die, under the mold, under the BGA balls — so inspection must see through solid materials, and reliability must be proven by *stress*, not by looking.
 

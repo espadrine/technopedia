@@ -30,7 +30,7 @@ A Lévy process is a continuous-time [Markov process](./Markov-chains.md), and i
 
 $`\psi(\theta) = i b \theta - \tfrac{1}{2}\sigma^2\theta^2 + \int_{\mathbb{R}\setminus\{0\}} (e^{i\theta x} - 1 - i\theta x\, h(x))\,\nu(dx)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The whole theory hangs on one fact: **stationary independent increments**.
 
@@ -65,7 +65,7 @@ E[X_t] = 3t \cdot \tfrac{3}{2} = \tfrac{9}{2}\,t, \qquad
 
 **Definition.** The **Lévy–Itô decomposition** writes every Lévy process as $`X_t = b\,t + \sigma W_t + J_t`: a deterministic drift, a Brownian part $`\sigma W_t`, and a pure-jump part $`J_t` built from a Poisson random measure. The three terms are independent, and the path you see is their sum.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Each ingredient has a very different look, and the decomposition is exactly what the four sample paths below show:
 
@@ -133,7 +133,7 @@ The first three rows are the building blocks; the last three are infinite-activi
 
 **Definition.** A **subordinator** is a non-decreasing Lévy process — a Lévy process with only positive jumps and no Brownian part, so its triplet is $`(b, 0, \nu)` with $`\nu` supported on $`(0, \infty)`. It is a "random clock": a non-negative process $`(T_t)` that can be used to reparameterize (subordinate) another process.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A subordinator is what you get when you strip a Lévy process down to its jump part and forbid negative jumps. Because it only moves upward, it can be read as a *time change*: given any process $`(Y_s)`, the composition $`Y_{T_t}` is called the **subordination** of $`Y` by $`T`.
 

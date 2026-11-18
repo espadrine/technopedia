@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lists Simulation</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+h1 { text-align: center; margin-bottom: 16px; color: #fff; font-size: 1.4em; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; justify-content: center; }
+.tab { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; background: #16213e; color: #a0a0c0; font-size: 0.9em; transition: all 0.2s; }
+.tab:hover { background: #0f3460; color: #fff; }
+.tab.active { background: #e94560; color: #fff; }
+.panel { display: none; background: #16213e; border-radius: 10px; padding: 20px; min-height: 300px; }
+.panel.active { display: block; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.controls button { padding: 6px 14px; border: none; border-radius: 5px; cursor: pointer; background: #0f3460; color: #fff; font-size: 0.85em; transition: background 0.2s; }
+.controls button:hover { background: #e94560; }
+.controls input { padding: 6px 10px; border: 1px solid #333; border-radius: 5px; background: #1a1a2e; color: #fff; width: 60px; font-size: 0.85em; }
+.viz { margin-top: 16px; }
+.cell { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 2px solid #0f3460; margin: 2px; font-size: 0.85em; font-weight: bold; border-radius: 4px; background: #1a1a2e; transition: all 0.3s; }
+.cell.filled { background: #0f3460; border-color: #e94560; color: #fff; }
+.cell.highlight { background: #e94560; color: #fff; transform: scale(1.1); }
+.cell.empty { border-style: dashed; opacity: 0.4; }
+.node { display: inline-flex; align-items: center; margin: 2px; }
+.node-box { width: 50px; height: 44px; border: 2px solid #e94560; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; }
+.node-box.highlight { background: #e94560; color: #fff; }
+.arrow { font-size: 1.2em; color: #e94560; margin: 0 4px; }
+.bit { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 1px solid #333; margin: 1px; font-size: 0.75em; border-radius: 3px; background: #1a1a2e; transition: all 0.3s; }
+.bit.set { background: #e94560; color: #fff; }
+.bit.highlight { border-color: #ffd700; box-shadow: 0 0 6px #ffd700; }
+.info { margin-top: 12px; padding: 10px; background: #1a1a2e; border-radius: 6px; font-size: 0.85em; color: #a0a0c0; min-height: 40px; }
+.label { font-size: 0.8em; color: #666; margin-top: 4px; }
+.stack-viz { display: flex; flex-direction: column-reverse; align-items: center; gap: 4px; min-height: 200px; justify-content: flex-start; }
+.stack-cell { width: 80px; height: 36px; border: 2px solid #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; transition: all 0.3s; }
+.stack-cell.top { border-color: #e94560; background: #0f3460; }
+.queue-viz { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.queue-cell { width: 50px; height: 44px; border: 2px solid #0f3460; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: bold; background: #1a1a2e; transition: all 0.3s; }
+.queue-cell.head { border-color: #4ecdc4; }
+.queue-cell.tail { border-color: #ffd700; }
+.cap-label { font-size: 0.75em; color: #666; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Queue</h1>
+<div id="queue" class="panel active">
+<div class="controls">
+<button onclick="queEnqueue()">Enqueue</button>
+<button onclick="queDequeue()">Dequeue</button>
+<input id="queVal" type="number" value="10" style="width:60px">
+<span style="font-size:0.8em;color:#666">value</span>
+</div>
+<div class="viz" id="queViz"></div>
+<div class="info" id="queInfo">Queue (FIFO): enqueue at tail, dequeue from head. O(1) for both operations.</div>
+</div>
+<script>
+// Queue
+let que = [10, 20, 30];
+function renderQue(hl) {
+  let h = '<div class="queue-viz">';
+  que.forEach((v, i) => {
+    let cls = '';
+    if (i === 0) cls = 'head';
+    if (i === que.length - 1) cls = 'tail';
+    if (i === hl) cls += ' highlight';
+    h += `<div class="queue-cell ${cls}">${v}</div>`;
+  });
+  h += '</div>';
+  if (que.length > 0) h += '<div class="label">← head (dequeue)    tail (enqueue) →</div>';
+  document.getElementById('queViz').innerHTML = h;
+}
+function queEnqueue() {
+  let v = parseInt(document.getElementById('queVal').value) || 0;
+  que.push(v);
+  renderQue(que.length - 1);
+  document.getElementById('queInfo').textContent = `Enqueued ${v} at tail. O(1) — write at tail, advance tail pointer.`;
+}
+function queDequeue() {
+  if (que.length === 0) { document.getElementById('queInfo').textContent = 'Queue is empty.'; return; }
+  let v = que.shift();
+  renderQue(0);
+  document.getElementById('queInfo').textContent = `Dequeued ${v} from head. O(1) — read at head, advance head pointer.`;
+}
+renderQue(-1);
+
+</script>
+</body>
+</html>

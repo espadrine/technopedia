@@ -4,13 +4,13 @@ Robustness studies how a system keeps operating and keeps its data safe despite 
 
 ## Utility
 
-- It keeps the system available when individual nodes fail (replication, failover, quorum).
-- It keeps the data durable (write-ahead log, streaming replication, RAID).
-- It lets nodes agree on a consistent state even when the network partitions (consensus, consistency models).
+- It keeps the data durable (write-ahead log, replication, RAID, replication hierarchy).
+- It keeps the system available when individual nodes fail (failover, load balancing, multi-master, multi-AZ/multi-region).
+- It lets nodes agree on a consistent state even when the network partitions (clocks, consistency models, consensus, ACID).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-Robustness is the study of survival under failure. It has two faces: **availability and durability** (how to keep serving and keep data when components fail — replication, quorum, failover, write-ahead log) and **agreement** (how to keep a consistent view of the state when the network partitions — consensus, consistency models, the CAP and FLP theorems). The two are coupled: the availability target is in direct tension with consistency, and the RPO/RTO objectives quantify exactly how much of each trade-off a system accepts. For the case where nodes are actively malicious (Byzantine faults, Sybil attacks) rather than merely crashed, see [Adversarial Failure](../Adversarial-failure.md).
+Robustness is the study of survival under failure, in three layers. **Durability** keeps committed data safe (WAL, replication with quorum, RAID, and a replication hierarchy across racks/AZs/regions). **Availability** keeps the service up (failover vs load balancing for single-writer components, deployment topologies from a single server to multi-region, multi-master replication, and the circuit-breaker/bulkhead patterns). **Consistency** keeps a single view of the data across nodes (clocks and time synchronization, the linearizability tower, patch/merge with CRDTs and OT, the CAP/FLP/exactly-once impossibility results, consensus with Paxos and Raft, and ACID transactions). The layers are coupled: the availability target is in direct tension with consistency, and RPO/RTO quantify exactly how much of each trade-off a system accepts. For malicious nodes rather than crashes, see [Adversarial Failure](../Adversarial-Failure.md).
 
 </details>
 
@@ -25,11 +25,13 @@ Robustness is the study of survival under failure. It has two faces: **availabil
 
 <table>
 <tr><th>Page</th><th>Core object</th><th>Key metric</th><th>Boundary</th></tr>
-<tr><td><a href='./Consensus-and-Consistency.md'>Consensus and Consistency</a></td><td>FLP, CAP, consensus (Paxos, Raft), linearizability, quorum</td><td>Availability, consistency, partition tolerance</td><td>How to agree on a single value or a sequence of values when the network partitions; does not model the physical network or the application</td></tr>
-<tr><td><a href='./Fault-Tolerance.md'>Fault Tolerance</a></td><td>Replication, quorum, failover, RPO/RTO, circuit breakers</td><td>RPO, RTO, availability</td><td>How to survive crashes and keep data durable; does not model the consensus protocol or the network</td></tr>
+<tr><td><a href='./Durability.md'>Durability</a></td><td>WAL, streaming/multi-node replication, replication factor, quorum, RAID, replication hierarchy (racks/AZs/regions), RPO</td><td>RPO, durability</td><td>How to keep committed data safe across disk/machine/site failures; does not model availability mechanisms or consistency protocols</td></tr>
+<tr><td><a href='./Availability.md'>Availability</a></td><td>Failover vs load balancer (single-writer), deployment topologies (single server → DC → multi-AZ → multi-region), multi-master, RTO, availability formula, circuit breaker/bulkhead/retry, chaos engineering</td><td>RTO, availability (nines)</td><td>How to keep serving under failures; does not model replication mechanics or the consistency tower</td></tr>
+<tr><td><a href='./Consistency.md'>Consistency</a></td><td>Time and clocks (UT1/UTC/TAI, Unix, leap second, NTP, drift, Lamport, vector), linearizability tower, patch/merge (LWW, CRDTs, OT), two generals, FLP, exactly-once impossibility + idempotency, CAP, consensus 2f+1 (Paxos, Raft), ACID and isolation levels</td><td>Consistency vs availability under partition</td><td>How to order events and agree on values when the network partitions; does not model replication mechanics or failover patterns</td></tr>
 </table>
 
 > **Authoritative sources**
 > - [Designing Data-Intensive Applications (Kleppmann)](https://dataintensive.net/)
 > - [In Search of an Understandable Consensus Algorithm (Raft, Ongaro & Ousterhout, 2014)](https://raft.github.io/raft.pdf)
 > - [Brewer's Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web Services (Gilbert & Lynch, 2002)](https://groups.csail.mit.edu/tds/papers/Gilbert/Brewer.pdf)
+> - [Consistency models (Jepsen)](https://jepsen.io/consistency/models)

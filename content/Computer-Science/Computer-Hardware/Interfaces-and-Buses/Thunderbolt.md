@@ -1,6 +1,6 @@
 # Thunderbolt
 
-Thunderbolt is a cabled expansion interface that tunnels [PCIe](./Board-level-interconnects.md) and [DisplayPort](./DisplayPort-and-HDMI.md) over one cable. Its defining idea is that a dock should not translate protocols: it should carry the computer's *native* buses to the outside world. It is the docking-and-expansion member of the [cabled external interconnect](./Cabled-external-interconnects.md) family. Thunderbolt 5 (spec finalised 2024) provides 80 Gb/s in each direction simultaneously (full duplex), with a 120 Gb/s asymmetric "Bandwidth Boost" for video-heavy setups, using PAM3 signalling.
+Thunderbolt is a cabled expansion interface that tunnels [PCIe](./Board-level-electrical-interconnects.md) and [DisplayPort](./DisplayPort-and-HDMI.md) over one cable. Its defining idea is that a dock should not translate protocols: it should carry the computer's *native* buses to the outside world. It is the docking-and-expansion member of the [cabled external interconnect](./Cabled-external-interconnects.md) family. Thunderbolt 5 (spec finalised 2024) provides 80 Gb/s in each direction simultaneously (full duplex), with a 120 Gb/s asymmetric "Bandwidth Boost" for video-heavy setups, using PAM3 signalling.
 
 > **Authoritative sources**
 > - [Thunderbolt™ technology documents (Intel)](https://www.intel.com/content/www/us/en/collections/technology/thunderbolt-technology.html)
@@ -11,7 +11,7 @@ Thunderbolt is a cabled expansion interface that tunnels [PCIe](./Board-level-in
 
 **Definition.** A Thunderbolt link is a packet-switched fabric. Thunderbolt 1/2 used four lanes organised as two independent full-duplex 10 Gb/s channels; Thunderbolt 3/4/5 use two differential lane pairs per direction (one pair each way). Everything else — PCIe transactions, DisplayPort video, [USB](./USB.md) 3 traffic — is wrapped in small packets ("tunnels") and multiplexed over those lanes.
 
-<details><summary>Details: why tunneling instead of translation</summary>
+<details><summary>EXPLANATION: why tunneling instead of translation</summary>
 
 A dock has three jobs: displays, USB devices, and (sometimes) a network or storage adapter. The naive design translates each protocol at the dock — a USB hub chip, a display scaler, a NIC. Thunderbolt instead says: the computer already has PCIe and DisplayPort *inside*; just carry them out.
 
@@ -69,7 +69,7 @@ A dock has three jobs: displays, USB devices, and (sometimes) a network or stora
   <text x="450" y="300" text-anchor="middle" font-size="11" fill="#556">Blue = PCIe tunnel · Green = DisplayPort tunnel · Orange = USB 3 tunnel — one fabric, three protocols</text>
 </svg>
 
-- A GPU in an enclosure is a real PCIe device: the host's root complex enumerates it across the cable as if it were on the motherboard — the same [board-level PCIe](./Board-level-interconnects.md) transactions, just packetised.
+- A GPU in an enclosure is a real PCIe device: the host's root complex enumerates it across the cable as if it were on the motherboard — the same [board-level PCIe](./Board-level-electrical-interconnects.md) transactions, just packetised.
 - A monitor is a real DisplayPort sink: the GPU drives it directly, with no scaler in between (see [DisplayPort and HDMI](./DisplayPort-and-HDMI.md)).
 - A USB hub in the dock is a real USB 3 device behind the host's xHCI controller (see [USB](./USB.md)).
 
@@ -121,9 +121,9 @@ Downstream (host → GPU): the 8 Gb/s of texture uploads. The external monitor's
   <text x="450" y="210" text-anchor="middle" font-size="11" fill="#556">The segment nearest the host carries the sum of all downstream traffic — it fills up first.</text>
 </svg>
 
-<details><summary>Details: why per-segment budgeting matters</summary>
+<details><summary>EXPLANATION: why per-segment budgeting matters</summary>
 
-A point-to-point link like [SATA](./SATA.md) or [Ethernet over copper](./Ethernet-copper.md) has exactly one load: the traffic of the device at the other end. A Thunderbolt chain has one load *per segment*, and the segments are not independent — every packet destined for device 3 also occupies segments 1 and 2. Two consequences:
+A point-to-point link like [SATA](./SATA.md) or [Ethernet over copper](./Ethernet-over-copper-twisted-pair.md) has exactly one load: the traffic of the device at the other end. A Thunderbolt chain has one load *per segment*, and the segments are not independent — every packet destined for device 3 also occupies segments 1 and 2. Two consequences:
 
 1. **Placement matters.** What matters is the *sum* of traffic on each segment, and the segment nearest the host always carries the largest sum.
 2. **A slow device does not slow the chain's rate, only its budget.** The link still runs at full speed; the packets simply share it.
@@ -155,7 +155,7 @@ Segment 1 carries everything: downstream = 12.5 Gb/s video + 4 Gb/s USB = 16.5 G
 <tr><td>Thunderbolt 5</td><td>2024</td><td>80 Gb/s (120 asymmetric)</td><td>PAM3, 25.6 GBd</td><td>64 Gb/s of PCIe — 2× Thunderbolt 4's 32 Gb/s; 240 W PD; Bandwidth Boost to 120 Gb/s for display-heavy setups</td></tr>
 </table>
 
-<details><summary>Details: PAM3 and the 25.6 GBd number</summary>
+<details><summary>EXPLANATION: PAM3 and the 25.6 GBd number</summary>
 
 Thunderbolt 5's PHY is *specified* at 25.6 GBaud per lane with PAM3 (3-level pulse-amplitude modulation); the data rate is derived from that symbol rate, not the other way around. Each PAM3 symbol carries log₂ 3 ≈ 1.585 bits, so the raw line rate is 25.6 × 1.585 ≈ 40.6 Gb/s per lane. Framing cannot use a fractional number of bits per symbol, so the spec maps blocks of 11 bits onto 7 trits (since 3⁷ = 2187 ≥ 2¹¹ = 2048), giving 25.6 × 11/7 ≈ 40.2 Gb/s of payload per lane — over two lanes, ≈ 80 Gb/s per direction.
 
@@ -185,7 +185,7 @@ Why not keep NRZ and simply double the symbol rate to 51.2 GBd to reach the same
 
 <details><summary>Solution</summary>
 
-Because the cable, not the silicon, is the constraint. A 51.2 GBd NRZ signal has its fundamental energy near 25.6 GHz, where a 2 m passive copper cable's insertion loss is severe — the eye would close before any receiver could open it. PAM3 at 25.6 GBd needs only ~12.8 GHz of bandwidth, at the price of 10·log₁₀(3) ≈ 4.8 dB less SNR margin, which short-reach equalisation and FEC can recover. Halving the required bandwidth to buy 4.8 dB of SNR is exactly the right trade on a short, lossy copper channel — and it is the same reasoning that made [Ethernet over copper](./Ethernet-copper.md) adopt PAM4/PAM16 at long reach.
+Because the cable, not the silicon, is the constraint. A 51.2 GBd NRZ signal has its fundamental energy near 25.6 GHz, where a 2 m passive copper cable's insertion loss is severe — the eye would close before any receiver could open it. PAM3 at 25.6 GBd needs only ~12.8 GHz of bandwidth, at the price of 10·log₁₀(3) ≈ 4.8 dB less SNR margin, which short-reach equalisation and FEC can recover. Halving the required bandwidth to buy 4.8 dB of SNR is exactly the right trade on a short, lossy copper channel — and it is the same reasoning that made [Ethernet over copper](./Ethernet-over-copper-twisted-pair.md) adopt PAM4/PAM16 at long reach.
 
 </details>
 
@@ -197,7 +197,7 @@ Because the cable, not the silicon, is the constraint. A 51.2 GBd NRZ signal has
 
 **Definition.** Thunderbolt carries DC power on the same USB-C connector, on wires separate from the high-speed pairs, following the [USB Power Delivery](./USB.md) standard: 15 W mandatory at the Thunderbolt 3 launch, 100 W (20 V × 5 A) with Thunderbolt 4, and 240 W (48 V × 5 A, USB PD 3.1 "Extended Power Range") with Thunderbolt 5.
 
-<details><summary>Details: why power grew 16×</summary>
+<details><summary>EXPLANATION: why power grew 16×</summary>
 
 The tunnel architecture created a new class of device — the bus-powered dock — whose capability is set by its wattage. 15 W runs a hub and an SSD; 100 W runs a dock *and* charges the laptop through it; 240 W charges gaming laptops through the same cable that carries the display. Raising power meant raising voltage (48 V) rather than only current, because cable heating is I²R: at 240 W, 5 A at 48 V dissipates 16× less heat in the cable than 20 A at 12 V. The trade-off is connector safety: 48 V sits at the edge of the SELV (safety extra-low voltage) domain, which is why EPR cables are e-marked and explicitly rated.
 
@@ -207,7 +207,7 @@ The tunnel architecture created a new class of device — the bus-powered dock �
 
 **Definition.** Because Thunderbolt tunnels raw PCIe, a plugged-in device can issue DMA (direct memory access) — read and write system RAM without the CPU — which turns an untrusted cable into a memory-disclosure attack. Thunderbolt 3 and later mitigate this with a user-approved firmware-based connection manager, and hosts pair it with Kernel DMA Protection (the IOMMU blocks DMA from devices until the OS has authorised them).
 
-<details><summary>Details: the trust problem tunnelling creates</summary>
+<details><summary>EXPLANATION: the trust problem tunnelling creates</summary>
 
 A [USB](./USB.md) device can only ask the OS for data through a driver; a tunnelled PCIe device talks to memory *directly*, at hardware speed, below every OS check. This is the same power that makes an eGPU possible — it is the attack surface too ("Thunderclap"-class attacks, 2019). The defences are layered:
 
@@ -223,7 +223,7 @@ The first-principles lesson: tunnelling a *trusted, internal* bus to the *outsid
 
 **Definition.** USB4 (2019) adopted Thunderbolt 3's tunnel architecture as a standard; the difference is what is *guaranteed*. USB4 makes PCIe tunneling optional; Thunderbolt requires it. Thunderbolt 4/5 additionally guarantee minimum PCIe bandwidth (32 Gb/s / 64 Gb/s), 2 m passive cables, and dual-4K display support.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Practically: a USB4-only host may refuse to enumerate an eGPU (no PCIe tunneling), while a Thunderbolt host must. A USB4 dock may give you USB 3 ports and a display but a slow storage path; a Thunderbolt 4 dock must give you at least 32 Gb/s of PCIe. The logos are not just branding — they are different *contracts* over the same physical cable.
 

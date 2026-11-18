@@ -28,7 +28,7 @@ The intuition: restrict the sample space to the outcomes in $`B` (the condition 
   <text x="200" y="248" text-anchor="middle" font-size="11" fill="#555">P(A|B) = P(A∩B) / P(B): the red region as a fraction of the blue region</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: The restriction idea.**
 
@@ -70,7 +70,7 @@ Random variables $`X` and $`Y` are independent iff their joint distribution fact
 
 Mutual independence of $`X_1, \ldots, X_n` requires the joint to factor for every subset: $`P(X_{i_1} \in A_1, \ldots, X_{i_k} \in A_k) = \prod_j P(X_{i_j} \in A_j)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: Independence as a structural property.**
 
@@ -145,7 +145,7 @@ The full Bayesian framework—priors, likelihoods, posteriors, conjugate familie
 
 <iframe src="./Conditional-probability.simulation.html" title="Interactive Bayes' theorem: sliders for prior, sensitivity, and false-positive rate with a probability tree"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: The algebraic inversion.**
 
@@ -251,7 +251,7 @@ P(X_1, \ldots, X_n) = \prod_{i=1}^{n} P(X_i \mid X_1, \ldots, X_{i-1})
 
 This factorization is the basis of autoregressive models, language models, and sequential Monte Carlo (see [Stochastic processes](./Stochastic-processes/Readme.md)).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: Derivation from the definition.**
 
@@ -305,7 +305,7 @@ Given a sigma-algebra $`\mathcal{G} \subseteq \mathcal{F}`, the conditional prob
 
 This is the "integral version" of the elementary definition: just as $`P(A \mid B) = P(A \cap B)/P(B)` is the unique number on $`B` whose average (weighted by $`P`) reproduces $`P(A \cap B)`, the random variable $`P(A \mid \mathcal{G})` is the unique $`\mathcal{G}`-measurable function whose integral over every $`B \in \mathcal{G}` reproduces $`P(A \cap B)`. The same construction, with $`P` replaced by the integral of a random variable $`X`, gives the conditional expectation $`\mathbb{E}[X \mid \mathcal{G}]` (see [Random variables and expectation](./Random-variables-and-expectation.md)).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: The discrete case.**
 

@@ -18,7 +18,7 @@ Complex analysis studies functions that are differentiable in the complex plane.
 <tr><td>[Analytic continuation and Riemann surfaces](./Analytic-continuation-and-Riemann-surfaces.md)</td><td>How do we extend functions past their domain and treat multi-valued functions geometrically?</td><td>analytic continuation, monodromy, branch points, Riemann surfaces</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How the branches nest.** [Holomorphic functions](./Holomorphic-functions.md) is the foundation: it defines the object of study (a function differentiable in the complex plane) and the rigidity theorems (identity theorem, maximum modulus principle) that everything else exploits. [Complex integration](./Complex-integration.md) turns that rigidity into a computational engine: Cauchy's formula expresses a function's values and derivatives in terms of a contour integral, and the residue theorem reduces a closed contour integral to a finite sum of local data. [Conformal mapping](./Conformal-mapping.md) uses the angle-preserving property of non-constant holomorphic maps to transfer problems between domains, and [Analytic continuation and Riemann surfaces](./Analytic-continuation-and-Riemann-surfaces.md) studies what happens when a function's domain is pushed past its original boundary, including the multi-valued functions that require a geometric surface to be made single-valued.
 

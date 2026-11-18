@@ -9,7 +9,7 @@ Programming studies how to specify computations precisely, how to transform spec
 - It supports coordination across machines and users.
 - It provides methods for proving correctness and detecting bugs.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Programming sits between algorithmics and hardware: it takes the abstract procedure chosen by algorithmics and gives it a precise, machine-checkable form. The language specification defines what programs mean; the compiler transforms source into executable form; the runtime (OS, memory manager) executes the program on hardware. The boundary with algorithmics is: algorithmics asks "what is the procedure and what does it cost?"; programming asks "how do I write it so a machine can execute it, and how do I know it is correct?". The boundary with hardware is: programming specifies the computation; hardware provides the substrate.
 

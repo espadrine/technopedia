@@ -17,7 +17,7 @@ P(X \in A) = \int_A f(x)\, dx \quad \text{for all Borel } A.
 
 The function $`f` is the **probability density function** (PDF). The CDF is $`F(x) = \int_{-\infty}^{x} f(t)\, dt` and satisfies $`F'(x) = f(x)` almost everywhere. Expectation is $`E[g(X)] = \int g(x) f(x)\, dx` (see [Random variables and expectation](../Random-variables-and-expectation.md)).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — From mass to density.** For an [atomic distribution](./Atomic-distributions.md), probability lives on points: $`P(X = x) = p(x)`. For an absolutely continuous distribution, every single point has probability zero, and probability lives on *intervals*: it is the **area under the density curve**. The density $`f` is a "probability per unit length": $`f(x)\,\Delta x` is (approximately) the probability of falling in a small interval of width $`\Delta x` around $`x`.
 
@@ -80,7 +80,7 @@ For a $`C^1` map $`g: \mathbb{R}^d \to \mathbb{R}^d` with $`\det Dg(x) \neq 0`, 
 f_Y(y) = \sum_{x \in g^{-1}(y)} \frac{f_X(x)}{|\det Dg(x)|}.
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Mass conservation.** A small interval $`[x, x + dx]` of probability mass $`f_X(x)\, dx` is carried by $`g` onto an interval of length $`|g'(x)|\, dx` around $`y = g(x)`. The same mass, spread over a longer interval, means a *smaller* density: $`f_Y(y) = f_X(x) / |g'(x)|`. The density is stretched wherever $`g` stretches, and compressed wherever $`g` compresses.
 
@@ -155,7 +155,7 @@ f_{X_j \mid X_{-j}}(x_j \mid x_{-j}) = \frac{f(x_1, \ldots, x_d)}{f_{-j}(x_{-j})
 
 which reduces to $`f_j(x_j)` when the coordinates are independent. This is the continuous analogue of [conditional probability](../Conditional-probability.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Marginals are shadows.** Integrating the joint density over all other coordinates projects the law onto one axis, exactly as a shadow projects a 3D object onto a plane. Unlike the joint, marginals do *not* determine the joint: many different dependence structures share the same marginals (this is the subject of the copula section below).
 
@@ -220,7 +220,7 @@ F(x_1, \ldots, x_d) = C\bigl(F_1(x_1), \ldots, F_d(x_d)\bigr).
 
 Conversely, *any* copula combined with *any* marginals produces a valid multivariate distribution. The density of the copula part is $`c(u) = \partial^d C / \partial u_1 \cdots \partial u_d`, and the joint density factors as $`f(x) = c(F_1(x_1), \ldots, F_d(x_d)) \prod_i f_i(x_i)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Why copulas exist.** Apply the probability-integral transform $`U_i = F_i(X_i)`: each $`U_i` is uniform on $`[0,1]` (see the example problem below). The joint law of $`(U_1, \ldots, U_d)` is the copula — it contains *only* the dependence, since the marginals are all uniform. Sklar's theorem says this construction is reversible.
 
@@ -265,7 +265,7 @@ Five families cover most applied work. Their densities, supports, and roles:
 <tr><td>Beta <i>Beta(α, β)</i></td><td>x<sup>α−1</sup>(1−x)<sup>β−1</sup>/B(α, β)</td><td>(0, 1)</td><td>Random proportions and probabilities; conjugate prior</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Read the shapes.** The plot below shows the standard member of each family: normal $`\mathcal{N}(0,1)`, exponential $`\mathrm{Exp}(1)`, gamma $`\mathrm{Gamma}(2,1)`, beta $`\mathrm{Beta}(2,2)`, uniform $`\mathrm{Unif}(0,1)`. Note how the gamma with $`\alpha = 2` starts at zero (one factor of $`x`), while the exponential starts at its maximum; the beta is confined to $`(0,1)`.
 
@@ -333,7 +333,7 @@ F_n(x) \to F(x) \quad \text{at every continuity point } x \text{ of } F.
 
 This is the natural mode of convergence for absolutely continuous laws, and the bridge to the [limit theorems](../Limit-theorems.md): the central limit theorem states that standardized sums converge in distribution to the normal.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Why CDFs, not densities.** Convergence of densities is too strong a requirement: an atomic distribution can be a limit of absolutely continuous ones (a narrow spike of width $`1/n` and height $`n` converges in distribution to a point mass), and densities may fail to converge even when distributions do. Convergence at continuity points of $`F` is exactly the right weakening.
 

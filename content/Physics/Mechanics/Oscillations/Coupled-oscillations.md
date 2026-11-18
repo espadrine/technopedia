@@ -48,7 +48,7 @@ m_1\ddot{x}_1 + (k_1 + k_c)x_1 - k_c x_2 = 0
 m_2\ddot{x}_2 + (k_2 + k_c)x_2 - k_c x_1 = 0
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Matrix form.** With $`\mathbf{x} = (x_1, x_2)^T`, the equations become $`\mathbf{M}\ddot{\mathbf{x}} + \mathbf{K}\mathbf{x} = 0`, where $`\mathbf{M}` is the diagonal mass matrix and $`\mathbf{K}` the stiffness matrix. Trying a solution $`\mathbf{x}(t) = \mathbf{e}\,e^{i\omega t}` gives the eigenvalue problem $`\mathbf{M}^{-1}\mathbf{K}\,\mathbf{e} = \omega^2\mathbf{e}`: **the squares of the normal-mode frequencies are the eigenvalues of $`\mathbf{M}^{-1}\mathbf{K}`** (equivalently, the frequencies are the square roots of those eigenvalues), and the eigenvectors give the mode patterns. For $`N` coupled oscillators, $`\mathbf{M}^{-1}\mathbf{K}` is $`N \times N` and there are exactly $`N` normal modes.
 
@@ -104,7 +104,7 @@ For the symmetric two-mass system, the two mode patterns are:
   <text x="470" y="153" fill="#aaa" font-size="13" text-anchor="middle" font-family="sans-serif">coupling spring stretched, higher ω</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why eigenvectors?** In a mode, the ratio $`x_1/x_2` stays constant in time — that is the defining property of an eigenvector. Only then can both masses share a single $`\cos(\omega_n t)` factor. Any other motion mixes the two modes, so the ratio changes in time.
 
@@ -147,7 +147,7 @@ x_2(t) = \frac{A}{2}\bigl[\cos(\omega_+ t) - \cos(\omega_- t)\bigr]
   <text x="655" y="125" fill="#aaa" font-size="13" text-anchor="end" font-family="serif" font-style="italic">t</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Sum-to-product form.** Applying the identities $`\cos\alpha + \cos\beta = 2\cos\frac{\alpha-\beta}{2}\cos\frac{\alpha+\beta}{2}` and $`\cos\alpha - \cos\beta = -2\sin\frac{\alpha-\beta}{2}\sin\frac{\alpha+\beta}{2}`:
 
@@ -221,7 +221,7 @@ Couple $`N` identical masses (spacing $`a`) with springs $`k` to their neighbors
 
 In the limit $`N \to \infty`, the discrete modes fill the curve densely and the system is described by the [wave equation](./Wave-Propagation.md) — a continuous medium instead of a chain of masses.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The bridge from particles to fields.** The ladder is:
 

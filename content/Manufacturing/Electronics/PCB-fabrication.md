@@ -23,7 +23,7 @@ A typical multi-layer board follows this sequence: inner-layer imaging and etchi
 
 Copper-clad prepreg sheets (epoxy-glass or polyimide) are stacked with core boards and pressed under heat and pressure to form a multi-layer board.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Core**: a solid dielectric (FR-4, polyimide) with copper on both sides. Provides mechanical rigidity.
 - **Prepreg**: a dielectric with copper on one side, used to bond layers together.
@@ -36,7 +36,7 @@ Copper-clad prepreg sheets (epoxy-glass or polyimide) are stacked with core boar
 
 The copper layer is patterned to form traces and pads by etching or direct imaging.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Subtractive (etching)**: a dry-film photoresist is exposed and developed to define the trace pattern. The exposed copper is etched away. Industrial etchants include H₂SO₄/H₂O₂, ammonium persulfate (APS), and cupric chloride; FeCl₃ is a small-scale/prototype alternative. See [Etching](./Etching.md) for the underlying chemistry. Minimum trace width ~50 µm (standard) or ~25 µm (HDI).
 - **Additive (DAP / SAP)**: a thin seed layer (Cu, 0.5 µm) is deposited by [Deposition](./Deposition.md) (electroless or PVD). A photoresist is patterned, and copper is electroplated only on the exposed areas. The resist and seed are stripped. Enables finer traces and better aspect ratios.
@@ -48,7 +48,7 @@ The copper layer is patterned to form traces and pads by etching or direct imagi
 
 Vias and through-holes are drilled and plated to connect layers.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Mechanical drilling**: a carbide drill (0.15–3.0 mm) drills through-holes. Minimum hole size ~0.15 mm for standard drilling; ~0.05–0.1 mm for laser drilling.
 - **Laser drilling**: a CO₂ or UV laser drills micro-vias (0.05–0.15 mm) for HDI designs. The laser can drill blind or buried vias that do not pass through the full board thickness.
@@ -60,7 +60,7 @@ Vias and through-holes are drilled and plated to connect layers.
 
 A protective polymer (solder mask) is applied to the board surface, leaving the pads exposed. A silkscreen (legend) is printed to label components.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Solder mask**: a liquid or dry-film epoxy or polyimide, 20–30 µm thick (typical 20–25 µm). Prevents solder from bridging adjacent pads during reflow. Colors: green (most common), black, red, blue, white.
 - **Silkscreen**: a UV-curable ink is screen-printed to label component references, polarity marks, and logos.
@@ -72,7 +72,7 @@ A protective polymer (solder mask) is applied to the board surface, leaving the 
 
 For high-speed and RF designs, the characteristic impedance of each trace must be held to a target value (commonly 50 Ω single-ended, 100 Ω differential) within ±10 %.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Key parameters**: trace width, dielectric constant (Dk) of the prepreg/core, and layer spacing (distance to the reference plane). For a microstrip, the characteristic impedance is approximately:
 
@@ -90,7 +90,7 @@ where <i>h</i> is the dielectric thickness and <i>w</i> is the trace width.
 
 The finished panel is cut into individual boards.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **V-score**: a V-shaped groove is scored on one or both sides; the board snaps apart along the score line. Fast and cheap, but limited to rectangular outlines.
 - **Routing**: a CNC router with a small end-mill cuts the exact board outline. Supports arbitrary shapes, slots, and chamfers.
@@ -103,7 +103,7 @@ The finished panel is cut into individual boards.
 
 After fabrication, boards are inspected and electrically tested to ensure yield.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **AOI (Automated Optical Inspection)**: high-resolution cameras image both sides of the board to detect solder mask defects, missing silkscreen, copper shorts, and open traces.
 - **X-ray inspection**: cross-section or 2-D X-ray images verify via plating thickness, barrel integrity, and buried-via fill. Critical for HDI and BGA substrates.
@@ -119,7 +119,7 @@ After fabrication, boards are inspected and electrically tested to ensure yield.
 
 A combination of rigid and flexible layers in a single board.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Flexible layer**: polyimide (Kapton) with copper, 0.05–0.1 mm thick. Can be bent repeatedly.
 - **Rigid layer**: FR-4 or polyimide core, 0.2–1.6 mm thick.

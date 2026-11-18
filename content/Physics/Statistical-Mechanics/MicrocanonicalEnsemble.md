@@ -25,7 +25,7 @@ where $`\Omega(E,V,N)` is the **cumulative number of accessible microstates** �
 
 The thin-shell density of states is $`\omega(E) = \partial \Omega / \partial E`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The axiom.** The equal a priori probability postulate is the sole axiom of the microcanonical ensemble. It is justified by ergodicity: a generic isolated Hamiltonian system explores all accessible phase-space volume uniformly over long times. The microcanonical probability is a uniform measure on the region $`H \leq E` in phase space.
 
@@ -92,7 +92,7 @@ This is the bridge from counting microstates to thermodynamics. Temperature and 
 \frac{1}{T} = \left(\frac{\partial S}{\partial E}\right)_{V,N}, \qquad \frac{P}{T} = \left(\frac{\partial S}{\partial V}\right)_{E,N}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — From counting to thermodynamics.** The entropy $`S = k_B \ln \Omega` converts the enormous number of microstates into an additive (extensive) quantity. For two non-interacting subsystems, $`\Omega_{\text{tot}} = \Omega_1 \cdot \Omega_2` so $`S_{\text{tot}} = S_1 + S_2`.
 
@@ -159,7 +159,7 @@ For a single particle in a 3D isotropic harmonic potential $`H = p^2/(2m) + \tfr
 
 (the exponent equals the number of quadratic terms in $`H` divided by 2, i.e. $`f/2 = 6/2 = 3`).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — General strategy.** To compute $`\Omega(E) = \int_{H \leq E} dq\,dp / h^{3N}N!`, identify the shape of the region $`H \leq E` in phase space. For separable Hamiltonians (sum of independent quadratic terms), the region is a high-dimensional ellipsoid whose volume is known in closed form.
 
@@ -208,7 +208,7 @@ From this, the ideal gas law and equipartition follow directly:
 U = E = \frac{3}{2}Nk_B T, \qquad PV = Nk_B T
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Take the logarithm.** Starting from $`\Omega = \frac{V^N}{N!\,h^{3N}} \cdot \frac{\pi^{3N/2}}{\Gamma(3N/2+1)}(2mE)^{3N/2}`:
 
@@ -269,7 +269,7 @@ For a quantum system with discrete energy eigenvalues $`E_n`, the microcanonical
 
 The classical phase-space volume $`\int dq\,dp / h^{3N}` is replaced by the number of quantum states. In the semiclassical limit ($`\hbar \to 0`), the quantum count reproduces the classical phase-space volume. This connection is essential for quantum statistics: the [GrandCanonicalEnsemble](./GrandCanonicalEnsemble.md) uses the same density of states to build the Fermi–Dirac and Bose–Einstein distributions.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Discrete counting.** A quantum system has a discrete spectrum $`\{E_n\}`. The microcanonical ensemble at energy $`E` assigns equal probability $`1/\Omega(E)` to every eigenstate $`|n\rangle` with $`E_n \leq E`. There is no phase space to integrate over — just a count.
 
@@ -288,7 +288,7 @@ The classical phase-space volume $`\int dq\,dp / h^{3N}` is replaced by the numb
 
 In the microcanonical ensemble, energy is **exactly fixed**: $`\operatorname{Var}(E) = 0`. This is the most restrictive ensemble. When the system is coupled to a heat bath (canonical ensemble), energy fluctuates with $`\operatorname{Var}(E) = k_B T^2 C_V`. In the thermodynamic limit ($`N \to \infty`), the relative fluctuation $`\sqrt{\operatorname{Var}(E)}/E \sim 1/\sqrt{N}` vanishes, and all ensembles give identical thermodynamic predictions — this is **ensemble equivalence**.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Why zero fluctuation.** The microcanonical ensemble conditions on a single energy value. There is no randomness in $`E` — the system is isolated and energy is conserved exactly. All the "randomness" is in which microstate within the energy shell is occupied.
 

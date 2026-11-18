@@ -30,7 +30,7 @@ Drag the controls: every verdict below ("does 4K60 HDR fit on HDMI 2.0?") is thi
 
 <iframe src="./DisplayPort-and-HDMI.simulation.html" title="Interactive display bandwidth budget calculator: resolution, refresh, bpc, chroma, blanking and link coding vs required rate" style="width:100%;height:640px;border:1px solid #ccc"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The budget has only four levers, and every product decision about display links is one of them:
 
@@ -112,7 +112,7 @@ Active rate: 5120 × 2880 × 60 ≈ 884.7 Mpx/s × 30 bits ≈ 26.5 Gb/s. With b
 </svg>
 </div>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **TMDS** (Transition-Minimised Differential Signalling) sends each byte as a 10-bit symbol chosen to minimise signal transitions and balance DC — a scheme HDMI inherited from DVI (1999), which HDMI 1.0 (2002) extended with audio, CEC device control, and HDCP copy protection. The separate clock lane is the giveaway that this is a *timed* stream: the sink recovers the pixel clock from a dedicated pair and locks its refresh to it, so the line rate of each data lane is an exact multiple of the pixel clock.
 
@@ -136,7 +136,7 @@ Active pixel rate: 3840 × 2160 × 60 ≈ 497.7 Mpx/s. With the conservative 1.2
 
 **Definition.** DisplayPort (VESA, 2006) sends video as *packets* over 1–4 differential lanes. Link rates: RBR 6.48, HBR 10.8, HBR2 21.6, HBR3 32.4 Gb/s aggregate (8b/10b coded, so HBR3 yields a 25.92 Gb/s payload — DP 1.4 era); UHBR 10/13.5/20 in DP 2.x reach 40/54/80 Gb/s (128b/132b coded). Link control uses a **dedicated hot-plug-detect (HPD) wire** plus a separate low-speed **AUX channel** carrying EDID/DisplayID reads (via DPCD), link training, and sideband messages. **MST** (Multi-Stream Transport) multiplexes several displays over one link.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 DisplayPort was designed by VESA as a royalty-free, packetised successor to analog VGA and TMDS-era DVI. Packetisation is the key structural difference from HDMI 1.x: because the link carries packets rather than a raw pixel stream, it can
 
@@ -311,7 +311,7 @@ Active rate: 3840 × 2160 × 120 ≈ 995.3 Mpx/s × 30 bits ≈ 29.9 Gb/s; with 
 </svg>
 </div>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The mux is why USB-C display behaviour is so confusing in practice. A USB-C port can run DP Alt Mode in **4-lane mode** (all four SuperSpeed pairs carry DisplayPort; no USB 3 data) or **2-lane mode** (two pairs carry DP, two carry USB 3). Which modes a port supports, and at which DP link rates, is a property of the specific laptop — not of the USB-C logo. And when the port is a [Thunderbolt](./Thunderbolt.md) port, the DP traffic is *tunnelled* as packets inside the Thunderbolt link instead, which is why a Thunderbolt dock can drive two 4K displays *and* offer full USB bandwidth simultaneously, while a plain Alt-Mode dock must trade one against the other.
 
@@ -331,7 +331,7 @@ No. In 2-lane mode the DP payload is only 2 × 8.1 Gb/s × 0.8 ≈ 13 Gb/s — n
 
 **Definition.** Two link-level features sit on top of both standards. **HDCP** (High-bandwidth Digital Content Protection) encrypts the video stream end-to-end with keys negotiated between source and sink at link setup; a sink that lacks the required HDCP version gets a black or downgraded picture for protected content. **Adaptive sync** (VRR — variable refresh rate; FreeSync on the DisplayPort side, VRR/G-Sync Compatible on the HDMI side) lets the sink change its refresh rate per frame, with the timing conveyed as link metadata instead of a fixed pixel clock.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **HDCP** is why a perfectly good cable can still give you a black screen. Each HDCP version has a bandwidth tier: HDCP 1.4 covers up to 4K30-class streams, and HDCP 2.2/2.3 is required for 4K HDR content. The negotiation happens over the link's control path (AUX for DisplayPort, the CEC/SDA lines for HDMI) *before* video flows; if the sink's receiver cannot authenticate at the required version, the source refuses to send protected content. This is a policy mechanism riding on the link, not a physics limit — which is why it fails in ways bandwidth arithmetic cannot explain.
 
@@ -418,7 +418,7 @@ Almost certainly HDCP: HDR content is marked as requiring HDCP 2.2, and an older
 })();
 </script>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 VGA's weakness was structural, not a matter of build quality: an analog voltage degrades along the cable — attenuation rolls off high frequencies (blurring sharp edges), impedance mismatches reflect energy back as ghosts, and noise adds directly to the pixel values — so image quality depended on cable length and quality, and the sink had to re-digitise a signal that had been digital inside the GPU. DVI, HDMI and DisplayPort digitise at the source and keep the signal digital end-to-end: the only degradation is bit errors, which a healthy link avoids entirely and a marginal one shows as isolated sparkles — never as blur. The same physics sets the analog limits (see [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md)); digital coding plus link training simply buys the margin back.
 

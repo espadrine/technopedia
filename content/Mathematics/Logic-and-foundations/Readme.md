@@ -25,7 +25,7 @@ Logic and foundations is deeply intertwined with [Computer Science](../Computer-
 
 <iframe src="../Logic-and-foundations.simulation.html" title="Interactive map of the five classes of logic and foundations"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How to use the table as a map.** Mathematical logic and Computability and decidability are *meta*-disciplines: they study formal systems and mechanical procedures from the outside. Set theory, Category theory, and Type theory are *foundational languages*: each is a language in which mathematics itself can be written, and to a large extent they are rivals — a theorem of one can often be translated into another, but each makes different statements feel natural to express.
 

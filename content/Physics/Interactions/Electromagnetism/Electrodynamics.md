@@ -30,7 +30,7 @@ When the time derivatives are set to zero, Faraday's law gives $`\nabla\times\ma
 
 Differential form: $`\nabla\times\mathbf{E} = -\partial\mathbf{B}/\partial t`. The minus sign is **Lenz's law**: the induced current flows so as to oppose the change in flux that created it.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -94,7 +94,7 @@ So $`|\mathcal{E}| = 0.0157\ \text{V} \approx 15.7\ \text{mV}`. By Lenz's law th
 
 The extra term $`\mu_0\varepsilon_0\,\partial\mathbf{E}/\partial t` is the **displacement current density**. It is required so that the equation is consistent with charge conservation, and it is what lets a changing electric field generate a magnetic field.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -171,7 +171,7 @@ In a source-free region ($`\rho=0,\ \mathbf{J}=0`), taking the curl of Faraday's
 
 with wave speed $`c = 1/\sqrt{\mu_0\varepsilon_0} \approx 3.0\times10^8\ \text{m/s}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -209,7 +209,7 @@ where $`Z_0 = \mu_0 c \approx 377\ \Omega` is the impedance of free space.
 
 **Definition.** Faraday's law, applied to engineered geometries, gives the workhorses of electrical technology: **transformers** (change voltage via coupled coils), **generators** (convert mechanical rotation into EMF), **eddy currents** (induced circulating currents in bulk conductors), and **induction heating** (eddy currents and hysteresis that heat a conductor).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -272,7 +272,7 @@ Equivalently $`I_1 = I_2\,N_2/N_1 = 5 \times 0.25 = 1.25\,\text{A}`.
 
 **Definition.** When a circuit's size $`L` is much smaller than the wavelength $`\lambda = c/f` of its signals, the fields are quasi-static and the circuit reduces to ideal lumped elements: a **resistor** $`R` (dissipates), an **inductor** $`L` (stores magnetic energy, $`V = L\,dI/dt`), and a **capacitor** $`C` (stores electric energy, $`I = C\,dV/dt`), obeying Kirchhoff's laws. A series **RLC** circuit is a damped harmonic oscillator with natural frequency $`\omega_0 = 1/\sqrt{LC}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -351,7 +351,7 @@ u = \tfrac{1}{2}\left(\varepsilon_0 E^2 + \frac{B^2}{\mu_0}\right),\qquad
 
 The Poynting vector $`\mathbf{S}` points in the direction energy flows; $`\mathbf{J}\cdot\mathbf{E}` is the rate at which the field does work on charges.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -429,7 +429,7 @@ which is exactly the Joule heating per unit length, $`I^2 R/\ell = I E` (since $
 
 where $`R = |\mathbf{r}-\mathbf{r}'|` is the distance from the source point. The fields are then $`\mathbf{E} = -\nabla\phi - \partial\mathbf{A}/\partial t` and $`\mathbf{B} = \nabla\times\mathbf{A}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 

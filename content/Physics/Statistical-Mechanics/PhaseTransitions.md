@@ -17,7 +17,7 @@ A phase transition is characterized by an **order parameter** $`\phi` that is ze
 
 Examples: magnetization $`M` (ferromagnet), density difference $`\rho_l - \rho_g` (liquid–gas), superconducting gap $`\Delta`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Global idea.** The order parameter is the macroscopic variable that distinguishes the two phases: it measures *how much* symmetry the disordered phase has that the ordered phase lacks. It transforms under the symmetry group that is broken. A ferromagnet breaks $`\mathbb{Z}_2` spin-flip symmetry; a liquid–gas transition breaks the density-translation symmetry. The choice of order parameter is not unique — any quantity that vanishes in the disordered phase and is nonzero in the ordered phase works.
 
@@ -86,7 +86,7 @@ where $`C` is the specific heat, $`\chi` the susceptibility and $`\xi` the corre
 <tr><td><i>ν</i></td><td>Correlation length <i>ξ</i> ∝ |<i>t</i>|<sup>−ν</sup></td><td>1/2</td><td>1</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Global idea.** Power laws are the fingerprint of scale invariance. The **correlation length** $`\xi` is the distance over which fluctuations of the order parameter are correlated. At the critical point, $`\xi \to \infty`, and the system becomes scale-invariant: fluctuations exist on *all* length scales, which is exactly why a power law (the only scale-free functional form) describes the singularities. This is why critical phenomena are described by the **renormalization group (RG)**: integrating out short-distance modes reveals the same physics at longer scales.
 
@@ -147,7 +147,7 @@ The liquid–gas pressure–temperature phase diagram makes the geometry concret
   <text x="52" y="252" font-size="11" fill="#2471a3" transform="rotate(-20 52 252)">sublimation</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Global idea.** The type of transition is determined by the behavior of the free energy $`F` at the transition. If $`F` itself is continuous but a *first* derivative (entropy $`S = -\partial F/\partial T`, volume $`V = \partial F/\partial P`) jumps, the transition is **first-order**: latent heat $`L = T_c \Delta S` is released, and two phases coexist in equilibrium. If the first derivatives are continuous but a *second* derivative (specific heat, compressibility, susceptibility) diverges, the transition is **second-order** (continuous).
 
@@ -215,7 +215,7 @@ Fixed points of the RG flow correspond to critical points. The **relevant** and 
   <text x="330" y="269" font-size="11" fill="#c0392b">run away (no criticality)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Global idea.** Coarse-graining replaces blocks of spins by a single effective spin and rescales lengths back. Repeating this generates a *flow* in the space of Hamiltonians. Criticality means scale invariance, and scale invariance means the flow must reach a **fixed point** ($`\mathcal{R}[H^*] = H^*`): the system looks the same at every scale. Near a fixed point, perturbations decompose into **relevant** directions (they grow under coarse-graining and push the system away from criticality — the reduced temperature $`t` is one) and **irrelevant** directions (they shrink and die out). The rate of growth/decay *is* the critical exponent: $`\nu = 1/y_t` where $`y_t` is the relevant eigenvalue.
 

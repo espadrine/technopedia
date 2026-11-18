@@ -25,7 +25,7 @@ d\mathbf{B} = \frac{\mu_0}{4\pi}\,\frac{I\,d\boldsymbol{\ell}\times\hat{\mathbf{
 
 where $`\hat{\mathbf{r}}` points from the element to the field point and $`r` is the distance. The total field of a steady current is the vector integral (superposition) of these contributions. The field is always **perpendicular** to the current element and to the line joining it to the field point, and it circulates around the current according to the **right-hand rule**.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -99,7 +99,7 @@ The field circles the wire; at the point in question it is tangent to the circle
 
 Ampère's law is the integral form of the curl of the field — the magnetic counterpart of Gauss's law in [Electrostatics](./Electrostatics.md). It is exact for any closed loop, but it is a *calculation* tool only when the current distribution has enough symmetry.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -164,7 +164,7 @@ The field is uniform and axial inside, and (for an ideal long solenoid) zero out
 
 where $`r'` is the distance from the source element to the field point. The vector potential is the magnetic analogue of the electrostatic **scalar potential** $`V` (with $`\mathbf{E}=-\nabla V`): it is a bookkeeping quantity whose derivative gives the field.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -232,7 +232,7 @@ For a steady current $`I` in a wire, the force on a segment is $`d\mathbf{F} = I
 
 on each other — **attractive** for currents in the same direction, **repulsive** for opposite currents.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -293,7 +293,7 @@ Because the currents flow in the **same** direction, the force is **attractive**
 
 where $`\mu = \mu_0\mu_r` is the **permeability** and $`\mu_r` the **relative permeability** of the material. Ampère's law is then written in terms of the *free* current: $`\nabla\times\mathbf{H} = \mathbf{J}_{\text{free}}`. A **permanent magnet** is a material with a fixed magnetization $`\mathbf{M}` that produces a field even with no external current.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 
@@ -363,7 +363,7 @@ directed normal to the loop by the right-hand rule. Far from the loop ($`r \gg` 
 B = \frac{\mu_0}{4\pi}\,\frac{2m}{r^3}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **The idea, step by step.**
 

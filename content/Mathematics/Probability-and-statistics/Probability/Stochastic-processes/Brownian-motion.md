@@ -30,7 +30,7 @@ A **standard Brownian motion** (Wiener process) $`W = (W_t)_{t \ge 0}` is a stoc
 
 **Consequences (cheatsheet).** $`W_t \sim \mathcal{N}(0, t)`, so $`\mathbb{E}[W_t] = 0` and $`\mathrm{Var}(W_t) = t`; the covariance is $`\mathrm{Cov}(W_s, W_t) = \min(s, t)`; and $`W` is simultaneously a [martingale](./Martingales.md), a [Gaussian process](./Gaussian-processes.md) (kernel $`\min(s,t)`), and a [Markov process](./Readme.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The four axioms each pin down one aspect of the process, and together they force the entire law of $`W`.
 
@@ -83,7 +83,7 @@ W^{(n)}(t) = \frac{S_{\lfloor n t \rfloor}}{\sigma \sqrt{n}}, \quad t \ge 0,
 
 converges in distribution (in $`C[0,\infty)`) to a standard Brownian motion $`W`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The CLT is a statement about one time.** The [central limit theorem](../Limit-theorems.md) says $`S_n/(\sigma\sqrt{n}) \xrightarrow{d} \mathcal{N}(0,1)`: at a single time $`t = 1`, the rescaled walk looks Gaussian. Donsker's theorem upgrades this to a statement about the *whole path*: the entire rescaled trajectory converges, not just its value at one point.
 
@@ -125,7 +125,7 @@ $`\sigma = \sqrt{4} = 2`, so divide by $`2\sqrt{n}`: $`W^{(n)}(t) = S_{\lfloor n
 - **Nowhere differentiable**: almost surely, $`t \mapsto W_t` is continuous but has no finite derivative at any point.
 - **Quadratic variation**: $`[W]_t = \lim_{|\Pi| \to 0} \sum_{i} (W_{t_{i+1}} - W_{t_i})^2 = t` almost surely, where the limit is over partitions $`\Pi` of $`[0,t]` whose mesh goes to zero.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Continuity does not imply smoothness.** A continuous function can still be nowhere differentiable (think of the Weierstrass function). Brownian paths are even rougher: the derivative $`dW_t/dt` does not exist anywhere. Intuitively, zooming into any interval reveals the same jagged structure at every scale — the path is self-similar.
 
@@ -188,7 +188,7 @@ For $`f(t) = t`, each increment is $`\Delta t_i` and $`\sum (\Delta t_i)^2 \le (
 - **Stochastic differential equation (SDE)**: $`dX_t = \mu(X_t, t)\,dt + \sigma(X_t, t)\,dW_t`.
 - **Geometric Brownian motion**: $`dS_t = \mu S_t\,dt + \sigma S_t\,dW_t`, with solution $`S_t = S_0 \exp\big((\mu - \tfrac{1}{2}\sigma^2)t + \sigma W_t\big)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Why the ordinary chain rule fails.** The chain rule $`df(W_t) = f'(W_t)\,dW_t` is wrong for Brownian motion because $`W` has nonzero quadratic variation. The missing term is $`\tfrac{1}{2} f''(W_t)\,dt`, which comes from the rule $`(dW_t)^2 = dt`.
 

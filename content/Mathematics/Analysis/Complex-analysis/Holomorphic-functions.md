@@ -20,7 +20,7 @@ $`\frac{\partial u}{\partial x} = \frac{\partial v}{\partial y}, \qquad \frac{\p
 
 at $`z_0`. (If the partial derivatives exist and are continuous near $`z_0`, these equations are also sufficient.)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why complex differentiability is rigid
 
@@ -88,7 +88,7 @@ $`f(z) = \sum_{n=0}^{\infty} a_n (z - z_0)^n, \qquad a_n = \frac{f^{(n)}(z_0)}{n
 
 Conversely, every power series defines a holomorphic function inside its disk of convergence. Thus "holomorphic" and "locally given by a convergent power series" are the same thing.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The key fact: holomorphic implies smooth
 
@@ -126,7 +126,7 @@ For $`\sum z^n/n!`, $`|a_n|^{1/n} = (n!)^{-1/n} \to 0` (Stirling), so $`r = \inf
 
 **Maximum modulus principle.** If $`f` is holomorphic on a bounded domain $`U` and continuous on its closure, then $`|f|` attains its maximum on the boundary of $`U`, unless $`f` is constant. In particular, a non-constant holomorphic function has no local maximum of $`|f|` in the interior.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why the identity theorem holds
 

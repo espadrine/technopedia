@@ -43,7 +43,7 @@ m\ddot{x} + c\dot{x} + kx = 0
 
 where $`c` is the damping coefficient (N·s/m). Define $`\gamma = c/(2m)` (damping rate, s⁻¹) and $`\omega_0 = \sqrt{k/m}` (natural frequency).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The characteristic equation is $`r^2 + 2\gamma r + \omega_0^2 = 0` with roots $`r = -\gamma \pm \sqrt{\gamma^2 - \omega_0^2}`. Three regimes result depending on the sign of the discriminant $`\gamma^2 - \omega_0^2`.
 
@@ -77,7 +77,7 @@ The **damping ratio** is the dimensionless parameter:
 
 It directly classifies the regime: $`\zeta < 1` underdamped, $`\zeta = 1` critically damped, $`\zeta > 1` overdamped. Engineers in control theory and structural dynamics work primarily in terms of $`\zeta` rather than $`\gamma`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why ζ is the natural dimensionless parameter.** The equation of motion has three parameters ($`m`, $`c`, $`k`), but only two independent ratios can be formed from them (since the equation is homogeneous in $`x`). The natural frequency $`\omega_0 = \sqrt{k/m}` sets the time scale, and the damping rate $`\gamma = c/(2m)` sets the decay rate. Their ratio $`\zeta = \gamma/\omega_0` is the single dimensionless number that determines the qualitative behavior: it is the ratio of the *actual* damping to the *critical* damping $`c_{\text{crit}} = 2\sqrt{mk}`.
 
@@ -110,7 +110,7 @@ The critical damping would be $`c_{\text{crit}} = 2\sqrt{300 \times 30000} = 2 \
 
 The damped frequency is $`\omega_d = \sqrt{\omega_0^2 - \gamma^2} = \omega_0\sqrt{1 - \zeta^2}`. The amplitude envelope is $`A\,e^{-\gamma t}`. The **quality factor** is $`Q = \omega_0/(2\gamma) = 1/(2\zeta)`. For $`Q \gg 1` (i.e. $`\zeta \ll 1`), the system oscillates many cycles before the amplitude drops significantly.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The full solution is $`x(t) = A\,e^{-\gamma t}\cos(\omega_d\, t + \phi)`.
 
@@ -148,7 +148,7 @@ The amplitude envelope $`e^{-t}` drops to $`e^{-1} \approx 0.37` after one time 
 
 The solution is $`x(t) = (A + Bt)\,e^{-\gamma t}`. The system returns to equilibrium in the shortest time without overshooting.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the repeated root gives $`t\,e^{-\gamma t}`.** At $`\zeta = 1` the discriminant vanishes: $`r = -\gamma` is a double root. The general solution of a second-order ODE with a repeated root $`r` is $`x(t) = (A + Bt)\,e^{rt}`. The factor $`t` appears because the two linearly independent solutions of $`(D - r)^2 x = 0` are $`e^{rt}` and $`t\,e^{rt}` (the second is obtained by differentiating the first with respect to $`r`).
 
@@ -187,7 +187,7 @@ $`c = 2\sqrt{5 \times 200} = 2\sqrt{1000} = 2 \times 31.6 = 63.2` N·s/m.
 
 Both roots are real and negative: $`r_{1,2} = -\gamma \pm \sqrt{\gamma^2 - \omega_0^2}`. The motion is a sum of two exponentials with different time constants; the slower one dominates at long times.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Two time constants.** The two roots give two decay rates: $`|r_1| = \gamma - \sqrt{\gamma^2 - \omega_0^2}` (slow) and $`|r_2| = \gamma + \sqrt{\gamma^2 - \omega_0^2}` (fast). The fast mode dies quickly, leaving the slow mode to govern the long-time behavior.
 
@@ -249,7 +249,7 @@ For the underdamped case, the energy decays as:
 E(t) \approx E_0\, e^{-2\gamma t}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The energy half-life is $`t_{1/2} = \ln 2 / (2\gamma)`. The number of oscillations before the energy drops by a factor $`e` is $`N = Q/(2\pi)`. A high-$`Q` system (e.g., a tuning fork, $`Q \sim 10^3`) rings for hundreds of cycles.
 

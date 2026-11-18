@@ -22,7 +22,7 @@ Mathematics studies patterns, quantity, structure, change, and space. It provide
 
 <iframe src="./Mathematics.simulation.html" title="Dependency graph of the five classes of mathematics"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The five classes are keyed to the fundamental objects mathematics studies: the rules of reasoning (logic and foundations), algebraic structure and discrete organization (algebraic and discrete mathematics), continuous change and infinite processes (analysis), spatial structure and shape (geometry and topology), and uncertainty (probability and statistics). Each class maps to a first-principle aspect of reality, so a reader can find the right branch directly.
 

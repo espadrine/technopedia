@@ -11,7 +11,7 @@ Atomic physics describes the structure and behavior of atoms: the electromagneti
 
 **Definition.** The hydrogen atom is the simplest atom: one proton and one electron bound by the Coulomb potential. Its energy levels are $`E_n = -13.6 \text{ eV}/n^2` for $`n = 1, 2, 3, \ldots`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From the Bohr model to the Schrödinger equation
 
@@ -101,7 +101,7 @@ A photon of wavelength $`\lambda = 1240/3.4 \approx 365` nm (near-UV) can ionize
 
 **Definition.** Fine structure is the small splitting of hydrogen energy levels caused by relativistic corrections to the electron kinetic energy and by the coupling of the electron's spin magnetic moment to the magnetic field it experiences in its own rest frame (spin-orbit coupling). The splitting is of order $`\alpha^2` relative to the main $`13.6/n^2` spacing, where $`\alpha \approx 1/137` is the fine-structure constant.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why the levels split
 
@@ -186,7 +186,7 @@ More precisely, the $`2p_{3/2}`–$`2p_{1/2}` splitting is $`\Delta E = \alpha^2
 
 **Definition.** Multi-electron atoms are described by the [Pauli exclusion principle](../Quantum-Mechanics/Quantum-Many-Body.md) and the Aufbau principle: electrons fill orbitals in order of increasing energy, with at most two (opposite-spin) electrons per spatial orbital.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why multi-electron atoms are harder
 
@@ -289,7 +289,7 @@ Reason: a half-filled d-subshell ($`d^5`) has extra exchange-stabilization energ
 
 **Definition.** Spectral lines are the discrete frequencies of [electromagnetic radiation](../Interactions/Electromagnetism/Readme.md) emitted or absorbed when an electron transitions between quantized energy levels: $`h\nu = E_i - E_f`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Connection to the hydrogen energy levels
 
@@ -380,7 +380,7 @@ This is the Hβ line: the $`n=4 \to n=2` transition (Balmer-beta).
 
 **Definition.** The Zeeman effect is the splitting of atomic spectral lines in the presence of an external magnetic field. It arises because the magnetic field lifts the degeneracy of the $`m_\ell` (and $`m_s`) sub-levels, producing multiple closely spaced lines instead of one.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Mechanism
 
@@ -462,7 +462,7 @@ So the three components are separated by about 0.012 nm — resolvable with a hi
 
 **Definition.** Molecular bonds arise from the electromagnetic interaction between the electrons and nuclei of adjacent atoms. The dominant types are covalent (shared electrons), ionic (electron transfer), and metallic (delocalized electrons). This section gives a brief atomic-physics introduction; a full treatment belongs to molecular physics and quantum chemistry.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The LCAO method
 

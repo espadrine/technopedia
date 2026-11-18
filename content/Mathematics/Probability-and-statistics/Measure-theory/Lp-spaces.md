@@ -20,7 +20,7 @@ where $`f \sim g` if $`f = g` $`\mu`-almost everywhere.
 
 For $`p = \infty`: $`\|f\|_\infty = \text{ess sup}_{x} |f(x)|` (the essential supremum).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why equivalence classes?** Two functions that differ only on a set of measure zero have the same integral and the same norm. Working with equivalence classes makes the norm well-defined (a true norm, not just a seminorm).
 
@@ -74,7 +74,7 @@ For $`p = \infty`: $`\|f\|_\infty = \text{ess sup}_{x} |f(x)|` (the essential su
 \int_X |fg| \, d\mu \leq \|f\|_p \, \|g\|_q
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Proof sketch.** For $`p, q > 1`, apply Young's inequality $`ab \leq \frac{a^p}{p} + \frac{b^q}{q}` to $`a = |f|/\|f\|_p`, $`b = |g|/\|g\|_q`, then integrate.
 
@@ -94,7 +94,7 @@ For $`p = \infty`: $`\|f\|_\infty = \text{ess sup}_{x} |f(x)|` (the essential su
 \|f + g\|_p \leq \|f\|_p + \|g\|_p
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 For $`p = 1`, this is the triangle inequality for integrals: $`\int |f+g| \leq \int |f| + \int |g|`.
 
@@ -143,7 +143,7 @@ So on a finite measure space (in particular on a probability space), the spaces 
 
 This connects the whole family $`\{\|\cdot\|_p\}` to the essential supremum: as $`p` grows, only the tallest peak of the function survives.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Proof of the inclusion.** For $`q < \infty`, apply [Hölder's inequality](#hölders-inequality) with exponents $`r = q/p > 1` and its conjugate $`r' = q/(q-p)` to the functions $`|f|^p` and $`\mathbf{1}_X`:
 
@@ -179,7 +179,7 @@ This follows from the uniform convexity of $`L^p` for $`1 < p < \infty` (see the
 
 (These two conditions in fact force $`\|f_n\|_p^p \to \|f\|_p^p`, so no separate norm-convergence condition is needed; see the details.)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the naive "boundedness" condition fails.** The statement "$`f_n \to f` in $`L^p` iff $`f_n \to f` in measure and $`\|f_n\|_p` is bounded" is **false**. Counterexample: $`f_n = n^{1/p} \cdot \mathbf{1}_{(0,1/n)}` on $`(0,1)`. Then $`f_n \to 0` in measure (the support shrinks to a point) and $`\|f_n\|_p = 1` for all $`n` (bounded), yet $`\|f_n - 0\|_p = 1 \not\to 0`. The mass concentrates near 0 without the norm vanishing. What is needed is not mere boundedness but **uniform integrability** of $`\{|f_n|^p\}`.
 
@@ -217,7 +217,7 @@ for a unique $`g \in L^q`, with $`\|\varphi\| = \|g\|_q`.
 
 **Reflexivity.** $`L^p` is reflexive if and only if $`1 < p < \infty`. The spaces $`L^1` and $`L^\infty` are not reflexive.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why $`L^1` and $`L^\infty` fail reflexivity.** $`L^1` is not reflexive because its dual $`(L^1)^* = L^\infty` has a larger dual than $`L^1` itself. $`L^\infty` is not reflexive because it contains an isometric copy of $`\ell^\infty` (on a non-atomic space), which is not reflexive.
 
@@ -237,7 +237,7 @@ X \in L^p \iff \mathbb{E}[|X|^p] < \infty
 
 The $`L^p` norm becomes the $`p`-th root of the $`p`-th moment: $`\|X\|_p = (\mathbb{E}[|X|^p])^{1/p}`. In particular, $`X \in L^2` means $`X` has finite variance, and the $`L^2` inner product $`\langle X, Y \rangle = \mathbb{E}[XY]` is the covariance structure used throughout probability and statistics. The nesting $`L^\infty \subseteq L^q \subseteq L^p` for $`p < q` (on probability spaces, which have total measure 1) means that higher moments imply lower ones.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Convergence of moments.** If $`X_n \to X` in $`L^p`, then $`\mathbb{E}[|X_n|^p] \to \mathbb{E}[|X|^p]` (the norm is continuous), and more generally $`\mathbb{E}[|X_n|^r] \to \mathbb{E}[|X|^r]` for every $`0 < r \leq p`. This is why $`L^p` convergence is the standard hypothesis behind "convergence of moments" results: it rules out the mass-concentrating pathologies (spikes on vanishing sets) that make a.e. convergence alone too weak.
 

@@ -29,7 +29,7 @@ Lumped-element circuit theory (Kirchhoff laws, impedance, RC/RL/RLC, circuit pow
 
 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The central force law is the Lorentz force: $`\mathbf{F}=q\mathbf{E}+q\mathbf{v}\times\mathbf{B}`. In vacuum, the fields obey Maxwell equations:
 

@@ -9,7 +9,7 @@ Algorithmics studies what can be computed, how data is organized for efficient a
 - It turns geometric and image data into pixels on a display.
 - It optimizes continuous and discrete objectives, from a closed-form solve to a learned model.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Algorithmics sits at the leftmost end of the computation pipeline: it takes a problem statement and produces a precise procedure with a provable cost bound. The four classes partition the field by first principles: **theory of computation** asks what is computable and at what asymptotic cost; **search and data structures** asks how to organize data for cheap access; **graphics** asks how to turn geometric and image data into pixels; **optimization** asks how to find a minimum of an objective. The classes are tightly coupled: the choice of data structure (a representation) determines which algorithms are efficient, the complexity of the algorithm determines whether the problem is tractable at scale, and optimization extends this to continuous settings where the "algorithm" is an iterative procedure whose convergence rate replaces the discrete step count.
 
@@ -33,20 +33,10 @@ The four classes partition algorithmics by first principles: **theory of computa
 <tr><td><a href='./Theory-of-Computation/Readme.md'>Theory of computation</a></td><td>Turing machines, decidability, complexity classes, big-O bounds</td><td>Decidability, P/NP membership, asymptotic bounds</td><td>What is computable and at what asymptotic cost; proves existence and cost bounds without prescribing an implementation</td></tr>
 <tr><td><a href='./Search-and-Data-Structures/Readme.md'>Search and data structures</a></td><td>Lists, key-value stores, text search, database theory, graphs</td><td>Access time, space, cache locality</td><td>How to organize data for cheap access; does not model the physical memory hierarchy</td></tr>
 <tr><td><a href='./Graphics/Readme.md'>Graphics</a></td><td>Geometry, rendering, image processing</td><td>Frame rate, image quality, memory</td><td>How to turn geometric and image data into pixels; does not model the physical display or GPU</td></tr>
-<tr><td><a href='./Optimization-and-Differentiation/Readme.md'>Optimization</a></td><td>Gradients, iterative solvers, convexity, neural networks</td><td>Convergence rate, loss</td><td>How to find a minimum of an objective; does not specify how to encode or transmit the solution</td></tr>
+<tr><td><a href='./Optimization/Readme.md'>Optimization</a></td><td>Gradients, iterative solvers, convexity, neural networks</td><td>Convergence rate, loss</td><td>How to find a minimum of an objective; does not specify how to encode or transmit the solution</td></tr>
 </table>
-
-<iframe src="../Algorithmics.simulation.html" title="The four classes of algorithmics as a pipeline from problem to result"></iframe>
 
 > **Authoritative sources**
 > - [On Computable Numbers, with an Application to the Entscheidungsproblem](https://www.turingarchive.ac.uk/radiolab/OnComputableNumbers.pdf)
 > - [The Art of Computer Programming, Volume 1](https://www-cs-faculty.stanford.edu/~knuth/taocp.html)
-
-## Explanation pages
-
-Each class above contains explanation pages that go deeper into a single idea:
-
-- [Computability and Complexity Classes](./Computability-and-Complexity-Classes.md) — Turing machines, decidability, and the time-based complexity classes (P, NP, BPP, BQP, PSPACE, PH).
-- [Space and Parallel Complexity](./Resource-Hierarchy-and-Parallelism.md) — space complexity classes (L, NL, PSPACE, EXPSPACE) and circuit complexity (NC, AC⁰).
-- [Learning Paradigms and Models](./Learning-Paradigms-and-Models.md) — neural network architecture, loss, data paradigms, training, and evaluation.
 

@@ -17,7 +17,7 @@ The kinematic quantities (position, velocity, acceleration) are defined in [Kine
 - **Second law:** Net force equals mass times acceleration.
 - **Third law:** Forces between two bodies are equal and opposite.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The second law is the fundamental equation. All other equations of motion (Lagrangian, Hamiltonian) are equivalent reformulations. The first law defines inertial frames; the third law constrains the force model (internal forces cancel in a closed system).
 
@@ -45,7 +45,7 @@ where $`M` is total mass and $`\vec{a}_{\text{CM}}` is the center-of-mass accele
 
 Impulse: $`\vec{J} = \int \vec{F}\,dt = \Delta\vec{p}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The momentum form is more general than $`F = ma` (it handles variable-mass systems like rockets). Conservation of total momentum follows when $`\vec{F}_{\text{net}}^{\text{ext}} = 0`.
 
@@ -61,7 +61,7 @@ For a point particle at position $`\vec{r}` with momentum $`\vec{p}`:
 
 where $`\vec{\tau} = \vec{r} \times \vec{F}` is the torque about the origin. When $`\vec{\tau} = 0`, angular momentum is conserved.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The angular momentum $`\vec{L} = \vec{r} \times \vec{p}` is a pseudovector perpendicular to the plane of motion. Its magnitude is $`L = mvr\sin\alpha` where $`\alpha` is the angle between $`\vec{r}` and $`\vec{p}`.
 
@@ -83,7 +83,7 @@ Work–energy theorem: $`W_{\text{net}} = \Delta K`.
 
 For conservative forces: $`W = -\Delta U`, and total mechanical energy $`E = K + U` is conserved.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 A force is conservative if $`\nabla \times \vec{F} = 0` (in a simply connected region), which guarantees the existence of a potential $`U` with $`\vec{F} = -\nabla U`. Non-conservative forces (friction, drag) dissipate mechanical energy into heat; see [Thermodynamics](../Thermodynamics/Readme.md).
 
@@ -97,7 +97,7 @@ When $`\vec{a} = 0` for all parts of a body:
 \sum \vec{F} = 0, \quad \sum \vec{\tau} = 0
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Static equilibrium is the $`a = 0` special case of dynamics. It applies to structures (beams, trusses, frames) where all accelerations vanish. The two conditions (force balance and moment balance) give up to 6 scalar equations in 3-D (3 force + 3 moment), which determine unknown reaction forces.
 
@@ -117,7 +117,7 @@ A central force acts along the line joining two bodies: $`\vec{F} = f(r)\,\hat{r
 
 The relative coordinate $`\vec{r} = \vec{r}_1 - \vec{r}_2` obeys $`\mu\,\ddot{\vec{r}} = \vec{F}(r)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Reduction:** The center of mass moves uniformly (no external force). In the center-of-mass frame, the problem is equivalent to a single particle of mass $`\mu` in the potential $`V(r)`.
 
@@ -152,7 +152,7 @@ S[\vec{q}(t)] = \int_{t_1}^{t_2} L\bigl(\vec{q}(t),\, \dot{\vec{q}}(t),\, t\bigr
 
 That is, $`\delta S = 0` for all virtual variations $`\delta q_i(t)` that vanish at the endpoints.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Hamilton's principle is the variational foundation of all of analytical mechanics. The Euler–Lagrange equations are not independent postulates; they are the **Euler–Lagrange equations of calculus of variations** applied to the functional $`S`.
 
@@ -182,7 +182,7 @@ For a system with generalized coordinates $`q_i` and $`n` degrees of freedom:
 L = T - V, \quad \frac{d}{dt}\frac{\partial L}{\partial \dot{q}_i} - \frac{\partial L}{\partial q_i} = 0
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The Lagrangian $`L = T - V` encodes the dynamics in a scalar. The Euler–Lagrange equations are equivalent to Newton's second law but work naturally with constraints (e.g., a pendulum's fixed length) and in any coordinate system.
 
@@ -215,7 +215,7 @@ Hamilton's equations:
 \dot{q}_i = \frac{\partial H}{\partial p_i}, \quad \dot{p}_i = -\frac{\partial H}{\partial q_i}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Phase space is the $`2n`-dimensional space of $`(q_1, \ldots, q_n, p_1, \ldots, p_n)`. Hamilton's equations describe a flow in this space. Liouville's theorem states that the phase-space volume is preserved under this flow, which is the mechanical foundation of [Statistical Mechanics](../Statistical-Mechanics/Readme.md).
 

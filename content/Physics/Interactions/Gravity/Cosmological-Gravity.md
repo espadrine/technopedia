@@ -18,7 +18,7 @@ Cosmological gravity is general relativity applied to the universe as a whole: o
 
 where $`a(t)` is the scale factor, $`k` is the spatial curvature, and $`\rho, p` are the total density and pressure.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Symmetry does the work.** Homogeneity and isotropy force the metric to depend on one function $`a(t)`; the field equations then reduce from ten coupled PDEs to two ODEs. All the complexity of cosmology lives in the *content* $`\rho, p`, not the geometry's form.
 2. **Active gravitational mass.** The second equation shows pressure gravitates: a radiation-dominated fluid ($`p = \rho c^2/3`) decelerates expansion three times harder than dust at equal density. Dark energy with $`p = -\rho c^2` does the opposite: it *accelerates* expansion, which is the observed behavior since redshift $`z \approx 0.7`.
@@ -30,7 +30,7 @@ where $`a(t)` is the scale factor, $`k` is the spatial curvature, and $`\rho, p`
 
 **Definition.** Small density perturbations $`\delta\rho/\rho` grow gravitationally: overdense regions attract more, self-amplify, and collapse into the filaments, clusters, and galaxies of the cosmic web.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Instability.** In a static Newtonian universe, a density perturbation grows exponentially (Jeans instability). In an expanding universe, growth is only algebraic ($`\delta \propto a` in matter domination), which is why the CMB's tiny $`10^{-5}` anisotropies needed ~13 billion years of growth to become galaxies.
 2. **Dark matter's role.** Ordinary (baryonic) matter could not clump before recombination — radiation pressure held it up. Dark matter, feeling no such pressure, started collapsing earlier and built the gravitational scaffolding into which baryons later fell. The observed CMB anisotropy pattern is the fingerprint of this two-component dynamics.

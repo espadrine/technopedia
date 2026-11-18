@@ -23,7 +23,7 @@ In polar coordinates $`(r, \theta)`:
 \vec{a} = (\ddot{r} - r\dot{\theta}^2)\,\hat{r} + (r\ddot{\theta} + 2\dot{r}\dot{\theta})\,\hat{\theta}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The polar form separates radial and tangential components. The term $`-r\dot{\theta}^2` is the centripetal acceleration (always inward), and $`2\dot{r}\dot{\theta}` is the Coriolis term (appears when the radial distance changes while the particle also rotates). In 3-D, spherical coordinates add a $`\phi`-component; the full expression follows the same pattern: each coordinate's second derivative plus cross-terms from the changing basis vectors.
 
@@ -44,7 +44,7 @@ where $`\hat{t}` is the unit tangent, $`\hat{n}` the principal normal, $`\rho` t
 - **Tangential component** $`\ddot{s}\,\hat{t}`: changes the speed (magnitude of velocity).
 - **Normal (centripetal) component** $`\dot{s}^2/\rho\,\hat{n}`: changes the direction of velocity.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Uniform circular motion.** A particle on a circle of radius $`R` at constant angular speed $`\omega` has $`\dot{s} = R\omega` (constant) and $`\rho = R`. The tangential component vanishes ($`\ddot{s} = 0`) and the entire acceleration is centripetal:
 
@@ -70,7 +70,7 @@ x = x_0 + v_0 t + \tfrac{1}{2}at^2
 v^2 = v_0^2 + 2a(x - x_0)
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 These four equations are algebraically equivalent; any three determine the fourth. They apply to free fall ($`a = -g`), uniformly accelerated vehicles, and any 1-D motion with constant acceleration. In 2-D or 3-D with constant $`\vec{a}`, each component satisfies the same set independently.
 
@@ -89,7 +89,7 @@ The practical direction in solving motion problems is the inverse of differentia
 
 Each integration introduces one constant of integration (the initial velocity or position), so two initial conditions are needed to fully determine the trajectory.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 For constant acceleration the integrals evaluate to the closed-form equations in the previous section. For time-dependent acceleration (e.g., drag $`\vec{a} = -k\vec{v}`), the integrals must be solved analytically or numerically. In 2-D and 3-D the integration is performed component-wise.
 
@@ -107,7 +107,7 @@ For two inertial frames $`S` and $`S'` with $`S'` moving at constant velocity $`
 
 Time is absolute: both observers agree on the duration of any event ($`t' = t`). Velocities differ by the constant $`\vec{u}`, but accelerations are identical.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Ball dropped from a moving train.** A passenger on a train moving at constant $`\vec{u}` drops a ball. In the train frame $`S'`, the ball falls straight down: $`x' = 0`, $`y' = -\tfrac{1}{2}gt^2`. In the ground frame $`S`, the ball follows a parabola: $`x = ut`, $`y = -\tfrac{1}{2}gt^2`. Both observers measure the same acceleration $`\vec{a} = \vec{a}' = (0, -g)` and the same time of flight. The trajectories differ, but the physics (acceleration, time) is invariant.
 

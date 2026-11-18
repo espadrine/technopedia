@@ -42,7 +42,7 @@ The pushforward measure $`X_*P` on $`(\mathbb{R}, \mathcal{B}(\mathbb{R}))` is t
   <text x="530" y="78" text-anchor="middle" font-size="12" fill="#2e7d32">P(X ∈ B) = P(X⁻¹(B))</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The measurability requirement ensures that events of the form $`\{\omega : X(\omega) \in B\}` are in the sigma-algebra, so they have a well-defined probability. For a finite or countable sample space every function is measurable; the condition only becomes restrictive for uncountable spaces. The general notion of a measurable map between measure spaces is developed in [Measurable functions](../Measure-theory/Measurable-functions.md).
 
@@ -72,7 +72,7 @@ For a discrete $`X`: $`\mathbb{E}[X] = \sum_x x\, P(X=x)`. For a continuous $`X`
 
 Linearity: $`\mathbb{E}[aX + bY] = a\,\mathbb{E}[X] + b\,\mathbb{E}[Y]` for any constants $`a, b` (no independence needed).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The expectation is the Lebesgue integral of $`X` with respect to the probability measure $`P`. It exists (is finite) iff $`\int |X|\, dP < \infty`. The integral is defined on the measure space $`(\Omega, \mathcal{F}, P)`; see [Measure theory](../Measure-theory/Readme.md) and the [Lebesgue integral](../Measure-theory/Lebesgue-integral.md) for the general framework.
 
@@ -162,7 +162,7 @@ The correlation coefficient is $`\rho = \operatorname{Cov}(X,Y) / (\sigma_X \sig
   <text x="340" y="45" text-anchor="middle" font-size="11" fill="#555">variance σ² sets the width: larger σ² ⇒ flatter, wider density</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Variance measures spread around the mean. For independent $`X, Y`: $`\operatorname{Var}(X+Y) = \operatorname{Var}(X) + \operatorname{Var}(Y)` (the cross term vanishes). Without independence, $`\operatorname{Var}(X+Y) = \operatorname{Var}(X) + \operatorname{Var}(Y) + 2\operatorname{Cov}(X,Y)`. Variance is homogeneous of degree 2: $`\operatorname{Var}(aX + b) = a^2 \operatorname{Var}(X)`.
 
@@ -194,7 +194,7 @@ M_X(t) = \mathbb{E}[e^{tX}] = \int e^{tx}\, dF_X(x)
 
 where $`F_X` is the CDF. If $`M_X` is finite in a neighborhood of 0, then $`M_X^{(n)}(0) = \mathbb{E}[X^n]`, and $`M_X` uniquely determines the distribution of $`X` (by analytic continuation: $`M_X` is holomorphic on that neighborhood, and by the identity theorem two MGFs agreeing there agree everywhere, hence the distributions coincide).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the MGF and not the moment sequence?** Moments do *not* always determine a distribution: this is the Stieltjes/Hamburger moment problem. Classic example: the log-normal distributions with density $`f(x) \propto x^{-1} \exp(-(\ln x - \mu)^2/2)` (for suitable parameter pairs) share *all* their moments yet are different laws. So knowing every moment is not enough in general. What saves the day is analyticity: when $`M_X` is finite on an open interval around 0, it is a holomorphic function there, the identity theorem for holomorphic functions propagates its values from that interval to the whole complex plane, and the distribution is pinned down. When even that fails (heavy tails), one falls back on the characteristic function, for which the inversion theorem always holds.
 
@@ -266,7 +266,7 @@ P\!\left(\bar{X} - \mathbb{E}[\bar{X}] \geq t\right) \leq \exp\!\left(-\frac{2n^
   <text x="330" y="266" text-anchor="middle" font-size="11" fill="#777">each bound uses stronger hypotheses (mean → variance → boundedness + independence)</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 These inequalities bound tail probabilities using only moments or boundedness, without knowing the full distribution. Each stronger hypothesis buys a faster decay, as the plot above shows.
 

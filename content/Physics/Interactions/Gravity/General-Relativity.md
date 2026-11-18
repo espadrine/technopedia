@@ -11,7 +11,7 @@ General relativity (GR) is the geometric theory of gravity: mass-energy curves s
 
 **Definition.** Locally, the effects of a gravitational field are indistinguishable from those of an accelerated frame: a freely falling body follows a path independent of its mass and composition, and in a small enough laboratory free fall feels like zero gravity.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Weak equivalence principle.** Inertial mass equals gravitational mass, so all bodies fall with the same acceleration. Eötvös-type experiments verify this to $`\sim 10^{-13}`. Newtonian gravity *assumes* it; GR *builds the theory on it*.
 2. **Einstein equivalence principle.** In a freely falling frame, all non-gravitational physics reduces to special relativity. Gravity is therefore not a force in the usual sense: it is the *geometry* that remains after you remove every local effect.
@@ -30,7 +30,7 @@ G_{\mu\nu} \equiv R_{\mu\nu} - \tfrac{1}{2}R\,g_{\mu\nu}
 = \frac{8\pi G}{c^4}\,T_{\mu\nu}.
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Left side: geometry.** $`g_{\mu\nu}` is the metric (the machine that converts coordinate separations into proper times and distances); $`R_{\mu\nu}` and $`R` are its curvatures. The Einstein tensor $`G_{\mu\nu}` is divergence-free, automatically conserving energy-momentum.
 2. **Right side: matter.** $`T_{\mu\nu}` packages density, momentum flux, pressure, and shear. Crucially, *pressure gravitates*: radiation-dominated matter ($`p = \rho c^2/3`) pulls three times harder than dust. This is why the early universe's expansion decelerated faster, and why pressure can make collapse inevitable inside [Compact objects](./Compact-Objects.md).
@@ -45,7 +45,7 @@ G_{\mu\nu} \equiv R_{\mu\nu} - \tfrac{1}{2}R\,g_{\mu\nu}
 
 **Definition.** Free bodies follow geodesics of the metric; the three classical tests are perihelion precession, light deflection, and gravitational redshift.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Geodesic equation.** $`\dfrac{d^2x^\mu}{d\tau^2} + \Gamma^\mu_{\alpha\beta}\dfrac{dx^\alpha}{d\tau}\dfrac{dx^\beta}{d\tau} = 0`, where $`\Gamma^\mu_{\alpha\beta}` (Christoffel symbols) encode how the coordinate basis twists and stretches. In the weak field this reduces to Newton's $`\ddot{\mathbf{r}} = -\nabla\Phi` plus small corrections.
 2. **Perihelion precession.** The relativistic correction to the orbit equation is $`\Delta\varphi \approx 6\pi GM/(c^2 a(1-e^2))` per orbit — 43″/century for Mercury, and minutes of arc per orbit for binary pulsars.

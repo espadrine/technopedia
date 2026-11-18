@@ -6,7 +6,7 @@ Quantum dynamics describes how a quantum state evolves in time. It is relevant w
 
 **Definition.** The state $`|\psi(t)\rangle` evolves according to $`i\hbar\,\partial_t |\psi(t)\rangle = \hat{H}|\psi(t)\rangle`, where $`\hat{H}` is the Hamiltonian operator. The formal solution is $`|\psi(t)\rangle = \hat{U}(t,t_0)|\psi(t_0)\rangle` with $`\hat{U}(t,t_0) = \mathcal{T}\exp\left(-\frac{i}{\hbar}\int_{t_0}^{t}\hat{H}(t')\,dt'\right)`. For a time-independent Hamiltonian: $`\hat{U}(t) = e^{-i\hat{H}t/\hbar}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From the classical Hamiltonian to the quantum one
 
@@ -58,7 +58,7 @@ The probability is constant at 1/2 — the spin precesses around z at frequency 
 
 **Definition.** For $`\hat{H} = \hat{H}_0 + \hat{V}(t)`, the transition amplitude from state $`|i\rangle` to state $`|f\rangle` (first order) is $`c_f^{(1)}(t) = -\frac{i}{\hbar}\int_{t_0}^{t}\langle f|\hat{V}(t')|i\rangle\,e^{i\omega_{fi}t'}\,dt'` where $`\omega_{fi} = (E_f - E_i)/\hbar`. Fermi's golden rule gives the transition rate: $`\Gamma_{i\to f} = \frac{2\pi}{\hbar}|\langle f|\hat{V}|i\rangle|^2\rho(E_f)`."
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### When the Hamiltonian changes slowly
 
@@ -116,7 +116,7 @@ where $`\omega_{21} = (E_2-E_1)/\hbar = 3\pi^2\hbar/(2ma^2)`. For $`\tau \gg 1/\
 
 **Definition.** Scattering describes the asymptotic behavior of a wave packet that approaches, interacts with, and recedes from a potential. The S-matrix $`\hat{S}` maps incoming to outgoing states: $`|\psi_{\text{out}}\rangle = \hat{S}|\psi_{\text{in}}\rangle`. The differential cross-section is $`d\sigma/d\Omega = |f(\theta,\phi)|^2` where $`f` is the scattering amplitude.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From wave packets to plane waves
 
@@ -161,7 +161,7 @@ For a finite well, the scattering length depends on the bound-state condition: i
 
 **Definition.** The path integral (Feynman) formulation expresses the propagator as a sum over all paths: $`K(x_f,t_f;x_i,t_i) = \int\mathcal{D}[x(t)]\,\exp\left(\frac{i}{\hbar}\int_{t_i}^{t_f}L(x,\dot{x})\,dt\right)`. Each path contributes a phase proportional to the classical action. In the limit $`\hbar \to 0` (or large action), the path of stationary action (the classical trajectory) dominates — this is the correspondence principle.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### A third formulation of quantum mechanics
 

@@ -1,18 +1,21 @@
 # Operating System
 
-The operating system mediates between programs and hardware: it schedules processes, manages memory, provides file abstractions, and drives I/O devices. It is relevant whenever a program's resource usage, isolation, or I/O behavior must be understood or controlled.
+The operating system mediates between programs and hardware: it schedules processes, manages memory, provides file abstractions, and drives I/O devices. Examples include **Linux**, **Windows**, and **macOS** (plus the BSDs); they share the same concepts but differ in implementation (schedulers, syscall sets, file systems). It is relevant whenever a program's resource usage, isolation, or I/O behavior must be understood or controlled.
 
 > **Authoritative sources**
 > - [Operating System Concepts (Silberschatz, Galvin, Gagne)](https://www.pearson.com/en-us/subject-catalog/p/operating-system-concepts/P200000003515/9780136874608)
 > - [The Design and Implementation of the 4.4BSD Operating System (Leffler et al.)](https://www.oreilly.com/library/view/the-design-and/0130200072/)
+> - [Linux man-pages — full syscall list](https://man7.org/linux/man-pages/dir_syscalls.html)
+> - [Windows Internals (Russinovich, Solomon, Ionescu)](https://learn.microsoft.com/en-us/sysinternals/resources/windows-internals)
+> - [Apple Developer Documentation (macOS)](https://developer.apple.com/documentation/)
 
 ## Processes
 
-A **process** is a running program with its own virtual address space, file descriptors, and resources, identified by a unique **PID**. A **thread** shares the process's address space but has its own stack and registers. A **core** executes one thread at a time (or two with SMT/hyperthreading). **Preemption** is the OS's ability to interrupt a running process and switch to another; **cooperative scheduling** requires the process to voluntarily yield.
+A **process** is a running program with its own virtual address space, file descriptors, and resources, identified by a unique **PID**. A **thread** shares the process's address space but has its own stack and [registers](./CPU-Architecture.md). A **core** executes one thread at a time (or two with SMT/hyperthreading). **Preemption** is the OS's ability to interrupt a running process and switch to another; **cooperative scheduling** requires the process to voluntarily yield.
 
-For the deeper treatment of M:N scheduling, thread pools, race conditions, and the memory model, see [Concurrency](../Distributed-Systems/Concurrency/Readme.md). For the hardware-level memory layout (text, data, bss, heap, stack segments) and the virtual-memory mechanism (MMU, TLB, page-table walk), see [Memory Hierarchy](./Memory-Hierarchy.md).
+For the deeper treatment of M:N scheduling, thread pools, race conditions, and the memory model, see [Concurrency](../Distributed-Systems/Concurrency/Readme.md). A process's memory layout (text, data, bss, heap, stack) and virtual memory (page tables, TLB, swap) are covered in Memory management below; the physical memory hierarchy (caches, RAM, disk) is in [Memory Hierarchy](./Memory-Hierarchy.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Scheduling algorithms**:
 - **FCFS** (First-Come, First-Served): simple but suffers from the **convoy effect** (a long process blocks all others).
@@ -29,9 +32,69 @@ For the deeper treatment of M:N scheduling, thread pools, race conditions, and t
 
 ## Memory management
 
-The OS's primary contribution to memory management is deciding **which page to evict** when RAM is full, managing the **swap** area, and detecting **thrashing**. The hardware translation (MMU, TLB, page-table walk) belongs to [Memory Hierarchy](./Memory-Hierarchy.md).
+The OS owns each process's **virtual memory**: it builds and maintains the page tables, services page faults, decides which page to evict when RAM is full, and manages the swap area. The hardware MMU only performs the translation mechanically; the page tables are OS data. (The physical memory hierarchy — caches, RAM, disk — is covered in [Memory Hierarchy](./Memory-Hierarchy.md).)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
+
+### Virtual address space and page tables
+
+Each process sees a contiguous **virtual address space** (e.g., 48-bit = 256 TB on x86-64). The **MMU** translates virtual to physical addresses using **page tables**. On x86-64, a 4-level table: PML4 → PDPT → PD → PT, each with 512 entries (9 bits of the address per level); the default page size is 4 KB (12-bit offset). The OS allocates the page tables per process and updates them on `fork`/`execve`/`mmap`.
+
+### TLB and huge pages
+
+The **TLB** (Translation Lookaside Buffer) is a small, fully-associative hardware cache of recent page-table entries (typically 64–1024 entries). A TLB hit costs 1 cycle; a miss walks the page table (4–5 memory accesses, 400–500 cycles). **Huge pages** cut TLB pressure dramatically: a **2 MB page** covers 512 × 4 KB (a 1 GB working set needs 512 TLB entries instead of 262,144); a **1 GB page** covers 512 × 2 MB. The OS exposes them via `madvise(MADV_HUGEPAGE)` / `hugetlbfs`; Linux **Transparent Huge Pages (THP)** coalesce 4 KB pages into 2 MB pages in the background.
+
+### Page faults
+
+A **page fault** occurs when a virtual address is not mapped to a physical frame. On a fault, the OS (1) checks the page-table entry for the fault type (not-present, protection, write-on-clean), (2) allocates a free frame, (3) if the page is on disk, issues a DMA read, (4) updates the page table, (5) restarts the faulting instruction. A **major fault** (page on disk: $`\approx 100 \mu s` SSD, $`\approx 10` ms HDD) is expensive; a **minor fault** (page in RAM but not mapped to this process, ~1 µs) is cheap.
+
+### Process memory layout
+
+A process's address space is divided into segments: **text** (code, read-only, shared between processes), **data** (initialized globals), **bss** (zero-initialized globals), **heap** (grows upward; `brk`/`sbrk`/`mmap`), and **stack** (grows downward; one frame per function call). The OS sets the initial layout at `execve` and grows the heap and stack on demand.
+
+<svg width="520" height="360" xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif;font-size:12px;">
+  <defs>
+    <marker id="dn" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#8e24aa"/></marker>
+    <marker id="up" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,6 L8,3 L0,0 Z" fill="#ef6c00"/></marker>
+  </defs>
+  <!-- kernel space -->
+  <rect x="200" y="10" width="180" height="45" fill="#fce4ec" stroke="#c62828" stroke-width="2"/>
+  <text x="290" y="30" text-anchor="middle" font-weight="bold">Kernel space</text>
+  <text x="290" y="46" text-anchor="middle" font-size="9">0xffff800000000000 – 0xffffffffffffffff</text>
+  <!-- user/kernel boundary -->
+  <line x1="190" y1="62" x2="390" y2="62" stroke="#999" stroke-dasharray="4 3"/>
+  <text x="395" y="66" font-size="10" fill="#555">0x00007fffffffffff</text>
+  <!-- stack -->
+  <rect x="200" y="70" width="180" height="30" fill="#e1bee7" stroke="#8e24aa" stroke-width="2"/>
+  <text x="290" y="89" text-anchor="middle" font-size="11">Stack (grows down)</text>
+  <text x="10" y="89" font-size="10" fill="#555">0x00007ffffffff000</text>
+  <line x1="360" y1="100" x2="360" y2="118" stroke="#8e24aa" stroke-width="1.5" marker-end="url(#dn)"/>
+  <!-- gap -->
+  <rect x="200" y="122" width="180" height="38" fill="none" stroke="#bbb" stroke-dasharray="4 3"/>
+  <text x="290" y="145" text-anchor="middle" font-size="10" fill="#999">unmapped</text>
+  <!-- mmap region -->
+  <rect x="200" y="166" width="180" height="28" fill="#e0f2f1" stroke="#00897b" stroke-width="2"/>
+  <text x="290" y="184" text-anchor="middle" font-size="11">mmap, shared libraries (grow down)</text>
+  <text x="10" y="184" font-size="10" fill="#555">≈ 0x7ffff7000000</text>
+  <!-- gap -->
+  <rect x="200" y="200" width="180" height="38" fill="none" stroke="#bbb" stroke-dasharray="4 3"/>
+  <text x="290" y="223" text-anchor="middle" font-size="10" fill="#999">unmapped</text>
+  <!-- heap -->
+  <rect x="200" y="244" width="180" height="28" fill="#fff3e0" stroke="#ef6c00" stroke-width="2"/>
+  <text x="290" y="262" text-anchor="middle" font-size="11">Heap (grows up, brk)</text>
+  <line x1="360" y1="244" x2="360" y2="226" stroke="#ef6c00" stroke-width="1.5" marker-end="url(#up)"/>
+  <!-- bss / data / text -->
+  <rect x="200" y="296" width="180" height="20" fill="#f5f5f5" stroke="#9e9e9e"/>
+  <text x="290" y="310" text-anchor="middle" font-size="10">bss (zero-initialized globals)</text>
+  <rect x="200" y="318" width="180" height="20" fill="#fff8e1" stroke="#f9a825"/>
+  <text x="290" y="332" text-anchor="middle" font-size="10">data (initialized globals, literals)</text>
+  <rect x="200" y="340" width="180" height="20" fill="#e3f2fd" stroke="#1565c0"/>
+  <text x="290" y="354" text-anchor="middle" font-size="10">text (code)</text>
+  <text x="10" y="354" font-size="10" fill="#555">0x400000</text>
+  <line x1="190" y1="362" x2="390" y2="362" stroke="#999"/>
+  <text x="395" y="366" font-size="10" fill="#555">0x0 — null page, unmapped</text>
+  <text x="290" y="14" font-size="9" fill="#c62828"></text>
+</svg>
 
 **Page replacement policies** (the OS's responsibility):
 - **FIFO** (First-In, First-Out): evict the oldest page in memory. Simple but suffers from **Belady's anomaly** (more frames can increase faults).
@@ -41,15 +104,15 @@ The OS's primary contribution to memory management is deciding **which page to e
 
 **Swap management**: when RAM is full, the OS writes inactive pages to a swap file (or swap partition) on disk. The swap area is typically $`1`–$`2`× RAM. The OS uses a **page-out** policy (often the same replacement algorithm) to select which pages to write, and a **page-in** policy to bring them back on demand.
 
-**Page fault handling** (OS role): on a fault, the OS (1) checks the page-table entry to determine the fault type (not-present, protection, write-on-clean), (2) allocates a free frame, (3) if the page is on disk, issues a DMA read, (4) updates the page table, (5) restarts the faulting instruction. The hardware TLB and page-table walk that triggered the fault are described in [Memory Hierarchy](./Memory-Hierarchy.md).
 
 </details>
+
 
 ## Drivers and I/O interrupts
 
 **I/O** (Input/Output) is the transfer of data between the CPU and a device (disk, network, keyboard). **Interrupts** are hardware signals that notify the CPU of an event (I/O complete, timer tick, exception). The hardware interrupt mechanism (APIC, interrupt vectors, pipeline flush) is described in [CPU Architecture](./CPU-Architecture.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **I/O modes**:
 - **Programmed I/O**: the CPU polls the device in a loop. Wastes CPU cycles.
@@ -66,7 +129,7 @@ The OS's primary contribution to memory management is deciding **which page to e
 
 A **syscall** (system call) is the interface between user space and kernel space. It is a controlled transition from user mode to kernel mode (via `syscall` on x86-64, `int 0x80` on x86-32, or `svc` on ARM).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Common syscalls:
 - `read(fd, buf, n)` / `write(fd, buf, n)`: transfer data to/from a file descriptor.
@@ -76,7 +139,7 @@ Common syscalls:
 - `brk(addr)` / `sbrk(delta)`: adjust the heap boundary.
 - `ioctl(fd, request, arg)`: device-specific control operations.
 
-The kernel validates the arguments, performs the operation, and returns a result (or an error code via `errno`). The user process is blocked until the syscall completes (or returns immediately for non-blocking operations).
+The kernel validates the arguments, performs the operation, and returns a result (or an error code via `errno`). The user process is blocked until the syscall completes (or returns immediately for non-blocking operations). The full list of Linux syscalls is in the [man-pages syscall index](https://man7.org/linux/man-pages/dir_syscalls.html).
 
 </details>
 
@@ -84,7 +147,7 @@ The kernel validates the arguments, performs the operation, and returns a result
 
 **IPC** mechanisms allow processes to exchange data or synchronize. They are the OS-level primitives that higher-level concurrency patterns (CSP, actor model) build upon.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Pipes** (`pipe()`): a unidirectional byte stream between a parent and child (or any two related processes). Backed by a kernel buffer (typically 64 KB). `read`/`write` block when the buffer is full/empty.
 - **Unix domain sockets** (`socket(AF_UNIX, ...)`): bidirectional, connection-oriented or datagram, local-only. Faster than TCP loopback (no network stack). Used by `systemd`, D-Bus, and many daemons.
@@ -98,7 +161,7 @@ The kernel validates the arguments, performs the operation, and returns a result
 
 The boot sequence takes the machine from power-on to a running user process.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. **Firmware** (BIOS/UEFI): runs from ROM. Initializes hardware (POST), locates the bootloader.
 2. **Bootloader** (GRUB, UEFI boot manager): loads the kernel image and initramfs into memory.
@@ -113,9 +176,68 @@ The **MBR** (Master Boot Record) is the first 512 bytes of a disk: 446 bytes of 
 
 A **file system** organizes data on a storage device. A **file** is a sequence of bytes. An **inode** stores metadata (size, permissions, timestamps, block pointers). A **sector** is the minimum unit of disk I/O (512 B for legacy HDDs, 4 KB for modern drives). A **block** is a file-system-level abstraction that groups one or more sectors (typically 4 KB); it is the unit in which the file system allocates and addresses data.
 
-<details><summary>Details</summary>
+<svg width="520" height="230" xmlns="http://www.w3.org/2000/svg" style="font-family:sans-serif;font-size:12px;">
+  <defs><marker id="fsarr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#333"/></marker></defs>
+  <rect x="10" y="14" width="500" height="26" rx="4" fill="#eceff1" stroke="#607d8b"/>
+  <rect x="10" y="14" width="90" height="26" fill="#cfd8dc"/><text x="55" y="31" text-anchor="middle" font-size="10">superblock</text>
+  <rect x="100" y="14" width="130" height="26" fill="#cfd8dc"/><text x="165" y="31" text-anchor="middle" font-size="10">inode table (metadata)</text>
+  <rect x="230" y="14" width="280" height="26" fill="#e3f2fd" stroke="#1565c0"/><text x="370" y="31" text-anchor="middle" font-size="10">data blocks</text>
+  <rect x="10" y="70" width="150" height="62" rx="6" fill="#fff8e1" stroke="#f9a825" stroke-width="2"/>
+  <text x="85" y="88" text-anchor="middle" font-weight="bold">directory file</text>
+  <text x="20" y="106" font-size="11">"file.txt" → inode 42</text>
+  <text x="20" y="124" font-size="11">"docs" → inode 7</text>
+  <line x1="160" y1="100" x2="208" y2="100" stroke="#333" stroke-width="1.5" marker-end="url(#fsarr)"/>
+  <text x="184" y="92" text-anchor="middle" font-size="9">lookup</text>
+  <rect x="210" y="64" width="150" height="100" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+  <text x="285" y="82" text-anchor="middle" font-weight="bold">inode 42</text>
+  <text x="220" y="98" font-size="10">metadata: size, perms,</text>
+  <text x="220" y="111" font-size="10">owner, timestamps</text>
+  <text x="220" y="128" font-size="10">extents (logical → physical):</text>
+  <text x="220" y="143" font-size="10">[0–7] → blocks 100–107</text>
+  <text x="220" y="156" font-size="10">[8–9] → blocks 200–201</text>
+  <line x1="360" y1="140" x2="425" y2="188" stroke="#333" stroke-width="1.5" marker-end="url(#fsarr)"/>
+  <text x="10" y="182" font-size="10" fill="#555">physical blocks:</text>
+  <rect x="10" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="23" y="206" text-anchor="middle" font-size="8">96</text>
+  <rect x="40" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="53" y="206" text-anchor="middle" font-size="8">97</text>
+  <rect x="70" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="83" y="206" text-anchor="middle" font-size="8">98</text>
+  <rect x="100" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="113" y="206" text-anchor="middle" font-size="8">99</text>
+  <rect x="130" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="143" y="206" text-anchor="middle" font-size="8">100</text>
+  <rect x="160" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="173" y="206" text-anchor="middle" font-size="8">101</text>
+  <rect x="190" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="203" y="206" text-anchor="middle" font-size="8">102</text>
+  <rect x="220" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="233" y="206" text-anchor="middle" font-size="8">103</text>
+  <rect x="250" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="263" y="206" text-anchor="middle" font-size="8">104</text>
+  <rect x="280" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="293" y="206" text-anchor="middle" font-size="8">105</text>
+  <rect x="310" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="323" y="206" text-anchor="middle" font-size="8">106</text>
+  <rect x="340" y="190" width="26" height="24" fill="#90caf9" stroke="#1565c0"/>
+  <text x="353" y="206" text-anchor="middle" font-size="8">107</text>
+  <rect x="370" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="383" y="206" text-anchor="middle" font-size="8">108</text>
+  <rect x="400" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="413" y="206" text-anchor="middle" font-size="8">109</text>
+  <rect x="430" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="443" y="206" text-anchor="middle" font-size="8">110</text>
+  <rect x="460" y="190" width="26" height="24" fill="#eceff1" stroke="#b0bec5"/>
+  <text x="473" y="206" text-anchor="middle" font-size="8">111</text>
+</svg>
+
+<details><summary>EXPLANATION</summary>
 
 **File descriptors** (fd): a small integer that refers to an open file. `open()` returns an fd; `read(fd, buf, n)`, `write(fd, buf, n)`, `close(fd)` operate on it. fd 0, 1, 2 are stdin, stdout, stderr.
+
+**`open()` flags**: `open(path, flags, mode)` takes a bitmask of flags: `O_RDONLY` / `O_WRONLY` / `O_RDWR` choose the access mode; `O_CREAT` creates the file if missing (with `mode`, e.g. `0644`, as the third argument), `O_TRUNC` empties an existing file, `O_APPEND` seeks to the end before every write, `O_EXCL` (combined with `O_CREAT`) fails if the file already exists — an atomic create. Example: `open("log.txt", O_WRONLY | O_CREAT | O_APPEND, 0644)`.
+
+**Inode metadata**: besides the block/extent pointers, each inode stores (all in `st_mode` and friends): the **file type** — regular file, directory, symbolic link, socket, device, or FIFO (named pipe) — the **owner user and group**, the **permissions** — read/write/execute for user, group, and all others (nine bits, e.g. `0755`), plus setuid/setgid/sticky — and the **timestamps**: `atime` (last read), `mtime` (content last modified), and `ctime` (inode/metadata last changed: permissions, owner, link count… — note `ctime` is *not* creation time on Linux). `stat()` exposes all of these.
 
 **Inode and block mapping**:
 - **Extents** (ext4 default, since ext3): the inode stores a tree of extents, each mapping a contiguous range of logical blocks to a contiguous range of physical blocks. With 32-bit logical block addressing and 4 KB blocks, a single file can address up to $`2^{32} \times 4 \text{ KB} = 16` TiB. Extent trees are shallow (typically 1–2 levels) and avoid the pointer-chasing of the legacy scheme.
@@ -130,7 +252,9 @@ A **file system** organizes data on a storage device. A **file** is a sequence o
 
 **`rename(old, new)`**: atomic on the same file system. **`link(old, new)`**: create a new directory entry pointing to the same inode (hard link).
 
-**Journaling** (ext4, XFS, NTFS): log metadata changes before applying them. After a crash, replay the journal to recover consistency. **Copy-on-write** (ZFS, Btrfs): modify a copy of the block, then atomically update the pointer. Crash-safe without a journal.
+**Journaling** (ext4, XFS, NTFS): log metadata changes before applying them. After a crash, replay the journal to recover consistency.
+
+**Copy-on-write (COW)** (Btrfs, ZFS, APFS): the file system never modifies an existing block or extent in place. A write goes to a brand-new extent, and only then is the inode's pointer atomically updated to the new extent. A crash mid-write leaves the old version intact, so COW is crash-safe without a journal — and it makes snapshots cheap (the old extents are simply kept alive by the snapshot's inode).
 
 </details>
 

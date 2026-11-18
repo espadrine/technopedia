@@ -23,7 +23,7 @@ Physics is organized by the fundamental aspects of reality it isolates. The four
 
 
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### How the categories connect
 

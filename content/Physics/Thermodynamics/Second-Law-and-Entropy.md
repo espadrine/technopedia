@@ -14,7 +14,7 @@ The second law states which processes are possible and sets the ultimate efficie
 
 These are equivalent formulations of the second law.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Equivalence proof sketch.** Assume Kelvin–Planck is false: a device converts $`Q_C` from a single reservoir at $`T_C` entirely into work $`W = Q_C`. Use that work to drive a Carnot refrigerator between $`T_C` and $`T_H`, pumping heat $`Q_C'` from $`T_C` to $`T_H`. Net effect: heat flows from $`T_C` to $`T_H` with no other change — violating Clausius. The reverse argument works similarly.
 
@@ -36,7 +36,7 @@ For any process between two equilibrium states:
 \Delta S = S_f - S_i = \int_i^f \frac{\delta Q_{\text{rev}}}{T}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **State function.** Although $`\delta Q` is path-dependent, $`\delta Q_{\text{rev}}/T` is an exact differential. The entropy change between two states is the same regardless of the actual path; you compute it along any convenient reversible path connecting the same states.
 
@@ -66,7 +66,7 @@ For a process between two states (not necessarily cyclic):
 
 where the integral is over the *actual* (possibly irreversible) path.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation sketch.** Consider a system undergoing an irreversible process from state 1 to state 2. Connect state 2 back to state 1 by a reversible path. The total cycle is irreversible, so $`\oint \delta Q/T < 0`. Splitting the integral:
 
@@ -90,7 +90,7 @@ For an irreversible process, the entropy production is:
 
 or in rate form $`\dot{\sigma} \geq 0`. By the Gouy–Stodola theorem, the lost work (exergy destruction) is $`W_{\text{lost}} = T_0\,\sigma`, where $`T_0` is the environment temperature.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Connection to lost work.** In any real (irreversible) process, some work potential is destroyed. The Gouy–Stodola theorem quantifies this: the exergy destroyed equals the environment temperature times the entropy produced. For a reversible process, $`\sigma = 0` and no exergy is destroyed. For an irreversible process, $`\sigma > 0` and the lost work is proportional to the irreversibility.
 
@@ -112,7 +112,7 @@ Equivalently:
 \Delta S = nC_P\ln\frac{T_f}{T_i} - nR\ln\frac{P_f}{P_i}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Isothermal expansion** ($`T_f = T_i`): $`\Delta S = nR\ln(V_f/V_i) > 0` for expansion.
 
@@ -134,7 +134,7 @@ For a reversible (Carnot) engine operating between reservoirs at $`T_H` and $`T_
 
 This relation defines the absolute temperature ratio $`T_H/T_C = Q_H/Q_C`; see [Zeroth Law and Temperature](./Zeroth-Law-and-Temperature.md) for the full discussion of the temperature scale.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **No engine can exceed Carnot.** Suppose an engine E has efficiency $`\eta_E > \eta_{\text{Carnot}}`. Run E forward and a Carnot refrigerator (the reverse of a Carnot engine) backward, both between the same reservoirs, sized so they exchange the same heat with the cold reservoir. The net effect: heat is drawn from the hot reservoir and fully converted to work, with no other change — a perpetual motion machine of the second kind, forbidden by the second law.
 

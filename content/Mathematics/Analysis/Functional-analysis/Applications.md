@@ -10,7 +10,7 @@ Applications is where the machinery of the other three pages pays off. The same 
 
 **Definition.** In quantum mechanics the state of a system is a unit vector (equivalently a ray) in a Hilbert space $`\mathcal{H}`; an **observable** is a self-adjoint operator on $`\mathcal{H}`; and the possible measured values of an observable are its spectrum.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### States and expectation values
 
@@ -56,7 +56,7 @@ $`\langle A\psi, \psi \rangle = \langle \psi, A^* \psi \rangle = \langle \psi, A
 
 **Definition.** A **weak solution** of a PDE is a function in a Sobolev space that satisfies the equation in the distributional sense (after integrating by parts to move derivatives onto smooth test functions). Existence is often proved by the **direct method**: a minimizing sequence has a weakly convergent subsequence whose limit is the solution.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why weak solutions
 

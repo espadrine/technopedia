@@ -6,7 +6,7 @@ Quantum field theory (QFT) is the relativistic extension of quantum mechanics in
 
 **Definition.** A quantum field $`\hat{\phi}(x)` is an operator-valued distribution on spacetime. Its excitations (particles) have energy-momentum $`E^2 = p^2c^2 + m^2c^4`. The field is expanded in creation and annihilation operators: $`\hat{\phi}(x) = \int\frac{d^3p}{(2\pi)^3}\frac{1}{\sqrt{2\omega_\mathbf{p}}}\left(\hat{a}_\mathbf{p}\,e^{-ip\cdot x} + \hat{a}_\mathbf{p}^\dagger\,e^{ip\cdot x}\right)` where $`p\cdot x = \omega t - \mathbf{p}\cdot\mathbf{x}`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From particles to fields
 
@@ -57,7 +57,7 @@ Substituting the plane wave $`e^{-ipx}`: $`(\Box + m^2)e^{-ipx} = (-p^2 + m^2)e^
 
 **Definition.** A gauge theory is a QFT with a local symmetry: the Lagrangian is invariant under field-dependent transformations $`\psi(x) \to e^{ie\alpha(x)\hat{T}}\psi(x)` where $`\hat{T}` are generators of a Lie group. Gauge invariance requires the introduction of gauge fields (connections) that transform inhomogeneously, and it determines the form of the interactions. The gauge bosons are the force carriers.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why gauge symmetry is fundamental
 
@@ -111,7 +111,7 @@ The gauge transformation of $`A_\mu` precisely cancels the inhomogeneous term fr
 
 **Definition.** A Feynman diagram is a graphical representation of a term in the perturbative expansion of an S-matrix element. Each diagram corresponds to a mathematical expression: vertices give coupling constants, internal lines give propagators $`i/(p^2-m^2+i\epsilon)`, external lines give wavefunctions, and loops give momentum integrals. The S-matrix is $`\hat{S} = \mathcal{T}\exp\left(-i\int d^4x\,\mathcal{L}_{\text{int}}\right)`, expanded order by order in the coupling.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Computing scattering amplitudes
 
@@ -208,7 +208,7 @@ This is the simplest possible scattering: the four external particles meet at a 
 
 **Definition.** Renormalization is the procedure of absorbing the infinities that arise in loop diagrams into a redefinition of the bare parameters (mass, coupling, field normalization) of the Lagrangian. The renormalized theory makes finite predictions in terms of measured (physical) parameters. A theory is renormalizable if only a finite number of parameters need to be redefined; the Standard Model is renormalizable.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why loops diverge and how to handle them
 
@@ -305,7 +305,7 @@ $`\alpha(m_Z^2) \approx (1/137)/(1-0.019) \approx 1/134`
 
 **Definition.** The QFT path integral (or functional integral) expresses the generating functional of all correlation functions as an integral over all field configurations: $`Z[J] = \int \mathcal{D}\phi\; e^{iS[\phi] + i\int J\phi}`. The $`n`-point correlation functions are obtained by functional differentiation of $`Z[J]` with respect to the source $`J`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From the path integral to Feynman diagrams
 
@@ -360,7 +360,7 @@ $`\Delta_F(x-y) = \int\frac{d^4p}{(2\pi)^4}\frac{i}{p^2-m^2+i\epsilon}e^{-ip(x-y
 
 **Definition.** The quantum vacuum $`|0\rangle` is the lowest-energy state of a quantum field, but it is not empty: it contains zero-point fluctuations with energy $`E_0 = \frac{1}{2}\hbar\omega` per mode. These fluctuations have observable consequences: virtual particles in loop diagrams, the Casimir effect, and the Lamb shift.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The vacuum is not nothing
 

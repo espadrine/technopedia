@@ -18,7 +18,7 @@ $`\int_X f \, d\mu = \int_X f^+ \, d\mu - \int_X f^- \, d\mu`
 
 where $`f^+ = \max(f, 0)` and $`f^- = \max(-f, 0)`."
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why this works.** The Riemann integral slices the *domain* into subintervals and sums $`f(x_i) \Delta x_i`. The Lebesgue integral slices the *range*: it asks "what is the measure of the set where $`f` is between $`a` and $`b`?" and sums $`a \cdot \mu(\{x : a \leq f(x) < b\})`.
 
@@ -41,7 +41,7 @@ $`\int f \, d\mu = \lim_{n \to \infty} \int f_n \, d\mu`
 
 (in particular, $`\int f \, d\mu` may be infinite).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Intuition.** You can swap the limit and the integral when the sequence is increasing. The "mass" cannot escape to infinity because the functions are growing.
 
@@ -57,7 +57,7 @@ $`\int \mathbf{1}_{\mathbb{R}} \, d\lambda = \lim_n \int \mathbf{1}_{[0,n]} \, d
 **Theorem (Fatou).** If $`f_n \geq 0` are measurable functions, then
 $`\int \liminf_{n \to \infty} f_n \, d\mu \leq \liminf_{n \to \infty} \int f_n \, d\mu`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Intuition.** Fatou's lemma is the weakest of the three fundamental convergence theorems: it gives an inequality (≤) rather than an equality. It requires only nonnegativity, no monotonicity, and no dominating function. It is typically proved first and serves as a stepping stone to the dominated convergence theorem.
 
@@ -77,7 +77,7 @@ A sharper example: $`f_n = n \cdot \mathbf{1}_{(0, 1/n)}`. Then $`f_n \to 0` a.e
 **Theorem (DCT).** If $`f_n \to f` pointwise a.e., and there exists a measurable $`g` with $`|f_n| \leq g` for all $`n` and $`\int g \, d\mu < \infty`, then
 $`\int f \, d\mu = \lim_{n \to \infty} \int f_n \, d\mu`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Intuition.** If the sequence is "trapped" by an integrable function, you can pass the limit through the integral. The dominating function $`g` prevents mass from escaping.
 
@@ -96,7 +96,7 @@ $`\int_{X \times Y} f \, d(\mu \times \nu) = \int_X \left(\int_Y f(x,y) \, d\nu(
 
 **Fubini's theorem.** If $`f` is measurable on $`X \times Y` and $`\int_{X \times Y} |f| \, d(\mu \times \nu) < \infty`, then the iterated integrals exist and are equal to the double integral.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Key difference.** Tonelli requires only nonnegativity (no integrability needed); Fubini requires integrability of $`|f|`.
 

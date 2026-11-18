@@ -19,11 +19,11 @@ The protocol stacks above the physical layer (association, IP, TCP, HTTP, TLS) a
 $`\mathrm{FSPL_{dB}} = 20\log_{10}(d_{\mathrm{km}}) + 20\log_{10}(f_{\mathrm{MHz}}) + 32.44`,
 and the received power is $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}` (all in dB/dBm). The achievable data rate is then bounded by Shannon: $`C = B\log_2(1 + \mathrm{SNR})`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The link budget.** A transmitter radiates power $`P_{tx}`; the wave spreads over a sphere of radius $`d`, so the power density falls as $`1/d^2` (the inverse-square law of [wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md)). Antennas focus the energy: a gain $`G_{tx}` on the transmit side and $`G_{rx}` on the receive side. Collecting the terms in decibels gives the link budget: $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}`. The Friis equation behind the FSPL formula also carries a $`20\log_{10}(f)` term: at higher frequencies, the same aperture antenna captures less power, which is why mmWave links are short-range.
+**The link budget.** A transmitter radiates power $`P_{tx}`; the wave spreads over a sphere of radius $`d`, so the power density falls as $`1/d^2` (the inverse-square law of [wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md)). Antennas focus the energy: a gain $`G_{tx}` on the transmit side and $`G_{rx}` on the receive side. Collecting the terms in decibels gives the link budget: $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}`. The Friis equation behind the FSPL formula also carries a $`20\log_{10}(f)` term: at higher frequencies, the same aperture antenna captures less power, which is why mmWave links are short-range.
 
-**Step 2 — A worked example.** A Wi-Fi access point at 2.4 GHz, 1 m from a laptop: FSPL = 32.44 + 20·log₁₀(0.001) + 20·log₁₀(2400) = 32.44 − 60 + 67.6 ≈ 60 dB. With P_tx = 20 dBm (100 mW) and 0 dB gains, the receiver gets −40 dBm — comfortably above a typical −80 dBm sensitivity. At 100 m the path loss is 80 dB and the received power −60 dBm: still workable, but with much less margin.
+**A worked example.** A Wi-Fi access point at 2.4 GHz, 1 m from a laptop: FSPL = 32.44 + 20·log₁₀(0.001) + 20·log₁₀(2400) = 32.44 − 60 + 67.6 ≈ 60 dB. With P_tx = 20 dBm (100 mW) and 0 dB gains, the receiver gets −40 dBm — comfortably above a typical −80 dBm sensitivity. At 100 m the path loss is 80 dB and the received power −60 dBm: still workable, but with much less margin.
 
 <svg width="640" height="300" viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Free-space path loss versus distance at 2.4 GHz and 5 GHz">
   <rect x="0" y="0" width="640" height="300" fill="#fafafa"/>
@@ -48,15 +48,15 @@ and the received power is $`P_{rx} = P_{tx} + G_{tx} + G_{rx} - \mathrm{FSPL}` (
   <text x="90" y="40" font-size="12" fill="#555">+20 dB per decade of distance</text>
 </svg>
 
-**Step 3 — Modulation versus range.** A receiver needs a minimum signal-to-noise ratio (SNR) per modulation: QPSK carries 2 bits/symbol at ~10 dB SNR; 256-QAM carries 8 bits/symbol but needs ~28 dB; 1024-QAM needs ~35 dB. Since SNR falls with distance, real systems use **adaptive modulation**: full speed close to the access point, dropping to QPSK at the cell edge. This is the fundamental throughput-versus-range trade-off of every wireless interface below.
+**Modulation versus range.** A receiver needs a minimum signal-to-noise ratio (SNR) per modulation: QPSK carries 2 bits/symbol at ~10 dB SNR; 256-QAM carries 8 bits/symbol but needs ~28 dB; 1024-QAM needs ~35 dB. Since SNR falls with distance, real systems use **adaptive modulation**: full speed close to the access point, dropping to QPSK at the cell edge. This is the fundamental throughput-versus-range trade-off of every wireless interface below.
 
-**Step 4 — Multipath fading.** In indoor and urban environments the wave reaches the receiver by many reflected paths of different lengths. The copies add constructively or destructively depending on frequency and position, so the received power fluctuates (fading) rather than following a clean inverse-square curve. Two standard mitigations: **OFDM** splits the band into many narrow sub-carriers so that each experiences only flat fading, and **MIMO** uses multiple antennas so that several independent fading paths exist simultaneously.
+**Multipath fading.** In indoor and urban environments the wave reaches the receiver by many reflected paths of different lengths. The copies add constructively or destructively depending on frequency and position, so the received power fluctuates (fading) rather than following a clean inverse-square curve. Two standard mitigations: **OFDM** splits the band into many narrow sub-carriers so that each experiences only flat fading, and **MIMO** uses multiple antennas so that several independent fading paths exist simultaneously.
 
-**Step 5 — Explore it interactively.** The simulator below computes the link budget and Shannon-limited data rate for five real interfaces. Move the distance slider and watch the achievable modulation fall as the SNR drops.
+**Explore it interactively.** The simulator below computes the link budget and Shannon-limited data rate for five real interfaces. Move the distance slider and watch the achievable modulation fall as the SNR drops.
 
 <iframe src="./Wireless-interfaces.simulation.html" title="Wireless link budget simulator: path loss, SNR and data rate versus distance for five wireless interfaces"></iframe>
 
-**Step 6 — Sources and limits.** The Shannon bound $`C = B\log_2(1+\mathrm{SNR})` is derived in [Communication](../../Information-Theory/Communication.md); the wave phenomena (reflection, diffraction, inverse-square spreading) in [Wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md) and [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md).
+**Sources and limits.** The Shannon bound $`C = B\log_2(1+\mathrm{SNR})` is derived in [Communication](../../Information-Theory/Communication.md); the wave phenomena (reflection, diffraction, inverse-square spreading) in [Wave propagation](../../../Physics/Mechanics/Oscillations/Wave-Propagation.md) and [Electromagnetism](../../../Physics/Interactions/Electromagnetism/Readme.md).
 
 <details><summary>Example problem</summary>
 
@@ -78,11 +78,11 @@ P_rx = 30 + 5 + 0 − 89.3 = −54.3 dBm.
 
 **Definition.** Wi-Fi is a shared-medium, OFDM-based wireless LAN. Wi-Fi 6 (802.11ax, 2019) operates at 2.4 GHz and 5 GHz; its 9.6 Gb/s peak PHY rate requires 8 spatial streams × 160 MHz × 1024-QAM (MCS11, rate 5/6): 8 × 1201 Mb/s ≈ 9.6 Gb/s. Wi-Fi 6E (2021) adds the 6 GHz band. Wi-Fi 7 (802.11be, 2024) adds 320 MHz channels and 4096-QAM.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Sharing the medium.** All devices in a cell share the same frequency band. Classic Wi-Fi coordinates access with CSMA/CA (Carrier Sense Multiple Access with Collision Avoidance): listen before transmitting, back off a random time if busy. Wi-Fi 6 adds OFDMA (Orthogonal Frequency-Division Multiple Access): the access point schedules groups of OFDM sub-carriers to several users simultaneously, which is far more efficient for many small packets.
+**Sharing the medium.** All devices in a cell share the same frequency band. Classic Wi-Fi coordinates access with CSMA/CA (Carrier Sense Multiple Access with Collision Avoidance): listen before transmitting, back off a random time if busy. Wi-Fi 6 adds OFDMA (Orthogonal Frequency-Division Multiple Access): the access point schedules groups of OFDM sub-carriers to several users simultaneously, which is far more efficient for many small packets.
 
-**Step 2 — OFDM sub-carriers.** The channel is divided into many narrow sub-carriers (78.125 kHz each in 802.11ax), modulated independently. Because each sub-carrier is narrow compared with the channel's frequency-selective fading, each experiences only *flat* fading — this is the multipath defence from [Wireless link fundamentals](#wireless-link-fundamentals). The diagram shows an OFDMA frame: the AP assigns sub-carrier groups (resource units) to different users.
+**OFDM sub-carriers.** The channel is divided into many narrow sub-carriers (78.125 kHz each in 802.11ax), modulated independently. Because each sub-carrier is narrow compared with the channel's frequency-selective fading, each experiences only *flat* fading — this is the multipath defence from [Wireless link fundamentals](#wireless-link-fundamentals). The diagram shows an OFDMA frame: the AP assigns sub-carrier groups (resource units) to different users.
 
 <svg width="640" height="220" viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OFDM sub-carriers and OFDMA resource-unit assignment in a 20 MHz Wi-Fi channel">
   <rect x="0" y="0" width="640" height="220" fill="#fafafa"/>
@@ -110,13 +110,13 @@ P_rx = 30 + 5 + 0 − 89.3 = −54.3 dBm.
   <text x="20" y="208" font-size="13" fill="#333">MIMO multiplies this by the number of spatial streams.</text>
 </svg>
 
-**Step 3 — The bands and channels.** 2.4 GHz: three non-overlapping 20 MHz channels (11 channels defined in North America, 13 in Europe). 5 GHz: up to 25 non-overlapping 20 MHz channels depending on region, aggregable into 40/80/160 MHz. 6 GHz (Wi-Fi 6E/7): 7 × 160 MHz channels, or 3 × 320 MHz channels for Wi-Fi 7. Wider channels raise the data rate proportionally but concentrate interference and reduce the number of non-overlapping networks.
+**The bands and channels.** 2.4 GHz: three non-overlapping 20 MHz channels (11 channels defined in North America, 13 in Europe). 5 GHz: up to 25 non-overlapping 20 MHz channels depending on region, aggregable into 40/80/160 MHz. 6 GHz (Wi-Fi 6E/7): 7 × 160 MHz channels, or 3 × 320 MHz channels for Wi-Fi 7. Wider channels raise the data rate proportionally but concentrate interference and reduce the number of non-overlapping networks.
 
-**Step 4 — MIMO.** Multiple antennas at both ends create independent spatial streams: spatial multiplexing multiplies throughput by the stream count, while beamforming focuses energy toward a client and extends range (see the 5G section for the beamforming diagram — the principle is identical).
+**MIMO.** Multiple antennas at both ends create independent spatial streams: spatial multiplexing multiplies throughput by the stream count, while beamforming focuses energy toward a client and extends range (see the 5G section for the beamforming diagram — the principle is identical).
 
-**Step 5 — Worked example (the 9.6 Gb/s peak).** The standard's table value for HE160 MCS11 (1024-QAM, rate 5/6) is 1201 Mb/s per stream at 400 ns guard interval (after pilots, training fields and overhead). Eight spatial streams: 8 × 1201 = 9608 ≈ **9.6 Gb/s**. Real throughput is ~60–70% of PHY rate after framing, ACKs and retransmissions.
+**Worked example (the 9.6 Gb/s peak).** The standard's table value for HE160 MCS11 (1024-QAM, rate 5/6) is 1201 Mb/s per stream at 400 ns guard interval (after pilots, training fields and overhead). Eight spatial streams: 8 × 1201 = 9608 ≈ **9.6 Gb/s**. Real throughput is ~60–70% of PHY rate after framing, ACKs and retransmissions.
 
-**Step 6 — Sources.** [IEEE 802.11ax](https://www.ieee802.org/11/) defines the rate tables used above; [802.11be (Wi-Fi 7)](https://www.ieee802.org/11/Reports/tgbe_update.htm) adds 320 MHz and 4096-QAM.
+**Sources.** [IEEE 802.11ax](https://www.ieee802.org/11/) defines the rate tables used above; [802.11be (Wi-Fi 7)](https://www.ieee802.org/11/Reports/tgbe_update.htm) adds 320 MHz and 4096-QAM.
 
 <details><summary>Example problem</summary>
 
@@ -136,11 +136,11 @@ From the 802.11ax rate table, HE80 MCS9 (256-QAM, 5/6) is 573.5 Mb/s per stream 
 
 **Definition.** Bluetooth is a short-range (1–100 m), low-power, point-to-point or point-to-multipoint personal-area interface at 2.4 GHz. Bluetooth Low Energy (LE) hops once per connection event, with a connection interval from 7.5 ms to 4 s (up to ~133 hops/s); classic BR/EDR hops 1600 times per second. Data rates: up to 2 Mb/s (LE 2M PHY) or 3 Mb/s (BR/EDR).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Design goals.** Bluetooth targets personal-area networking: headphones, keyboards, mice, wearables. The driving constraints are power (µW in sleep, mW transmitting) and cost, not peak throughput — a sensor that must run a year on a coin cell accepts 100 ms of latency to save radio-on time.
+**Design goals.** Bluetooth targets personal-area networking: headphones, keyboards, mice, wearables. The driving constraints are power (µW in sleep, mW transmitting) and cost, not peak throughput — a sensor that must run a year on a coin cell accepts 100 ms of latency to save radio-on time.
 
-**Step 2 — Frequency hopping.** The 2.4 GHz band is crowded (Wi-Fi, microwave ovens, Zigbee). Bluetooth defends itself with FHSS: 79 × 1 MHz channels (BR/EDR) or 40 × 2 MHz channels (LE), hopping pseudo-randomly. A narrowband interferer only corrupts the occasional hop; the link retransmits and adapts the channel map. The animation below shows a BLE connection hopping across its 37 data channels (37–39 are reserved for advertising); the red channels are corrupted by a fixed Wi-Fi network.
+**Frequency hopping.** The 2.4 GHz band is crowded (Wi-Fi, microwave ovens, Zigbee). Bluetooth defends itself with FHSS: 79 × 1 MHz channels (BR/EDR) or 40 × 2 MHz channels (LE), hopping pseudo-randomly. A narrowband interferer only corrupts the occasional hop; the link retransmits and adapts the channel map. The animation below shows a BLE connection hopping across its 37 data channels (37–39 are reserved for advertising); the red channels are corrupted by a fixed Wi-Fi network.
 
 <div style="border:1px solid #ccc;border-radius:4px;padding:10px;max-width:660px;background:#fafafa">
 <svg id="fhss-svg" width="640" height="170" viewBox="0 0 640 170" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -191,11 +191,11 @@ From the 802.11ax rate table, HE80 MCS9 (256-QAM, 5/6) is 573.5 Mb/s per stream 
 })();
 </script>
 
-**Step 3 — Connection events and power.** A BLE connection exchanges data only during short *connection events*, separated by the connection interval (7.5 ms – 4 s, negotiated). One frequency hop occurs per connection event. A longer interval means fewer hops, less radio-on time, lower power, more latency — the central trade-off of BLE scheduling.
+**Connection events and power.** A BLE connection exchanges data only during short *connection events*, separated by the connection interval (7.5 ms – 4 s, negotiated). One frequency hop occurs per connection event. A longer interval means fewer hops, less radio-on time, lower power, more latency — the central trade-off of BLE scheduling.
 
-**Step 4 — Worked example.** A BLE mouse with a 100 ms connection interval wakes for ~2 ms per event: a duty cycle of ~2%, averaging tens of µW. A BR/EDR audio link instead streams continuously at 1600 hops/s, accepting ~1 mW for constant throughput.
+**Worked example.** A BLE mouse with a 100 ms connection interval wakes for ~2 ms per event: a duty cycle of ~2%, averaging tens of µW. A BR/EDR audio link instead streams continuously at 1600 hops/s, accepting ~1 mW for constant throughput.
 
-**Step 5 — Sources.** The [Bluetooth Core Specification](https://www.bluetooth.com/specifications/) defines the hopping sequences, channel map and connection intervals.
+**Sources.** The [Bluetooth Core Specification](https://www.bluetooth.com/specifications/) defines the hopping sequences, channel map and connection intervals.
 
 <details><summary>Example problem</summary>
 
@@ -215,9 +215,9 @@ A Bluetooth LE audio stream (LC3 codec) requires 200 kbps. The BLE LE 1M PHY rat
 
 **Definition.** NFC is a short-range (≤ 4 cm), contactless, 13.56 MHz wireless interface for data exchange and payment. It uses inductive coupling (magnetic near field) rather than radiative propagation, with data rates of 106–424 kbps (ISO/IEC 14443).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Near field versus far field.** Every antenna has two regions. In the *far field*, energy radiates away as waves and power falls as $`1/r^2`. In the *near field* (within roughly one wavelength: 22 m at 13.56 MHz), the dominant interaction is magnetic coupling between loop antennas, and the coupled energy falls as $`1/r^3`. That extra power of $`r` is what confines NFC to centimetres — a security feature as much as a limitation: eavesdropping or relay attacks require proximity.
+**Near field versus far field.** Every antenna has two regions. In the *far field*, energy radiates away as waves and power falls as $`1/r^2`. In the *near field* (within roughly one wavelength: 22 m at 13.56 MHz), the dominant interaction is magnetic coupling between loop antennas, and the coupled energy falls as $`1/r^3`. That extra power of $`r` is what confines NFC to centimetres — a security feature as much as a limitation: eavesdropping or relay attacks require proximity.
 
 <svg width="640" height="300" viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Inductive 1/r-cubed versus radiative 1/r-squared field decay">
   <rect x="0" y="0" width="640" height="300" fill="#fafafa"/>
@@ -236,13 +236,13 @@ A Bluetooth LE audio stream (LC3 codec) requires 200 kbps. The BLE LE 1M PHY rat
   <text x="266" y="72" font-size="12" fill="#555">has already fallen ~30 dB below 1/r²</text>
 </svg>
 
-**Step 2 — Load modulation.** The tag is passive: it has no battery. The reader's 13.56 MHz field induces a current in the tag's loop antenna, which powers the tag's chip. The tag then answers by *loading* its antenna slightly, which the reader senses as a tiny change in the reader's own field current — speaking by modulating the reader's power, not by transmitting.
+**Load modulation.** The tag is passive: it has no battery. The reader's 13.56 MHz field induces a current in the tag's loop antenna, which powers the tag's chip. The tag then answers by *loading* its antenna slightly, which the reader senses as a tiny change in the reader's own field current — speaking by modulating the reader's power, not by transmitting.
 
-**Step 3 — Worked example.** A contactless payment: the phone is held within 4 cm of the terminal. The reader polls at 13.56 MHz; the card responds with its UID and payment data (EMV). The whole transaction takes under a second; the RF exchange itself is a few milliseconds.
+**Worked example.** A contactless payment: the phone is held within 4 cm of the terminal. The reader polls at 13.56 MHz; the card responds with its UID and payment data (EMV). The whole transaction takes under a second; the RF exchange itself is a few milliseconds.
 
-**Step 4 — Relation to RFID.** NFC is a subset of RFID (Radio-Frequency Identification). The distinction: NFC supports peer-to-peer mode (two powered devices take turns as reader and tag), while classic RFID is strictly reader→tag.
+**Relation to RFID.** NFC is a subset of RFID (Radio-Frequency Identification). The distinction: NFC supports peer-to-peer mode (two powered devices take turns as reader and tag), while classic RFID is strictly reader→tag.
 
-**Step 5 — Sources.** [ISO/IEC 14443](https://www.iso.org/standard/72429.html) defines the A/B modulation and framing; the [NFC Forum](https://nfc-forum.org/) defines the higher-level modes (P2P, card emulation, NDEF data exchange).
+**Sources.** [ISO/IEC 14443](https://www.iso.org/standard/72429.html) defines the A/B modulation and framing; the [NFC Forum](https://nfc-forum.org/) defines the higher-level modes (P2P, card emulation, NDEF data exchange).
 
 <details><summary>Example problem</summary>
 
@@ -262,11 +262,11 @@ An NFC tag answers at 106 kbps. How long does a 16-byte (128-bit) UID take to tr
 
 **Definition.** Zigbee is a low-power, low-rate (250 kb/s) mesh networking interface at 2.4 GHz (also 868/915 MHz), built on the IEEE 802.15.4 PHY/MAC: 16 × 5 MHz channels, DSSS with OQPSK, ~10–100 m per hop, designed for years of battery life in building automation and sensor networks.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Niche.** Zigbee sits between Bluetooth (higher rate, fewer devices, star topology) and LoRa (kilometre range, bits per second). Its niche: hundreds of battery-powered sensors (lights, locks, thermostats) forming a self-healing mesh in a home or building, each message a few dozen bytes.
+**Niche.** Zigbee sits between Bluetooth (higher rate, fewer devices, star topology) and LoRa (kilometre range, bits per second). Its niche: hundreds of battery-powered sensors (lights, locks, thermostats) forming a self-healing mesh in a home or building, each message a few dozen bytes.
 
-**Step 2 — The mesh.** Three node types: a coordinator (one per network), routers (mains-powered, forward packets), and end devices (battery-powered, sleep almost always, talk only to their parent router). Routing over multiple hops extends coverage far beyond a single 10–100 m radio hop; if a router dies, packets reroute — the dashed link below.
+**The mesh.** Three node types: a coordinator (one per network), routers (mains-powered, forward packets), and end devices (battery-powered, sleep almost always, talk only to their parent router). Routing over multiple hops extends coverage far beyond a single 10–100 m radio hop; if a router dies, packets reroute — the dashed link below.
 
 <svg width="640" height="280" viewBox="0 0 640 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Zigbee mesh topology: coordinator, routers, end devices">
   <rect x="0" y="0" width="640" height="280" fill="#fafafa"/>
@@ -292,13 +292,13 @@ An NFC tag answers at 106 kbps. How long does a 16-byte (128-bit) UID take to tr
   <text x="320" y="200" text-anchor="middle" font-size="12" fill="#555">dashed: alternate route if a router dies (self-healing mesh)</text>
 </svg>
 
-**Step 3 — Power discipline.** End devices sleep > 99% of the time and wake on a beacon or a schedule. A sensor sending 20 bytes every 60 s at 250 kb/s is on the air for 20×8/250000 = 0.64 ms per minute — a duty cycle of ~0.001%, which is how a coin cell lasts years.
+**Power discipline.** End devices sleep > 99% of the time and wake on a beacon or a schedule. A sensor sending 20 bytes every 60 s at 250 kb/s is on the air for 20×8/250000 = 0.64 ms per minute — a duty cycle of ~0.001%, which is how a coin cell lasts years.
 
-**Step 4 — Coexistence.** Zigbee shares 2.4 GHz with Wi-Fi and Bluetooth. Its 5 MHz DSSS channels are narrow and low-power; deployments place the network on a 2.4 GHz channel between the Wi-Fi channels (e.g. Zigbee channels 15, 20 or 25 sit between the popular Wi-Fi 1, 6 and 11).
+**Coexistence.** Zigbee shares 2.4 GHz with Wi-Fi and Bluetooth. Its 5 MHz DSSS channels are narrow and low-power; deployments place the network on a 2.4 GHz channel between the Wi-Fi channels (e.g. Zigbee channels 15, 20 or 25 sit between the popular Wi-Fi 1, 6 and 11).
 
-**Step 5 — Related low-power and wide-area interfaces.** **UWB** (802.15.4z, ~500 MHz bandwidth at 6–8 GHz) trades range (~10 m) for centimetre-precision ranging — used for digital car keys and asset trackers. **LoRa** uses sub-GHz ISM bands with chirp spread spectrum to trade rate (kb/s) for kilometres of range in IoT telemetry. **GNSS** (GPS, Galileo: L-band 1.1–1.6 GHz) is a receive-only wireless interface: one-way satellite broadcasts, position computed from the time-of-arrival of four or more satellites.
+**Related low-power and wide-area interfaces.** **UWB** (802.15.4z, ~500 MHz bandwidth at 6–8 GHz) trades range (~10 m) for centimetre-precision ranging — used for digital car keys and asset trackers. **LoRa** uses sub-GHz ISM bands with chirp spread spectrum to trade rate (kb/s) for kilometres of range in IoT telemetry. **GNSS** (GPS, Galileo: L-band 1.1–1.6 GHz) is a receive-only wireless interface: one-way satellite broadcasts, position computed from the time-of-arrival of four or more satellites.
 
-**Step 6 — Sources.** [IEEE 802.15.4](https://www.ieee802.org/15/) defines PHY and MAC; the [Connectivity Standards Alliance](https://csa-iot.org/) defines the Zigbee routing and application layers on top.
+**Sources.** [IEEE 802.15.4](https://www.ieee802.org/15/) defines PHY and MAC; the [Connectivity Standards Alliance](https://csa-iot.org/) defines the Zigbee routing and application layers on top.
 
 <details><summary>Example problem</summary>
 
@@ -318,11 +318,11 @@ Payload on-air time: 20 × 8 / 250000 = 0.64 ms; with 2× overhead ≈ 1.3 ms pe
 
 **Definition.** 5G NR (New Radio, 3GPP) is a wide-area cellular wireless interface operating at sub-6 GHz (FR1) and mmWave (FR2: 24–71 GHz). The IMT-2020 peak downlink requirement is 20 Gb/s (and 100 Mb/s for mid-band cell-edge users), reached with wide aggregated bandwidths and 8-layer MIMO.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Flexible OFDM numerology.** 5G NR uses OFDM (downlink) and DFT-s-OFDM (uplink, lower peak-to-average power for handsets) with scalable sub-carrier spacing: 15, 30, 60, 120 or 240 kHz. The spacing sets the slot length: a slot is 14 OFDM symbols, so at 15 kHz a slot is 1 ms, at 30 kHz 0.5 ms, at 120 kHz 0.125 ms — finer spacing for wide coverage, coarser for low latency and mmWave.
+**Flexible OFDM numerology.** 5G NR uses OFDM (downlink) and DFT-s-OFDM (uplink, lower peak-to-average power for handsets) with scalable sub-carrier spacing: 15, 30, 60, 120 or 240 kHz. The spacing sets the slot length: a slot is 14 OFDM symbols, so at 15 kHz a slot is 1 ms, at 30 kHz 0.5 ms, at 120 kHz 0.125 ms — finer spacing for wide coverage, coarser for low latency and mmWave.
 
-**Step 2 — Massive MIMO and beamforming.** Base stations use 64–256 antenna elements. Driving each element with a controlled phase shift makes the wavefronts add constructively in one direction and cancel elsewhere: a steerable beam with ~10·log₁₀(N) dB of array gain (18 dB for 64 elements) aimed at each user. This is what lets the same spectrum serve many users simultaneously without interfering.
+**Massive MIMO and beamforming.** Base stations use 64–256 antenna elements. Driving each element with a controlled phase shift makes the wavefronts add constructively in one direction and cancel elsewhere: a steerable beam with ~10·log₁₀(N) dB of array gain (18 dB for 64 elements) aimed at each user. This is what lets the same spectrum serve many users simultaneously without interfering.
 
 <svg width="640" height="300" viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Massive MIMO beamforming: a 64-element array steers beams toward two users">
   <rect x="0" y="0" width="640" height="300" fill="#fafafa"/>
@@ -351,11 +351,11 @@ Payload on-air time: 20 × 8 / 250000 = 0.64 ms; with 2× overhead ≈ 1.3 ms pe
   <text x="200" y="186" font-size="12" fill="#555">cancellation elsewhere → little inter-user interference</text>
 </svg>
 
-**Step 3 — mmWave and slicing.** FR2 (24–71 GHz) offers up to 400 MHz per carrier but suffers the frequency term of the path-loss formula plus atmospheric absorption: ~100–200 m cells, suited to stadiums and dense urban hotspots. Network slicing lets one physical network carry multiple virtual networks with different QoS (IoT, URLLC, eMBB).
+**mmWave and slicing.** FR2 (24–71 GHz) offers up to 400 MHz per carrier but suffers the frequency term of the path-loss formula plus atmospheric absorption: ~100–200 m cells, suited to stadiums and dense urban hotspots. Network slicing lets one physical network carry multiple virtual networks with different QoS (IoT, URLLC, eMBB).
 
-**Step 4 — Worked example.** A mid-band deployment: 3.5 GHz, 100 MHz, 4-layer MIMO. Per stream, 100 MHz at 30 kHz spacing gives 273 resource blocks × 12 = 3276 sub-carriers; at 256-QAM (8 bits/symbol) with 14 symbols per 0.5 ms slot, that is 3276 × 8 × 14 / 0.0005 ≈ 734 Mb/s per stream, ≈ 2.9 Gb/s for 4 streams before overhead — consistent with real-world mid-band 5G measurements of 1–2 Gb/s.
+**Worked example.** A mid-band deployment: 3.5 GHz, 100 MHz, 4-layer MIMO. Per stream, 100 MHz at 30 kHz spacing gives 273 resource blocks × 12 = 3276 sub-carriers; at 256-QAM (8 bits/symbol) with 14 symbols per 0.5 ms slot, that is 3276 × 8 × 14 / 0.0005 ≈ 734 Mb/s per stream, ≈ 2.9 Gb/s for 4 streams before overhead — consistent with real-world mid-band 5G measurements of 1–2 Gb/s.
 
-**Step 5 — Sources.** [3GPP TS 38.211](https://www.3gpp.org/) defines the OFDM numerology and resource grid; [ITU-R M.2150 (IMT-2020)](https://www.itu.int/rec/R-REC-M.2150) sets the 20 Gb/s peak-rate requirement.
+**Sources.** [3GPP TS 38.211](https://www.3gpp.org/) defines the OFDM numerology and resource grid; [ITU-R M.2150 (IMT-2020)](https://www.itu.int/rec/R-REC-M.2150) sets the 20 Gb/s peak-rate requirement.
 
 <details><summary>Example problem</summary>
 
@@ -375,9 +375,9 @@ Raw division gives 100 MHz / 30 kHz ≈ 3333, but the resource grid is quantised
 
 **Definition.** Satellite communication links ground stations to satellites in LEO (~550 km), MEO (~8000–20000 km) or GEO (35786 km), typically at 2–50 GHz. LEO constellations (Starlink, OneWeb) deliver broadband internet with 20–60 ms latency; GEO delivers broadcast coverage with ~119 ms one-way propagation.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The geometry sets the latency.** One-way propagation delay is slant range / c. The diagram shows the three regimes and the slant range from a ground terminal to a satellite (longer than the altitude, except directly overhead).
+**The geometry sets the latency.** One-way propagation delay is slant range / c. The diagram shows the three regimes and the slant range from a ground terminal to a satellite (longer than the altitude, except directly overhead).
 
 <svg width="640" height="340" viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Orbital regimes with slant range and one-way latency (not to scale)">
   <rect x="0" y="0" width="640" height="340" fill="#fafafa"/>
@@ -402,13 +402,13 @@ Raw division gives 100 MHz / 30 kHz ≈ 3333, but the resource grid is quantised
   <text x="20" y="30" font-size="12" fill="#555">Orbit radii not to scale. Latency = slant range / c.</text>
 </svg>
 
-**Step 2 — Path loss and Doppler.** At 12 GHz over a 1200 km LEO slant range, FSPL = 32.44 + 20·log₁₀(1200) + 20·log₁₀(12000) ≈ 169.6 dB; at 20 GHz over 550 km it is ≈ 173 dB. Both ends answer with high-gain antennas: the Starlink user terminal is a phased array (~1280 elements) that steers its beam electronically as satellites cross the sky. A LEO satellite moves at ~7.5 km/s, so the Doppler shift is Δf = v·f/c = 7500 × 20×10⁹ / 3×10⁸ ≈ **500 kHz** at 20 GHz — three orders of magnitude beyond a terrestrial mobile cell's Doppler, and the terminal must track and compensate it continuously.
+**Path loss and Doppler.** At 12 GHz over a 1200 km LEO slant range, FSPL = 32.44 + 20·log₁₀(1200) + 20·log₁₀(12000) ≈ 169.6 dB; at 20 GHz over 550 km it is ≈ 173 dB. Both ends answer with high-gain antennas: the Starlink user terminal is a phased array (~1280 elements) that steers its beam electronically as satellites cross the sky. A LEO satellite moves at ~7.5 km/s, so the Doppler shift is Δf = v·f/c = 7500 × 20×10⁹ / 3×10⁸ ≈ **500 kHz** at 20 GHz — three orders of magnitude beyond a terrestrial mobile cell's Doppler, and the terminal must track and compensate it continuously.
 
-**Step 3 — Latency and TCP.** LEO one-way is ~4–6 ms of pure propagation per hop (20–60 ms end-to-end with multiple hops and processing); GEO is ~119 ms one-way, so a single-hop echo (terminal → satellite → gateway) round-trips in ~238 ms, and a user-to-user connection across two GEO hops sees ~480–600 ms RTT. Long RTT inflates the bandwidth-delay product, so TCP needs large windows (or satellite-specific proxies) to keep the pipe full — see [Networks](../../Distributed-Systems/Networks.md).
+**Latency and TCP.** LEO one-way is ~4–6 ms of pure propagation per hop (20–60 ms end-to-end with multiple hops and processing); GEO is ~119 ms one-way, so a single-hop echo (terminal → satellite → gateway) round-trips in ~238 ms, and a user-to-user connection across two GEO hops sees ~480–600 ms RTT. Long RTT inflates the bandwidth-delay product, so TCP needs large windows (or satellite-specific proxies) to keep the pipe full — see [Networks](../../Distributed-Systems/Networks.md).
 
-**Step 4 — Worked example.** A Starlink user terminal links to a LEO satellite in Ku-band: downlink 10.7–12.7 GHz, uplink 14.0–14.5 GHz (the Ka-band 20/30 GHz links connect satellites to the gateways). The phased array (~1280 elements) hands the beam from satellite to satellite every few minutes as LEO satellites pass overhead; per-user downlink rates are ~50–250 Mbps.
+**Worked example.** A Starlink user terminal links to a LEO satellite in Ku-band: downlink 10.7–12.7 GHz, uplink 14.0–14.5 GHz (the Ka-band 20/30 GHz links connect satellites to the gateways). The phased array (~1280 elements) hands the beam from satellite to satellite every few minutes as LEO satellites pass overhead; per-user downlink rates are ~50–250 Mbps.
 
-**Step 5 — Sources.** [ITU-R](https://www.itu.int/) regulates the Ku/Ka spectrum allocations; the [CCSDS](https://public.ccsds.org/) defines the space-link protocols used above them.
+**Sources.** [ITU-R](https://www.itu.int/) regulates the Ku/Ka spectrum allocations; the [CCSDS](https://public.ccsds.org/) defines the space-link protocols used above them.
 
 <details><summary>Example problem</summary>
 

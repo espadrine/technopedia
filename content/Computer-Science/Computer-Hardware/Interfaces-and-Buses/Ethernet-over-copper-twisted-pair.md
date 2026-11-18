@@ -16,7 +16,7 @@ Twisted-pair Ethernet is the physical layer of the wired LAN: four balanced copp
 3. **2006 — 10GBASE-T (802.3an).** Ten-fold again, on 4 pairs at 800 MBd with PAM16/DSQ128 coding, Tomlinson–Harashima precoding, and LDPC forward error correction — which is what forced the tighter Cat 6a cable category.
 4. **2016 — 2.5/5GBASE-T (802.3bz) and 25/40GBASE-T (802.3bq).** Two opposite answers to the same question: 802.3bz reuses the 10GBASE-T PHY at lower code rates so installed Cat 5e/Cat 6 plants get multi-gigabit speeds ("NBASE-T"), while 802.3bq pushes copper to 25/40 Gb/s over short 30 m shielded Cat 8 runs in data-centre racks.
 
-<details><summary>Details: the physical plant — connector, pairs, and power</summary>
+<details><summary>EXPLANATION: the physical plant — connector, pairs, and power</summary>
 
 A twisted-pair link is one jacket containing **four twisted pairs** of 0.4–0.6 mm copper, terminated in an **8P8C modular jack** ("RJ45"): 8 pins, each pair on a neighbouring pin pair, with one pair used for transmit and one for receive in the 10/100BASE-T pinout, and all four used bidirectionally in 1000BASE-T. Because each pair is transformer-coupled at both ends, the same four pairs can simultaneously carry **Power over Ethernet (PoE)**: the power source injects a *common-mode* voltage between the pairs (up to 90 W with IEEE 802.3bt), which the data transformers do not see, while the data rides the *differential* signal on each pair. This is copper's quiet killer feature: one cable delivers both the bits and the watts to cameras, access points, and phones — something no fibre can do.
 
@@ -35,7 +35,7 @@ A twisted-pair link is one jacket containing **four twisted pairs** of 0.4–0.6
 <tr><td>Cat 8</td><td>2000 MHz</td><td>shielded (S/FTP)</td><td>25/40 Gb/s in racks</td><td>30 m (per 802.3bq)</td></tr>
 </table>
 
-<details><summary>Details: why bandwidth, not rate, is the spec</summary>
+<details><summary>EXPLANATION: why bandwidth, not rate, is the spec</summary>
 
 The category rating is analog: how far the cable attenuates a sine wave of a given frequency, and how much a pair's signal leaks into its neighbours (crosstalk) and reflects back (return loss). Turning that into a data rate is the PHY's job — which is why the *same* Cat 6a cable carries 1, 2.5, 5, or 10 Gb/s depending on which transceivers you plug in. The PHY spends its noise budget on:
 
@@ -155,7 +155,7 @@ How much information a noisy channel of bandwidth $`B` and signal-to-noise ratio
 })();
 </script>
 
-<details><summary>Details: why PAM16 and DSQ128</summary>
+<details><summary>EXPLANATION: why PAM16 and DSQ128</summary>
 
 10GBASE-T must fit 2.5 Gb/s into each pair's usable bandwidth (~400 MHz Nyquist for 800 MBd). That is 6.25 bits per symbol-period — impossible with 2-level signalling (1 bit) or even PAM4 (2 bits). The trick is to treat **two consecutive PAM16 symbol intervals on a pair as one 2-D symbol**: the 16×16 grid of possible (level, next level) pairs has 256 points, and the DSQ128 constellation keeps only the 128 checkerboard ones, which maximises the minimum distance between points and roughly halves the power needed for the same error rate. (So the "two dimensions" are *time* — two successive levels on the same wire — not two wires or two carriers.)
 
@@ -219,7 +219,7 @@ Spectral efficiency = 2.5 Gb/s ÷ 400 MHz = 6.25 bits/s/Hz. Solve log₂(1 + SNR
 </svg>
 </div>
 
-<details><summary>Details: how cancellation actually works</summary>
+<details><summary>EXPLANATION: how cancellation actually works</summary>
 
 All three interferers are *deterministic* given the channel: the cable is a linear, time-invariant system over the life of a link, so each interferer is a filtered copy of a signal the PHY chip itself knows (it generated the transmit symbols on all four pairs, and it measured the channel during link training). The receiver therefore runs one adaptive filter per interferer — 7 per wire, 28 per link — subtracting each filtered copy from the received sample before the slicer decides which constellation point was sent.
 
@@ -268,7 +268,7 @@ The FEXT aggressor's signal must travel the full cable length *before* it leaks 
 </svg>
 </div>
 
-<details><summary>Details: negotiation vs training — two different decisions</summary>
+<details><summary>EXPLANATION: negotiation vs training — two different decisions</summary>
 
 Autonegotiation is often confused with link training, but they answer different questions:
 
@@ -337,13 +337,13 @@ Autonegotiation requires *both* sides to speak it. Old 10/100-only hardware used
 </svg>
 </div>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Copper wins on cost, power, and convenience (power over Ethernet, existing building wiring); fibre wins on reach, immunity to electrical noise, and bandwidth ceiling. The crossover is around 100 m — which is exactly why 10GBASE-T stops there. The physics is unforgiving on both sides: copper's attenuation grows roughly as $`\sqrt{f}` per metre (skin effect — see [Cabled external interconnects](./Cabled-external-interconnects.md)), while fibre's attenuation is a flat ~0.2–3 dB/km with no frequency-dependent wall below hundreds of GHz. So every doubling of a copper PHY's rate must be paid for in *distance*, in cable quality, or in silicon (DSP, FEC) — fibre pays none of that tax until reach is measured in kilometres.
 
 Per-PHY fibre reaches vary widely — 10GBASE-SR alone spans roughly 26–400 m depending on the fibre grade (OM3 vs OM4), short-reach copper twinax (10GBASE-CR) sits below even that at ~7 m, and 10GBASE-ER reaches 40 km — but the order of magnitude is what matters: fibre begins where copper's 100 m wall ends.
 
-See [Optical interconnects](./Optical-interconnects.md) for the fibre side, and [Board-level interconnects](./Board-level-interconnects.md) for the chip-to-chip link (XFI) between the MAC and the PHY itself.
+See [Optical interconnects](./Optical-interconnects.md) for the fibre side, and [Board-level interconnects](./Board-level-electrical-interconnects.md) for the chip-to-chip link (XFI) between the MAC and the PHY itself.
 
 <details><summary>Example problem</summary>
 
@@ -363,7 +363,7 @@ Fibre — a pair of 10GBASE-SR (or -LR) transceivers with a 300 m fibre run; OM4
 
 The simulation below puts the pieces together: pick a cable category and drag the length, and watch which PHY rates close the link — the available SNR (from insertion loss and crosstalk, both growing with length and frequency) against each PHY's Shannon requirement plus an implementation margin, with the standards' certified reach limits enforced on top.
 
-<iframe src="./Ethernet-copper.simulation.html" title="Twisted-pair link budget: pick a cable category and length, see which PHY rates close the link" style="width:100%;height:640px;border:1px solid #ccc"></iframe>
+<iframe src="./Ethernet-over-copper-twisted-pair.simulation.html" title="Twisted-pair link budget: pick a cable category and length, see which PHY rates close the link" style="width:100%;height:640px;border:1px solid #ccc"></iframe>
 
 Notice the two distinct failure modes: below the certified reach, a rate fails only when the *computed* margin goes negative (physics); beyond the certified reach, it fails even when the margin looks positive, because the certification also accounts for alien crosstalk from neighbouring cables, which the within-the-cable model cannot see (standards + installation practice).
 

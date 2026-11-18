@@ -10,7 +10,7 @@ The zeroth law defines thermal equilibrium and the temperature variable. It is t
 
 **Definition.** Two systems in thermal contact are in *thermal equilibrium* when no net heat flows between them. The relation "is in thermal equilibrium with" ($`\sim`) is an equivalence relation: reflexive, symmetric, and transitive. Transitivity is the zeroth law proper.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Operational definition and diathermal walls.**
 
@@ -95,7 +95,7 @@ No. After the first step, A &#8764; B (hot water and spoon share a temperature).
 T_A = T_B \quad \Longleftrightarrow \quad \text{A and B in thermal equilibrium}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Intensive vs. extensive.**
 
@@ -164,7 +164,7 @@ T_{\text{emp}} = T_0 \, \frac{X}{X_0}
 
 where $`T_0`, $`X_0` are the values at a fixed reference point.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The empirical construction.**
 

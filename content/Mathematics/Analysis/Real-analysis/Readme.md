@@ -20,7 +20,7 @@ Real analysis puts calculus on a rigorous footing on the real line: it studies l
 <tr><td>[Multivariable analysis](./Multivariable-analysis.md)</td><td>How do limits, derivatives, and integrals behave in ℝⁿ?</td><td>partial derivatives, Jacobian, multivariable mean value theorem, change of variables, line and surface integrals</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How the branches nest.** Limits and continuity is the foundation: every derivative is a limit of a difference quotient, and every integral is a limit of sums. Differentiation and integration both build on the ε–δ language and on compactness (which guarantees extrema and existence). Sequences and series is the infinite-process layer: it asks when an infinite sum converges and how to test it.
 

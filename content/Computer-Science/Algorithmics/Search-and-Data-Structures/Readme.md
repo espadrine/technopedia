@@ -8,7 +8,7 @@ Search and data structures study how to organize data so that algorithms can acc
 - They bound the cost of lookup, insertion, and deletion in terms of collection size.
 - They compose: a database index is a B-tree, a search engine is an inverted index of posting lists, a graph is a set of adjacency lists.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The five classes partition search problems by the *access pattern* that defines the query, and every query reduces to exactly one of them: **positional** (give me the item at index *i*), **key-based** (give me the item with key *k*, or all keys in a range), **pattern** (find where a string or regular expression occurs), **relational** (select the tuples satisfying a predicate over several fields), or **connectivity** (reach every node and edge from a start point). The classes are non-overlapping because each names a different thing the query is *about* — a position, a key, a pattern, a predicate, or a relation — and no query is about two of them at once. They also build on one another: flat structures give $`O(1)` positional access with no ordering; hierarchical structures add ordering for $`O(\log n)` key access; text structures exploit the alphabet to match patterns; relational structures combine multiple key dimensions with predicates; graph structures generalize to arbitrary connectivity.
 
@@ -33,8 +33,6 @@ The five classes partition search problems by the *access pattern* that defines 
 </table>
 
 Range-query structures (segment trees, interval trees, range trees) answer "find all items in a range" and are covered across two classes rather than a separate one: ordered key-value stores (B-trees, skip lists) handle one-dimensional key ranges, while text search (suffix trees, tries) handles ranges over the alphabet. See [Key-Value Stores](./Key-Value-Stores.md) and [Text Search](./Text-Search.md).
-
-<iframe src="../Search-and-Data-Structures.simulation.html" title="Interactive visualizations of hash tables, B-trees, and graph traversal"></iframe>
 
 > **Authoritative sources**
 > - [Introduction to Algorithms (CLRS)](https://mitpress.mit.edu/9780262033848/introduction-to-algorithms/)

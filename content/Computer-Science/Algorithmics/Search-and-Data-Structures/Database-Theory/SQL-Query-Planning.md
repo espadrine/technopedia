@@ -15,7 +15,7 @@ A `SELECT … FROM … WHERE …` corresponds to $`\pi(\sigma(R))`; a `JOIN` cor
 - `SELECT DISTINCT col FROM t` → $`\pi_{\text{col}}(t)` (set semantics)
 - `SELECT col FROM t ORDER BY col LIMIT k` → top-$`k` selection (not pure relational algebra; requires ordering)
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Declarative vs. imperative**: SQL specifies *what* to compute, not *how*. The optimizer is free to reorder joins, push predicates, choose indexes, and parallelize. This is analogous to how a compiler optimizes an imperative program: the semantics are fixed, the execution strategy is not.
 
@@ -49,7 +49,7 @@ A join of relations $`R` and $`S` can be executed by three physical algorithms. 
 <tr><td>Sort-merge</td><td>O(|R| log |R| + |S| log |S|); O(|R| + |S|) if pre-sorted</td><td>sort runs</td><td>equality and ranges</td><td>yes, on join key</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **How the optimizer chooses**: a hash join wins for large unsorted inputs with an equality predicate and no useful index. An index nested-loop wins when the outer relation is small (or highly selective after filtering) and the inner has an index — the cost is one index probe per outer row. A sort-merge wins when the inputs are already sorted (via indexes or a required sort downstream), or for range joins. See [Relational Algebra](./Relational-Algebra.md) for the algebraic definition of the join operator itself.
 
@@ -134,7 +134,7 @@ This grows super-exponentially: 12 orders for $`k = 3`, 665,280 for $`k = 7`. No
 
 **Parallel query**: modern optimizers can split a scan or join across multiple CPU cores. The cost model is adjusted: cost / number of workers (with a setup overhead).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Selectivity estimation**: the optimizer uses histograms, most-common-value lists, and distinct-count statistics per column; for conjunctive predicates (`AND`) it multiplies selectivities, assuming independence — an assumption that fails for correlated columns and is a classic source of plan misestimates. `ANALYZE` (PostgreSQL) or `ANALYZE TABLE` (MySQL) refreshes the statistics.
 
@@ -201,7 +201,7 @@ For a three-table join, the plan is a tree whose leaves are access paths (scans)
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **PostgreSQL EXPLAIN example**:
 ```
@@ -290,4 +290,4 @@ Total cost: ~4 page reads for the tree descent + ~20 leaf-entry reads ≈ 24 I/O
 
 </details>
 
-<iframe src="./SQL.simulation.html" title="B-tree index lookup and query execution plan visualizer"></iframe>
+<iframe src="./SQL-Query-Planning.simulation.html" title="B-tree index lookup and query execution plan visualizer"></iframe>

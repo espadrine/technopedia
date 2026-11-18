@@ -8,11 +8,11 @@ Software engineering studies how to build, test, deploy, and monitor software at
 > - [OpenTelemetry Specification](https://opentelemetry.io/docs/specs/otel/)
 > - [DORA Accelerate State of DevOps Report](https://dora.dev/research/)
 
-## Version control
+## Source code management
 
 **Git** is a distributed version control system. A **commit** is a snapshot of the repository with a message, author, and parent pointer. A **branch** is a movable pointer to a commit. A **merge** combines two branches; a **rebase** replays commits on top of another branch.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The data model
 
@@ -50,7 +50,7 @@ Rebase. Your commits are local (not shared), so rewriting their hashes is safe. 
 
 **Code review** is the practice of a peer examining a change (typically a pull request or merge request) before it is merged. It catches bugs, enforces style, transfers knowledge, and creates a second set of eyes on critical logic.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### What a review covers
 
@@ -91,7 +91,7 @@ Add a mandatory checklist item: "Does every external input (HTTP parameter, file
 
 **Assertion**: a check that a condition holds; if it fails, the test fails. **Regression tests**: tests that verify a previously fixed bug does not reappear. **Fuzzing**: generate random or structured inputs to find crashes and undefined behavior.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The test pyramid
 
@@ -146,7 +146,7 @@ Your team has 500 unit tests and 50 end-to-end tests. The end-to-end suite takes
 
 </details>
 
-## CI/CD
+## Delivery
 
 **CI** (Continuous Integration): every commit triggers a build, test, and static analysis pipeline. Fail fast: the first failing stage stops the pipeline.
 
@@ -154,7 +154,7 @@ Your team has 500 unit tests and 50 end-to-end tests. The end-to-end suite takes
 
 The **DORA metrics** (Deployment Frequency, Lead Time for Changes, Change Failure Rate, Failed Deployment Recovery Time) are the industry-standard framework for measuring software delivery performance. They are tracked in the observability stack and reviewed in team retrospectives.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Pipeline stages
 
@@ -260,7 +260,7 @@ First change: break the monthly deployment into smaller, more frequent deploymen
 
 **Alerting**: notify when a metric exceeds a threshold or a pattern is detected. **SLO** (Service Level Objective): a target (e.g., 99.9% of requests < 200 ms). **Error budget**: the allowed failure rate (0.1%); when exhausted, freeze feature work and fix reliability.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The three pillars
 
@@ -280,7 +280,7 @@ Grafana (metrics), Kibana (logs), Jaeger (traces). Correlate by trace ID: a slow
 
 ### Chaos engineering
 
-Intentionally inject failures (kill a node, add latency, drop packets) to verify that the system behaves as expected. This is a practical application of [Fault Tolerance](../Distributed-Systems/Robustness/Fault-Tolerance.md) principles: you test the system's resilience before a real failure occurs. Tools: Chaos Monkey (Netflix), Litmus (Kubernetes).
+Intentionally inject failures (kill a node, add latency, drop packets) to verify that the system behaves as expected. This is a practical application of [Availability](../Distributed-Systems/Robustness/Availability.md) principles: you test the system's resilience before a real failure occurs. Tools: Chaos Monkey (Netflix), Litmus (Kubernetes).
 
 **Example**: Every Friday at 10:00, a chaos experiment kills one pod in the `payment-service` deployment. The expected behavior: the load balancer routes to the remaining pods, the killed pod is restarted by the orchestrator, and the error rate stays below 0.1%. If the error rate spikes above 1%, the experiment is a failure and the team investigates before the next run.
 
@@ -334,102 +334,3 @@ Action: freeze feature development for one sprint. Use the sprint to: (1) identi
 
 </details>
 
-Software engineering studies how to build, test, deploy, and monitor software at scale. It is relevant whenever a program must be maintained by a team, deployed to production, and kept reliable over time.
-
-> **Authoritative sources**
-> - [The Mythical Man-Month (Brooks)](https://en.wikipedia.org/wiki/The_Mythical_Man-Month)
-> - [Continuous Delivery (Humble & Farley)](https://www.oreilly.com/library/view/continuous-delivery/9780133524809/)
-
-## Version control
-
-**Git** is a distributed version control system. A **commit** is a snapshot of the repository with a message, author, and parent pointer. A **branch** is a movable pointer to a commit. A **merge** combines two branches; a **rebase** replays commits on top of another branch.
-
-<details><summary>Details</summary>
-
-**Git data model**: objects (blobs, trees, commits, tags) stored in a content-addressable store (SHA-1 hash). A commit points to a tree (the file system at that point) and one or more parent commits.
-
-**Branching strategies**:
-- **Git Flow**: `main` (production), `develop` (integration), `feature/*`, `release/*`, `hotfix/*`.
-- **Trunk-based**: everyone commits to `main`; feature flags control rollout. Short-lived branches ($`< 1` day).
-- **GitHub Flow**: `main` + short-lived feature branches; PRs for review.
-
-**Merge vs. rebase**: merge preserves history (a merge commit shows the divergence); rebase creates a linear history (rewrites commit hashes). Rebase is preferred for local commits; merge for shared branches.
-
-</details>
-
-## Testing
-
-**Unit tests**: test a single function or class in isolation. **Integration tests**: test the interaction between components. **Acceptance tests**: test the system against user requirements.
-
-**Assertion**: a check that a condition holds; if it fails, the test fails. **Regression tests**: tests that verify a previously fixed bug does not reappear. **Fuzzing**: generate random or structured inputs to find crashes and undefined behavior.
-
-<details><summary>Details</summary>
-
-**Test pyramid**: many unit tests (fast, cheap), fewer integration tests (slower), few acceptance tests (slowest). Inverted pyramid (many E2E tests) is fragile and slow.
-
-**Property-based testing**: instead of specific inputs, specify properties that must hold for all inputs. `for all lists l: sort(sort(l)) == sort(l)`. Tools: QuickCheck (Haskell), Hypothesis (Python), proptest (Rust).
-
-**Fuzzing**: **coverage-guided fuzzing** (AFL, libFuzzer) uses coverage feedback to guide input generation. **Structure-aware fuzzing** (Jazzer, honggfuzz) uses the program's type information to generate valid inputs.
-
-**Mutation testing**: introduce small bugs (mutations) into the code; if the test suite does not catch the mutation, the tests are insufficient.
-
-</details>
-
-## CI/CD
-
-**CI** (Continuous Integration): every commit triggers a build, test, and static analysis pipeline. Fail fast: the first failing stage stops the pipeline.
-
-**CD** (Continuous Delivery/Deployment): every passing build is deployable. **Continuous Delivery**: a human approves the deployment. **Continuous Deployment**: the deployment is automatic.
-
-<details><summary>Details</summary>
-
-**Pipeline stages**: build → unit test → integration test → security scan → deploy to staging → acceptance test → deploy to production.
-
-**Deployment strategies**:
-- **Blue-green**: two identical environments; switch traffic from blue to green.
-- **Canary**: deploy to a small percentage of users; monitor; roll out or roll back.
-- **Rolling update**: replace instances one at a time (Kubernetes default).
-
-**Infrastructure as Code** (IaC): define infrastructure (servers, networks, databases) in code (Terraform, Pulumi, CloudFormation). Version-controlled, reviewable, reproducible.
-
-</details>
-
-## Observability
-
-**Logging**: structured records of events (timestamp, level, message, context). **Metrics**: numerical time series (CPU, memory, request rate, latency). **Tracing**: distributed traces that follow a request across services (OpenTelemetry, Jaeger).
-
-**Alerting**: notify when a metric exceeds a threshold or a pattern is detected. **SLO** (Service Level Objective): a target (e.g., 99.9% of requests < 200 ms). **Error budget**: the allowed failure rate (0.1%); when exhausted, freeze feature work and fix reliability.
-
-<details><summary>Details</summary>
-
-**The three pillars**: logs (what happened), metrics (how much), traces (how it flowed). Together, they answer: "Is the system healthy? What is wrong? Where did it fail?"
-
-**OpenTelemetry**: a vendor-neutral standard for instrumentation. The SDK collects spans, metrics, and logs; the collector exports them to a backend (Jaeger, Prometheus, Loki).
-
-**Dashboards**: Grafana (metrics), Kibana (logs), Jaeger (traces). Correlate by trace ID: a slow request in the dashboard links to the trace, which links to the logs.
-
-**Chaos engineering**: intentionally inject failures (kill a node, add latency, drop packets) to verify that the system behaves as expected. Tools: Chaos Monkey (Netflix), Litmus (Kubernetes).
-
-</details>
-
-## Example problem
-
-**Problem**: A team of 5 developers works on a web application. They deploy weekly, and each deployment takes 2 hours. A bug is found in production 3 days after deployment. How can they reduce the time-to-detection and time-to-recovery?
-
-<details><summary>Solution</summary>
-
-**Reduce time-to-detection**:
-1. **CI pipeline**: every commit triggers build + unit tests + integration tests. Catches most bugs before they reach production.
-2. **Staging environment**: deploy to a staging environment that mirrors production. Run acceptance tests and smoke tests.
-3. **Monitoring and alerting**: set up metrics (error rate, latency, throughput) and alerts. A spike in 500 errors triggers an alert within minutes, not days.
-4. **Structured logging**: log request IDs, user IDs, and error details. When an alert fires, the on-call engineer can find the relevant logs in seconds.
-
-**Reduce time-to-recovery**:
-1. **Rollback**: keep the previous deployment artifact. Roll back in minutes, not hours.
-2. **Feature flags**: wrap risky features in flags. If a bug is found, disable the flag without redeploying.
-3. **Canary deployment**: deploy to 5% of users first. If the error rate spikes, roll back the canary before it affects all users.
-4. **Blue-green**: keep the old environment running. Switch traffic back if the new deployment fails.
-
-**Result**: weekly 2-hour deployments become daily 10-minute deployments. Bugs are caught in CI (minutes) or in the canary (minutes), not in production (days).
-
-</details>

@@ -38,7 +38,7 @@ For a continuous variable $`x` with drift $`A(x)` and diffusion $`D(x)` (Itô co
   <defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#333"/></marker></defs>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: The master equation as a probability flow.**
 
@@ -131,7 +131,7 @@ where $`S_{AB}(\omega)` is the symmetrized spectral density $`S_{AB}(\omega) = \
   <text x="200" y="195" text-anchor="middle" font-size="10">h*</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: What the FDT says.**
 
@@ -204,7 +204,7 @@ Examples:
 - Fick's law: $`\mathbf{J}_n = -D \nabla n`
 - Ohm's law: $`\mathbf{J}_e = \sigma \mathbf{E}`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: Derivation from time-reversal symmetry.**
 
@@ -251,7 +251,7 @@ The **entropy production rate** is the central organizing principle of nonequili
 
 Near equilibrium, the **minimum entropy production principle** (Prigogine) states that a system with fixed boundary conditions relaxes to the steady state that minimizes $`\sigma_s`. Far from equilibrium, the second law emerges as an inequality from the Jarzynski equality via Jensen's inequality.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: Local entropy balance.**
 
@@ -308,7 +308,7 @@ Far from equilibrium, the **Jarzynski equality** and **Crooks fluctuation theore
 
 where $`W_d` is the work done in a nonequilibrium process and $`\Delta F` is the free-energy difference. These hold for **any** driving protocol, not just linear response.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1: The Jarzynski equality as an exact identity.**
 

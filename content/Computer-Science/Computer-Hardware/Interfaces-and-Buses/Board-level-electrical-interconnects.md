@@ -11,13 +11,13 @@ Board-level interconnects are the copper traces on a PCB and the through-hole or
 
 The interactive simulation below shows how a signal propagates along a PCB trace and reflects at an impedance discontinuity—the central signal-integrity problem at this scale.
 
-<iframe src="./Board-level-interconnects.simulation.html" title="PCB trace signal propagation and reflection at an impedance discontinuity"></iframe>
+<iframe src="./Board-level-electrical-interconnects.simulation.html" title="PCB trace signal propagation and reflection at an impedance discontinuity"></iframe>
 
 ## Memory interfaces (DDR5, HBM3, LPDDR5)
 
 **Definition.** A memory interface is a point-to-point (or shared-bank) electrical link between a memory controller on the CPU/SoC and a DRAM chip or stack. DDR5 uses a 64-bit (x8 × 8) channel per DIMM, split into two independent 32-bit sub-channels; HBM3 stacks 8–16 dies vertically with a 1024-bit wide bus.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 DDR5 (2020) operates at 4800–6400 MT/s per pin. The 64-bit channel is split into two independent 32-bit sub-channels, each with its own command/address bus, allowing the controller to issue a new command to one sub-channel while the other is still completing a transfer (lower effective latency). The data pins (DQ) are single-ended; the clock (CK) and data strobe (DQS_t/DQS_c) are differential pairs on controlled-impedance traces (typically 50 Ω single-ended, 85 Ω differential).
 
@@ -73,7 +73,7 @@ Moving from the dedicated memory link to the general-purpose peripheral intercon
 
 **Definition.** PCIe is a serial, point-to-point, packet-based interconnect using differential signalling, governed by the Link Training and Status State Machine (LTSSM). It connects the CPU to peripherals (GPU, NVMe SSD, NIC) and supports Gen 1 (2.5 GT/s) through Gen 6 (64 GT/s) with PAM4 modulation.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 PCIe replaced the parallel PCI bus in 2003. Each "lane" is a pair of differential signals (TX+/TX−, RX+/RX−). A ×16 link has 16 lanes, giving 16 × 64 Gb/s = 1024 Gb/s = 128 GB/s in one direction at Gen 6.
 
@@ -147,7 +147,7 @@ Stepping down from the multi-gigabit serial links of PCIe, the next class of boa
 
 **Definition.** SPI (Serial Peripheral Interface) is a synchronous, master-slave, 4-wire (SCLK, MOSI, MISO, CS) bus. I²C (Inter-Integrated Circuit) is a synchronous, multi-master, 2-wire (SDA, SCL) bus with address-based arbitration. UART (Universal Asynchronous Receiver-Transmitter) is an asynchronous, point-to-point, 2-wire (TX, RX) serial link. CAN (Controller Area Network) is a differential, multi-master, 2-wire (CAN_H, CAN_L) bus with non-destructive bit-wise arbitration.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 These buses operate at low speeds (100 kHz to 100 MHz) and are used for control, configuration, and low-bandwidth data (sensors, EEPROMs, debug consoles, automotive ECUs).
 
@@ -234,7 +234,7 @@ Finally, as the industry moves toward chiplet-based designs, the interconnect bo
 
 **Definition.** UCIe (Universal Chiplet Interconnect Express) is an open standard for die-to-die interconnects within a package. It specifies up to 32 GT/s per lane over microbumps (short-range, < 1.5 mm) or TSVs (standard-range, 1.5–50 mm), with a protocol layer compatible with CXL and PCIe.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The chiplet revolution (AMD EPYC 2017, Intel 2023) made die-to-die links a major design concern. UCIe 1.1 (2023) standardises the physical and protocol layers so that chiplets from different vendors can be mixed in a package.
 

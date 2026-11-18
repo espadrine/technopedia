@@ -71,7 +71,7 @@ Design patterns are recurring, named solutions to common software design problem
   </g>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 1. Identify the business **entities**, then lay out the business process.
 2. Specify the business **requirements**: for example, the shop should not capture a payment until we know the order is fulfilled; if the client purchases an item, it must be removed from inventory.
@@ -81,7 +81,6 @@ Design patterns are recurring, named solutions to common software design problem
 6. Define the **data structures** inside each entity: for example, the cart entity must contain a list of items, each with a quantity and a price.
 7. Implement the **business logic** for each endpoint in each entity.
 
-In steps 1 thru 4:
 
 **Target the simplest structure that works (Occam's razor).** The goal of decomposition is to reach the system's **Kolmogorov complexity**: the shortest description that still produces the required behavior. Every extra component, interface, or abstraction is a cost you must justify. This is why you **build for the present, not for the future** — a component that anticipates a requirement that never arrives is pure overhead. Note that **requirements increase complexity exponentially**: each new requirement multiplies the interactions you must design for, so the cheapest place to cut complexity is at the requirements, not at the code.
 
@@ -91,17 +90,14 @@ In steps 1 thru 4:
 
 **The factorization/coupling trade-off.** Factorizing (splitting) reduces duplication, but it **increases the blast surface**: more components means more interfaces and more places a change can ripple. The right decomposition is the one where the reduction in duplication and the clarity of each component outweigh the added coupling.
 
-In step 5:
 
 **Keep the coupling low**: a component should talk to as few others as possible, and only through those interfaces. **Avoid leaking abstractions** — an interface must not expose implementation details (a `PaymentGateway` interface should not force callers to know it is backed by a specific provider).
 
 **Separate reads from writes (CQRS).** **Handle data access and data mutation separately in interfaces** — Command Query Responsibility Segregation. A read model optimized for queries and a write model optimized for mutations can have different shapes; keeping them apart means a change to how you query does not force a change to how you write.
 
-In step 6:
 
 **Assign data ownership.** For each type of data, exactly **one component is the source of truth**, and no other component may modify it. Other components read through the owner's interface. This removes write-write conflicts and makes the data flow auditable.
 
-In step 7:
 
 **Optimize only the bottleneck.** **Premature optimization is the root of all evil.** Decompose for clarity and correctness first; measure, and only then optimize the component that actually limits performance.
 </details>
@@ -110,7 +106,7 @@ In step 7:
 
 **Definition.** Group functions (then called **methods**) in a type (then called a **class**) that contains related data (then called **attributes**), when those functions operate on that data. It is like function overloading, but with an implicit first argument — the object itself, called `self` or `this`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Bundle data and behavior into a class.** A **class** groups related **data** (the **attributes**) together with the **functions** (the **methods**) that operate on that data. The rule of thumb: put a method in a class when it operates on that class's data.
 
@@ -179,7 +175,7 @@ SOLID is a set of five design principles that explain *why* patterns exist and h
 - **I**nterface Segregation: many specific interfaces beat one general one. Violation → implementers are forced to provide methods they do not use.
 - **D**ependency Inversion: depend on abstractions, not concretions. Violation → the core logic is coupled to a specific database driver.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Origin.** Robert C. Martin introduced the five principles in his 2000 paper *"Design Principles and Design Patterns"* and elaborated them in his 2003 book *Agile Software Development, Principles, Patterns, and Practices*. The SOLID acronym was coined by Michael Feathers in his 2004 book *Working Effectively with Legacy Code*. The principles build directly on the GoF book (1994), which first catalogued the patterns that satisfy them.
 
@@ -262,15 +258,15 @@ The GoF catalog defines 23 patterns in three categories. The table below lists a
   <text x="340" y="122" fill="#aaa" font-size="9">implements</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Identify the variation point.** You have a context (e.g., a `PaymentProcessor`) whose behavior changes based on a choice (payment method). The variation is the *algorithm*: how to process a payment.
+**Identify the variation point.** You have a context (e.g., a `PaymentProcessor`) whose behavior changes based on a choice (payment method). The variation is the *algorithm*: how to process a payment.
 
-**Step 2 — Extract the interface.** Define a `PaymentStrategy` interface with a single method `process(order: Order)`. This is the abstraction the context depends on (Dependency Inversion).
+**Extract the interface.** Define a `PaymentStrategy` interface with a single method `process(order: Order)`. This is the abstraction the context depends on (Dependency Inversion).
 
-**Step 3 — Implement concrete strategies.** Each payment method (CreditCard, PayPal, Crypto) is a class implementing `PaymentStrategy`.
+**Implement concrete strategies.** Each payment method (CreditCard, PayPal, Crypto) is a class implementing `PaymentStrategy`.
 
-**Step 4 — Inject the strategy.** The context receives a `PaymentStrategy` via constructor or setter. Swapping the algorithm at runtime is a single assignment.
+**Inject the strategy.** The context receives a `PaymentStrategy` via constructor or setter. Swapping the algorithm at runtime is a single assignment.
 
 ```rust
 trait PaymentStrategy {
@@ -333,15 +329,15 @@ Define `AlignStrategy` with `align(line: &str, width: usize) -> String`. Concret
   <text x="155" y="68" fill="#aaa" font-size="9">notifies</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Identify the dependency.** Multiple objects (notifiers, UI panels, loggers) react to the same state change (an event on the subject). Without Observer, the subject must know and call each dependent directly — tight coupling.
+**Identify the dependency.** Multiple objects (notifiers, UI panels, loggers) react to the same state change (an event on the subject). Without Observer, the subject must know and call each dependent directly — tight coupling.
 
-**Step 2 — Define the Observer interface.** `trait Observer { fn update(&self, event: &Event); }`.
+**Define the Observer interface.** `trait Observer { fn update(&self, event: &Event); }`.
 
-**Step 3 — The Subject maintains a list.** The subject holds `Vec<Box<dyn Observer>>`. On state change, it iterates and calls `update`.
+**The Subject maintains a list.** The subject holds `Vec<Box<dyn Observer>>`. On state change, it iterates and calls `update`.
 
-**Step 4 — Subscribers register.** Each concrete observer calls `subject.subscribe(self)`. The subject does not know *who* is interested (Single Responsibility).
+**Subscribers register.** Each concrete observer calls `subject.subscribe(self)`. The subject does not know *who* is interested (Single Responsibility).
 
 ```rust
 trait Observer { fn update(&self, event: &Event); }
@@ -404,15 +400,15 @@ A stock-trading app has a `PriceFeed` that updates every second. Three UI widget
   <text x="340" y="78" fill="#aaa" font-size="9">extends</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Identify the cross-cutting behavior.** You need to add a border, a shadow, and a tooltip to a UI element. Subclassing would create a combinatorial explosion (BorderShadowTooltip, BorderTooltipShadow, …).
+**Identify the cross-cutting behavior.** You need to add a border, a shadow, and a tooltip to a UI element. Subclassing would create a combinatorial explosion (BorderShadowTooltip, BorderTooltipShadow, …).
 
-**Step 2 — Define the Component interface.** `trait Drawable { fn draw(&self); }`.
+**Define the Component interface.** `trait Drawable { fn draw(&self); }`.
 
-**Step 3 — The Decorator wraps a Component.** `struct BorderDecorator { inner: Box<dyn Drawable> }` implements `Drawable` by drawing the border *then* delegating to `inner.draw()`.
+**The Decorator wraps a Component.** `struct BorderDecorator { inner: Box<dyn Drawable> }` implements `Drawable` by drawing the border *then* delegating to `inner.draw()`.
 
-**Step 4 — Compose decorators.** `let el = BorderDecorator(Box::new(ShadowDecorator(Box::new(ConcreteElement))));` — each layer adds one behavior.
+**Compose decorators.** `let el = BorderDecorator(Box::new(ShadowDecorator(Box::new(ConcreteElement))));` — each layer adds one behavior.
 
 ```rust
 trait Drawable { fn draw(&self); }
@@ -463,15 +459,15 @@ A `Stream` type needs optional buffering, compression, and encryption layers, in
   <text x="340" y="68" fill="#aaa" font-size="9">creates</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Identify the creation variation.** A `Document` class needs to create `Page` objects, but the page format (PDF, HTML, Markdown) depends on the output target. The creator (`Document`) should not know the concrete page class.
+**Identify the creation variation.** A `Document` class needs to create `Page` objects, but the page format (PDF, HTML, Markdown) depends on the output target. The creator (`Document`) should not know the concrete page class.
 
-**Step 2 — Define the Product interface.** `trait Page { fn render(&self) -> String; }`.
+**Define the Product interface.** `trait Page { fn render(&self) -> String; }`.
 
-**Step 3 — The Creator declares a factory method.** `trait Document { fn create_page(&self) -> Box<dyn Page>; }`. The base class calls `self.create_page()` but does not instantiate the concrete type.
+**The Creator declares a factory method.** `trait Document { fn create_page(&self) -> Box<dyn Page>; }`. The base class calls `self.create_page()` but does not instantiate the concrete type.
 
-**Step 4 — Subclasses override.** `PdfDocument::create_page()` returns `Box::new(PdfPage)`. `HtmlDocument::create_page()` returns `Box::new(HtmlPage)`.
+**Subclasses override.** `PdfDocument::create_page()` returns `Box::new(PdfPage)`. `HtmlDocument::create_page()` returns `Box::new(HtmlPage)`.
 
 ```rust
 trait Page { fn render(&self) -> String; }
@@ -505,7 +501,7 @@ A game engine creates different `Sprite` types (2D, 3D, particle) depending on t
 
 **Definition.** Design patterns as a discipline began in architecture, not programming, and its central claim — that recurring, named solutions beat ad-hoc ones — has been both adopted and challenged.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Origin.** The idea comes from Christopher Alexander's *A Pattern Language* (1977), which described recurring solutions to building-design problems. In the early 1990s this was transplanted to software: the Portland Pattern Repository (PPR) and the Hillside Group's PLoP (Pattern Languages of Programs) conferences became the home of the movement, and the GoF book (1994) codified 23 object-oriented patterns.
 
@@ -522,7 +518,7 @@ This does not make the patterns wrong — it makes them *language-relative*: a p
 
 **Definition.** Express computation as **pure functions** and **immutable values**, rather than as procedures that mutate state: define each value from its definition, and express a sequential computation as a composition of functions.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Define values, don't mutate them.** Assign a variable **immutably from its definition** rather than initializing it and then mutating it in a loop. For the mean squared error, write the definition directly:
 
@@ -598,7 +594,7 @@ Each step is a pure, higher-order function; the result is defined by its transfo
 
 **Definition.** The same design problem can be expressed in object-oriented form (interface + concrete classes) or in functional form (algebraic data type + interpreter function). The structural correspondence is direct: a Strategy interface becomes a sum type; the context's dispatch becomes a pattern match; the interpreter is the "concrete strategy."
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the correspondence is real.** The two encodings are the *initial* and *final* forms of the same data. In the functional (initial) form, the data is a value — a sum type — and every operation is a function that consumes it (this is the Church encoding: a value is represented by the functions it can be passed to). In the object-oriented (final) form, the data and its operations are bundled into one object, and dispatch is dynamic. The OO lens emphasizes *state ownership and message passing*; the functional lens emphasizes *data as values and transformations as pure functions*.
 
@@ -663,7 +659,7 @@ So the claim that "adding WhatsApp needs no existing code changes" is only true 
   <text x="360" y="90" fill="#aaa" font-size="9">outbound port</text>
 </svg>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Frontend — MVC.** Applying CQRS to a Human-Computer interaction (HCI) requires offering two interfaces:
 1. The **Controller** receives user input, and mutates the product's source-of-truth data structure (which MVC calls the **Model**) (the the state of the application).

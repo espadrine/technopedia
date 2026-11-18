@@ -18,7 +18,7 @@ P(E, N) = \frac{1}{\Xi}\, e^{\beta(\mu N - E)}, \qquad \beta = \frac{1}{k_B T}
 
 This is the *generalized Boltzmann factor*: the canonical factor $`e^{-\beta E}` multiplied by $`e^{\beta \mu N}`. The $`\mu N` term makes adding particles favorable when $`\mu` is high. For $`s` independent species, $`\mu N` becomes $`\sum_{i=1}^{s} \mu_i N_i`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The weight is derived by cutting a small system out of a large isolated (microcanonical) reservoir. The reservoir has $`N_{\text{tot}}` particles and energy $`E_{\text{tot}}`; giving the system $`(E,N)` leaves the reservoir $`(E_{\text{tot}}-E, N_{\text{tot}}-N)`. The probability is proportional to the reservoir's entropy, expanded to first order:
 
@@ -51,7 +51,7 @@ For non-interacting particles in single-particle levels $`\varepsilon_i` it **fa
 
 Every thermodynamic quantity is a derivative of $`\ln \Xi`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Because $`\ln \Xi` is the log-sum-exp of all weights, it is the single object that plays the role of the canonical partition function. The factorization is the key: an ideal gas of $`M` independent levels has $`\Xi` as a product of $`M` one-level factors, so the mean occupation of a level is *independent* of all the others. This is why the grand ensemble turns a many-body sum into a sum of one-particle terms.
 
@@ -92,7 +92,7 @@ From $`\Omega` you read off every extensive quantity:
 N = -\left(\frac{\partial \Omega}{\partial \mu}\right)_{T,V}, \qquad S = -\left(\frac{\partial \Omega}{\partial T}\right)_{\mu,V}, \qquad P = -\left(\frac{\partial \Omega}{\partial V}\right)_{T,\mu}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The grand potential is the free energy of a system allowed to trade particles: $`\Omega = F - \mu N`. Minimizing $`\Omega` over $`N` at fixed $`T,\mu,V` gives the most probable particle number, and in the thermodynamic limit the fluctuations vanish. See [Thermodynamic Potentials and Equilibrium](../Thermodynamics/Thermodynamic-Potentials-and-Equilibrium.md).
 </details>
@@ -117,7 +117,7 @@ where $`f_i` is the mean occupation of level $`i`. The **fluctuation–dissipati
 \operatorname{Var}(N) = k_B T \left(\frac{\partial \langle N \rangle}{\partial \mu}\right)_{T,V}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The relation $`\operatorname{Var}(N) = k_B T\, \partial_\mu \langle N\rangle` says that how much $`N` jitters is the same number as how much $`N` shifts when you nudge $`\mu`. It is the grand-canonical fluctuation formula; see [Statistical Foundations of Thermodynamics](../Thermodynamics/Statistical-Foundations-of-Thermodynamics.md).
 
@@ -142,7 +142,7 @@ The mean occupation $`f` of a single-particle level at energy $`\varepsilon` is 
 
 All three reduce to $`f \approx e^{-x}` when the level is dilute ($`f \ll 1`). The exact classical level factor $`\Xi_i = \exp(e^{-x})` reduces to $`1 + e^{-x}` in the dilute limit (since $`e^{-x} \ll 1` makes $`\exp(e^{-x}) \approx 1 + e^{-x}`), which is the same form as the fermion factor — the two statistics become indistinguishable when occupation is low.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The difference is the *exclusion rule* on a single level. A fermion level can hold 0 or 1 particle, so $`\Xi_i = e^{-\beta\varepsilon} + e^{\beta(\mu-\varepsilon)}` and $`f = \Xi_i' / \Xi_i = 1/(e^x+1)`. A boson level can hold $`0,1,2,\dots` particles, so $`\Xi_i` is a geometric series that converges only when $`\mu < \varepsilon` — this is why the boson chemical potential is bounded above by the ground-state energy. A classical particle has no restriction, and the dilute limit $`f\ll 1` makes both quantum formulas collapse to $`e^{-x}`.
 

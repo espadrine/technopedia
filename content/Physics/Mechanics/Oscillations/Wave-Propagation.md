@@ -16,7 +16,7 @@ For a 1-D string (or any linear, lossless medium):
 
 General solution (d'Alembert): $`y(x,t) = f(x - ct) + g(x + ct)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The two terms represent waves traveling in the $`+x` and $`-x` directions at speed $`c`. For a string under tension $`T` with linear density $`\mu`: $`c = \sqrt{T/\mu}`. For sound in a fluid: $`c = \sqrt{K/\rho}` where $`K` is the bulk modulus and $`\rho` is the volume mass density. For electromagnetic waves in vacuum: $`c = 1/\sqrt{\mu_0 \varepsilon_0}`.
 
@@ -28,7 +28,7 @@ In 3-D: $`\nabla^2 y = (1/c^2)\,\partial^2 y/\partial t^2`. Spherical waves deca
 
 The wave equation is not an axiom; it follows directly from Newton's second law applied to a small element of a stretched string.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Consider a string of linear density $`\mu` under tension $`T`. Take a small segment of length $`dx` at position $`x`. The vertical forces on the segment come from the tension at each end. For small slopes $`\partial y/\partial x \ll 1`, the net vertical force is:
 
@@ -62,7 +62,7 @@ y(x,t) = A\cos(kx - \omega t + \phi)
 
 where $`k = 2\pi/\lambda` (wavenumber), $`\omega = 2\pi f` (angular frequency), and $`c = \omega/k`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Dispersion:** In a dispersive medium, $`c` depends on frequency: $`\omega = \omega(k)`. The phase velocity is $`v_p = \omega/k`; the group velocity is $`v_g = d\omega/dk`. When $`v_g \neq v_p`, wave packets spread over time.
 
@@ -96,7 +96,7 @@ For linear media, the principle of superposition holds:
 y_{\text{total}} = y_1 + y_2
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Two waves of the same frequency and amplitude traveling in opposite directions form a **standing wave**:
 
@@ -116,7 +116,7 @@ Interference is the basis of diffraction gratings, noise-cancelling headphones, 
 
 When a wave encounters a change in medium (a junction, a fixed end, a free end), part of it is reflected and part is transmitted. The behavior is governed by the **wave impedance** of each medium.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 For a string, the wave impedance is $`Z = \sqrt{T\mu}` (units: N·s/m). At an interface between two strings with impedances $`Z_1` and $`Z_2`:
 
@@ -154,7 +154,7 @@ For a 3-D medium (e.g. sound in air, volume density $`\rho`), the intensity (pow
 I = \tfrac{1}{2}\,\rho\,c\,\omega^2 A^2
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Energy is carried by the wave but the medium's particles only oscillate locally. The energy density is split equally between kinetic and potential parts, oscillating in phase with the motion.
 

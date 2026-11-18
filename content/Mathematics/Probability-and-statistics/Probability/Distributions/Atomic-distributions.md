@@ -14,7 +14,7 @@ A distribution on a countable set $`S` is atomic iff there exist weights $`p_s \
 - Expectation: $`E[g(X)] = \sum_{s \in S} g(s)\, p_s`.
 - Variance: $`\mathrm{Var}(X) = \sum_s (s - \mu)^2 p_s` where $`\mu = \sum_s s\, p_s`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The PMF is the density of the measure w.r.t. counting measure. The CDF is a right-continuous step function: it is constant between atoms and jumps by $`p_s` at each atom $`s`. The total jump size sums to 1.
 
@@ -35,7 +35,7 @@ G(z) = \sum_{k=0}^{\infty} p_k\, z^k = E[z^X], \quad |z| \leq 1.
 - If $`X_1, \ldots, X_n` are i.i.d. with PGF $`G`, then $`S_n = X_1 + \cdots + X_n` has PGF $`G(z)^n`.
 - $`X` has a proper distribution iff $`G(1) = 1` and $`G` is analytic on $`|z| < 1`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The PGF encodes the entire distribution: $`p_k = G^{(k)}(0)/k!`. It converts convolution (sum of independent variables) into multiplication, making it the natural tool for occupancy problems, branching processes, and random walks.
 
@@ -59,7 +59,7 @@ The relationship to [Distributional structure and operations](./Distributional-s
 <tr><td>Categorical(<i>p</i><sub>1</sub>, …, <i>p</i><sub>m</sub>)</td><td><i>p</i><sub>i</sub> at category <i>i</i></td><td>{1, …, <i>m</i>}</td><td>Σ <i>i</i> <i>p</i><sub>i</sub></td><td>Σ (<i>i</i> − μ)² <i>p</i><sub>i</sub></td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 These six families cover the vast majority of discrete models in probability and statistics. Their relationships:
 
@@ -84,7 +84,7 @@ E[X(X-1)\cdots(X-r+1)] = G^{(r)}(1).
 - Second: $`E[X(X-1)] = G''(1)`; hence $`\mathrm{Var}(X) = G''(1) + G'(1) - [G'(1)]^2`.
 - For a Poisson($`\lambda`) variable, all factorial moments equal $`\lambda^r`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Factorial moments are the natural moments for discrete variables because they arise directly from PGF derivatives. The ordinary moment $`E[X^r]` can be recovered from factorial moments via Stirling numbers of the second kind: $`E[X^r] = \sum_{k=0}^{r} {r \brace k}\, E[X^{\underline{k}}]` where $`X^{\underline{k}} = X(X-1)\cdots(X-k+1)`.
 
@@ -96,7 +96,7 @@ The PGF derivative formula $`G^{(r)}(1) = E[X^{\underline{r}}]` is the discrete 
 
 **Theorem (Poisson limit).** If $`X_n \sim \mathrm{Binomial}(n, p_n)` with $`n\, p_n \to \lambda` as $`n \to \infty`, then $`X_n \xrightarrow{d} \mathrm{Poisson}(\lambda)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The Poisson limit is the atomic analogue of the central limit theorem: it is the universal limit for rare events. The proof uses the PGF: the Binomial PGF is $`(1 - p_n + p_n z)^n`, and
 
@@ -119,7 +119,7 @@ A joint distribution on $`\mathbb{Z}^d` is atomic with PMF $`p(x_1, \ldots, x_d)
 - **Independence**: $`p(x) = \prod_i p_i(x_i)` iff $`G(z) = \prod_i G_i(z_i)`.
 - **Multivariate Poisson**: $`X_i = N_i + N_0` where $`N_i` are independent Poisson($`\lambda_i`); the covariance is $`\mathrm{Cov}(X_i, X_j) = \lambda_0` for $`i \neq j`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The multivariate Poisson is the canonical example of a multivariate atomic distribution with positive dependence. Its joint PGF is
 

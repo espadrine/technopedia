@@ -18,7 +18,7 @@ Sequences and series provide the tools for deciding when an infinite sum converg
 
 **Theorem (integral test).** If $`f: [1, \infty) \to [0, \infty)` is decreasing and $`a_n = f(n)`, then $`\sum a_n` converges if and only if $`\int_1^{\infty} f(x)\, dx` converges.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why tests are needed
 
@@ -62,7 +62,7 @@ For $`\sum \frac{1}{n \ln n}` (starting at $`n = 2`): set $`f(x) = 1/(x \ln x)`.
 
 **Theorem (term-by-term differentiation).** Inside its radius of convergence, a power series may be differentiated and integrated term by term, and the resulting series has the same radius of convergence.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why power series matter
 
@@ -104,7 +104,7 @@ $`c_n = \frac{1}{n^2+1}`. By the root test, $`\sqrt[n]{|c_n|} = (n^2+1)^{-1/n} \
 
 **Theorem (term-by-term integration).** If $`f_n` are Riemann integrable on $`[a,b]` and $`\sum f_n` converges uniformly, then $`\int_a^b \sum f_n = \sum \int_a^b f_n`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why uniform convergence of series matters
 

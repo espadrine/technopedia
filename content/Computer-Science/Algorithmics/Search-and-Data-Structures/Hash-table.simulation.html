@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Key-Value Stores Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h1 { font-size: 1.3em; margin-bottom: 10px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.tab { padding: 8px 16px; cursor: pointer; background: #e0e0e0; border: 1px solid #bbb; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 0.9em; }
+.tab.active { background: #fff; font-weight: bold; border-color: #1565c0; }
+.panel { display: none; border: 1px solid #1565c0; border-radius: 0 6px 6px 6px; padding: 16px; background: #fff; min-height: 300px; }
+.panel.active { display: block; }
+.controls { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.controls input { padding: 4px 8px; width: 80px; }
+.controls button { padding: 5px 12px; cursor: pointer; background: #1565c0; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0d47a1; }
+svg { display: block; margin: 10px auto; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Hash Table</h1>
+<div class="panel active" id="panel0">
+<div class="controls">
+<label>Key: <input type="number" id="ht-key" value="5"></label>
+<button onclick="htInsert()">Insert</button>
+<button onclick="htSearch()">Search</button>
+<button onclick="htReset()">Reset</button>
+<span class="info" id="ht-info">Table size: 7, h(k) = k mod 7</span>
+</div>
+<svg id="ht-svg" width="520" height="200"></svg>
+</div>
+<script>
+// Hash Table
+let ht = Array(7).fill(null).map(() => []);
+function htInsert() {
+  let k = parseInt(document.getElementById('ht-key').value);
+  let slot = k % 7;
+  ht[slot].push(k);
+  htDraw();
+  document.getElementById('ht-info').textContent = `Table size: 7, h(k) = k mod 7. Slot ${slot} has ${ht[slot].length} entries.`;
+}
+function htSearch() {
+  let k = parseInt(document.getElementById('ht-key').value);
+  let slot = k % 7;
+  let found = ht[slot].includes(k);
+  document.getElementById('ht-info').textContent = `h(${k}) = ${slot}. ${found ? 'Found!' : 'Not found.'}`;
+  htDraw(slot, found);
+}
+function htReset() { ht = Array(7).fill(null).map(() => []); htDraw(); document.getElementById('ht-info').textContent = 'Table size: 7, h(k) = k mod 7'; }
+function htDraw(highlightSlot, found) {
+  let svg = document.getElementById('ht-svg');
+  let s = '';
+  for (let i = 0; i < 7; i++) {
+    let x = 10 + i * 72;
+    let fill = (i === highlightSlot) ? (found ? '#c8e6c9' : '#ffcdd2') : '#e3f2fd';
+    let stroke = (i === highlightSlot) ? (found ? '#388e3c' : '#d32f2f') : '#1565c0';
+    s += `<rect x="${x}" y="20" width="60" height="28" fill="${fill}" stroke="${stroke}" rx="3"/>`;
+    s += `<text x="${x+30}" y="39" text-anchor="middle" font-size="11">${i}</text>`;
+    for (let j = 0; j < ht[i].length; j++) {
+      let cy = 60 + j * 28;
+      s += `<line x1="${x+30}" y1="48" x2="${x+30}" y2="${cy-10}" stroke="#999" stroke-width="1"/>`;
+      s += `<rect x="${x}" y="${cy}" width="60" height="24" fill="#fff3e0" stroke="#e65100" rx="3"/>`;
+      s += `<text x="${x+30}" y="${cy+16}" text-anchor="middle" font-size="11">${ht[i][j]}</text>`;
+    }
+  }
+  svg.innerHTML = s;
+}
+htDraw();
+
+</script>
+</body>
+</html>

@@ -92,7 +92,7 @@ Subtractive processes remove material from a solid block; forming deforms a shee
 
 A thermoplastic filament is melted in a heated nozzle and deposited as a continuous bead, layer by layer, on a build platform.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Filament feeding.** A drive motor pulls a 1.75 mm or 2.85 mm thermoplastic filament through a heated block (typically 180–400 °C depending on material). The filament softens and is pushed through a small orifice (0.2–0.6 mm) as a molten bead.
 
@@ -154,7 +154,7 @@ A 50 mm × 50 mm × 10 mm plate is printed in PLA with 0.2 mm layers, 20 % gyroi
 
 A UV laser (SLA) or projector (DLP) selectively cures a liquid photopolymer resin, one thin layer at a time, in a vat.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Vat and platform.** A transparent-bottomed vat holds liquid photopolymer resin. A build platform starts just below the resin surface.
 
@@ -227,7 +227,7 @@ A dental crown 15 mm tall is printed in SLA with 50 µm layer height. How many l
 
 A laser or electron beam selectively fuses (SLM, EBM) or sinters (SLS) a powder bed, one layer at a time.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Powder spreading.** A recoater blade spreads a thin layer of powder (50–100 µm) over the build platform.
 
@@ -297,7 +297,7 @@ A Ti-6Al-4V bracket 80 mm tall is built by SLM with 60 µm layers and a single 4
 
 A liquid binder is selectively jetted onto a powder bed to bond particles into a "green" part; the green part is then sintered or infiltrated to reach full density.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Powder spreading.** A thin layer of powder (sand, metal, or ceramic) is spread over the build platform.
 
@@ -372,7 +372,7 @@ The green part must be printed at ≈ 32.6 mm diameter.
 
 A metal wire or powder is fed into a laser or electron-beam melt pool on a substrate, building material in a 3-D path.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Substrate preparation.** A metal substrate (or existing part for repair) is clamped to a multi-axis stage.
 

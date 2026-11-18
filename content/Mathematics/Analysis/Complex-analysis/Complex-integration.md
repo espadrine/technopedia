@@ -16,7 +16,7 @@ $`\int_\gamma f(z)\, dz = \int_a^b f(\gamma(t))\, \gamma'(t)\, dt.`
 
 $`\int_\gamma f(z)\, dz = 0.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### What a contour integral means
 
@@ -71,7 +71,7 @@ Differentiating under the integral gives the derivatives:
 
 $`f^{(n)}(z) = \frac{n!}{2\pi i} \int_\gamma \frac{f(\zeta)}{(\zeta - z)^{n+1}}\, d\zeta.`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The idea
 
@@ -113,7 +113,7 @@ By the Cauchy estimate with $`n = 2`, $`r = 2`, $`M = 10`: $`|f''(0)| \leq 2! \c
 
 **Fundamental theorem of algebra (consequence).** Every non-constant polynomial $`p(z)` of degree $`n \geq 1` has at least one complex root.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Proof of Liouville's theorem
 
@@ -153,7 +153,7 @@ For a simple pole ($`m = 1`), $`\operatorname{Res}(f, a) = \lim_{z \to a} (z-a) 
 
 $`\oint_\gamma f(z)\, dz = 2\pi i \sum_{k=1}^{n} \operatorname{Res}(f, a_k).`
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why the residue is the only thing that matters
 

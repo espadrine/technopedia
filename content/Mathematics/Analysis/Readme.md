@@ -15,7 +15,7 @@ Each class is a topic page with its own categorization.
 <tr><td>[Numerical analysis](./Numerical-analysis/Readme.md)</td><td>How do we compute approximations to these objects, and how accurate are the results?</td><td>interpolation, quadrature, iterative methods, discretization, error and stability analysis</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 Use the table as a map:
 - For limits, continuity, derivatives, or integration on the real line, begin with Real analysis.

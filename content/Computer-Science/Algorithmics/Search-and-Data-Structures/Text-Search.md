@@ -24,7 +24,7 @@ Text search is the class of the [Search and Data Structures](./Readme.md) table 
 - **Boyer–Moore**: $`O(n+m)` worst case but $`O(n/m)` on average. Compare right-to-left and use the *bad-character* and *good-suffix* heuristics to skip.
 - **Rabin–Karp**: $`O(n+m)` expected. Compare a rolling hash of the window to the pattern's hash; verify on a hash collision.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the naive scan is quadratic.** The naive algorithm aligns the pattern at each of the $`n-m+1` positions and compares up to $`m` characters: $`O(nm)`. The key observation behind every linear algorithm is that a mismatch at position $`i` tells you something about the *next* alignment, so you should not re-examine characters you already know match.
 
@@ -128,11 +128,11 @@ Compute the prefix function for $`P = \texttt{aabaaab}`.
 - **Space**: $`O(N \cdot \sigma)` where $`N` is the total number of characters across all stored strings and $`\sigma` is the alphabet size (each of the $`N+1` nodes stores $`\sigma` child pointers).
 - **Use cases**: autocomplete, spell-checking, IP routing (radix trees), and the building block of the [Bloom filter](./Lists.md) family of probabilistic structures.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The structure.** A trie is a rooted tree. The root represents the empty string. Each edge from a node is labeled by one character; the path from the root to a node spells the string stored at that node. A node is marked *terminal* when the spelled string is a complete member of the set. Because shared prefixes share nodes, the trie is compact for sets with many common prefixes.
+**The structure.** A trie is a rooted tree. The root represents the empty string. Each edge from a node is labeled by one character; the path from the root to a node spells the string stored at that node. A node is marked *terminal* when the spelled string is a complete member of the set. Because shared prefixes share nodes, the trie is compact for sets with many common prefixes.
 
-**Step 2 — Worked example.** Insert the words **cat**, **car**, **card**, **dog**. The prefixes "ca" and "car" are shared, so they occupy a single path.
+**Worked example.** Insert the words **cat**, **car**, **card**, **dog**. The prefixes "ca" and "car" are shared, so they occupy a single path.
 
 <svg viewBox="0 0 320 250" width="100%" style="max-width:340px;display:block;margin:8px auto" xmlns="http://www.w3.org/2000/svg" font-family="monospace">
   <circle cx="160" cy="25" r="16" fill="#0f3460" stroke="#e94560" stroke-width="2"/>
@@ -172,14 +172,14 @@ Compute the prefix function for $`P = \texttt{aabaaab}`.
   <text x="10" y="248" font-size="10" fill="#388e3c">green = terminal (cat, card, dog)</text>
 </svg>
 
-**Step 3 — Operations.**
+**Operations.**
 - **Insert "car"**: walk c → a → r, mark the "r" node terminal. $`O(L)`.
 - **Lookup "card"**: walk c → a → r → d; the "d" node is terminal → found. $`O(L)`.
 - **Prefix query "ca"**: walk to the "a" node, then DFS its subtree to collect all terminal nodes (cat, car, card). $`O(|p| + k)`.
 
-**Step 4 — Space.** With $`N` total characters across all stored strings, the trie has at most $`N+1` nodes (one per distinct prefix, plus the root). If each node stores a full array of $`\sigma` child pointers, the space is $`O(N \cdot \sigma)`. For a large alphabet (e.g. Unicode), this is wasteful, so real implementations store a sparse map (or a sorted child list) per node, dropping the $`\sigma` factor to the actual branching.
+**Space.** With $`N` total characters across all stored strings, the trie has at most $`N+1` nodes (one per distinct prefix, plus the root). If each node stores a full array of $`\sigma` child pointers, the space is $`O(N \cdot \sigma)`. For a large alphabet (e.g. Unicode), this is wasteful, so real implementations store a sparse map (or a sorted child list) per node, dropping the $`\sigma` factor to the actual branching.
 
-**Step 5 — Variants.** A **radix tree** (or Patricia trie) compresses unary chains into single edges labeled by a string, shrinking the tree for sparse data; it is the standard structure for longest-prefix matching such as IP routing. A **double-array trie** maps the tree into two arrays for cache-friendly, disk-resident lookup.
+**Variants.** A **radix tree** (or Patricia trie) compresses unary chains into single edges labeled by a string, shrinking the tree for sparse data; it is the standard structure for longest-prefix matching such as IP routing. A **double-array trie** maps the tree into two arrays for cache-friendly, disk-resident lookup.
 
 > **Authoritative source**: CLRS Ch. 32.3 (Tries). Crochemore & Rytter, "Jewels of the Stringology" (2002), Ch. 2.
 
@@ -204,11 +204,11 @@ Distinct prefixes: "" (root), t, th, the, then, them, theme. That is 7 nodes tot
 - **Suffix tree**: $`O(n)` space, $`O(m + k)` query (walk the tree, then count leaves).
 - **FM-index**: $`O(n)` space (often $`< 2` bits/char); $`O(m \log \sigma)` query via backward search.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The suffix array.** The suffix array $`SA` is a permutation of $`0..n-1` such that the suffixes $`T[SA[i]..]` are in lexicographic order. A pattern $`P` occurs in $`T` iff it is a prefix of some suffix, i.e. iff the suffixes having prefix $`P` form a contiguous interval in $`SA`. Finding that interval is a binary search: $`O(m \log n)`.
+**The suffix array.** The suffix array $`SA` is a permutation of $`0..n-1` such that the suffixes $`T[SA[i]..]` are in lexicographic order. A pattern $`P` occurs in $`T` iff it is a prefix of some suffix, i.e. iff the suffixes having prefix $`P` form a contiguous interval in $`SA`. Finding that interval is a binary search: $`O(m \log n)`.
 
-**Step 2 — Worked example.** Let $`T = \texttt{banana}` ($`n = 6`).
+**Worked example.** Let $`T = \texttt{banana}` ($`n = 6`).
 
 <table>
 <tr><th>rank</th><th>suffix</th><th>original index SA[i]</th><th>LCP with previous</th></tr>
@@ -237,11 +237,11 @@ So $`SA = [5, 3, 1, 0, 4, 2]` and the **LCP array** (longest common prefix of ea
   <text x="150" y="52" font-size="10" fill="#e94560">peak = "ana" (2 matches)</text>
 </svg>
 
-**Step 3 — Counting matches with LCP.** Once the binary search locates the interval of suffixes prefixed by $`P`, the number of matches is the number of entries in that interval whose LCP value is at least $`m` (the pattern length). For $`P = \texttt{ana}` ($`m = 3`), the interval is ranks 1–2 (suffixes "ana", "anana"); both have LCP ≥ 3 within the interval, so there are 2 matches, at original indices 3 and 1.
+**Counting matches with LCP.** Once the binary search locates the interval of suffixes prefixed by $`P`, the number of matches is the number of entries in that interval whose LCP value is at least $`m` (the pattern length). For $`P = \texttt{ana}` ($`m = 3`), the interval is ranks 1–2 (suffixes "ana", "anana"); both have LCP ≥ 3 within the interval, so there are 2 matches, at original indices 3 and 1.
 
-**Step 4 — The suffix tree.** The suffix tree is the compact trie of all suffixes: internal nodes have at least two children and edges are labeled by strings (unary chains are compressed). A query walks the tree following $`P` in $`O(m)`, then counts the leaves in the reached subtree in $`O(k)`. Total $`O(m + k)`. It is the most query-efficient structure but harder to build and maintain.
+**The suffix tree.** The suffix tree is the compact trie of all suffixes: internal nodes have at least two children and edges are labeled by strings (unary chains are compressed). A query walks the tree following $`P` in $`O(m)`, then counts the leaves in the reached subtree in $`O(k)`. Total $`O(m + k)`. It is the most query-efficient structure but harder to build and maintain.
 
-**Step 5 — The FM-index.** The FM-index does **not** store the suffix array explicitly. It stores:
+**The FM-index.** The FM-index does **not** store the suffix array explicitly. It stores:
 1. The **Burrows–Wheeler transform (BWT)** of $`T` — a permutation of the characters that groups similar contexts together (highly compressible).
 2. A **C-array**: for each character $`c`, the number of characters in the BWT that are lexicographically smaller than $`c`.
 3. **Rank structures** (succinct bitvectors or a wavelet tree) that answer $`\text{rank}_c(i)` = the number of occurrences of $`c` in $`BWT[0..i]`.
@@ -272,9 +272,9 @@ $`P = \texttt{na}` ($`m = 2`). In the sorted suffix list, the suffixes prefixed 
 - **TF-IDF**: score a document by how often a term appears in it (TF) weighted by how rare the term is across the corpus (IDF).
 - **BM25**: a saturated, length-normalized refinement of TF-IDF; the de-facto standard ranking function.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — The inverted index.** Instead of storing "document → its terms" (a forward index), the inverted index stores "term → documents containing it". Each entry (a **posting list**) is a sorted list of document IDs, optionally with term frequencies and positions.
+**The inverted index.** Instead of storing "document → its terms" (a forward index), the inverted index stores "term → documents containing it". Each entry (a **posting list**) is a sorted list of document IDs, optionally with term frequencies and positions.
 
 <svg viewBox="0 0 420 200" width="100%" style="max-width:440px;display:block;margin:8px auto" xmlns="http://www.w3.org/2000/svg" font-family="monospace">
   <text x="10" y="18" font-size="12" font-weight="bold" fill="#333">Inverted index (corpus: d1="the cat sat", d2="the dog sat", d3="cat dog")</text>
@@ -303,7 +303,7 @@ $`P = \texttt{na}` ($`m = 2`). In the sorted suffix list, the suffixes prefixed 
 
 A query for multiple terms is answered by **intersecting** the posting lists (AND) or **merging** them (OR). Because the lists are sorted, an intersection is a linear merge in the total list lengths.
 
-**Step 2 — TF-IDF.** The raw term frequency $`f(t, D)` rewards documents that mention $`t` often, but a term like "the" appears everywhere and is uninformative. TF-IDF down-weights common terms:
+**TF-IDF.** The raw term frequency $`f(t, D)` rewards documents that mention $`t` often, but a term like "the" appears everywhere and is uninformative. TF-IDF down-weights common terms:
 
 ```math
 \mathrm{tf\text{-}idf}(t, D) = f(t, D) \cdot \log\!\frac{N}{n(t)}
@@ -311,7 +311,7 @@ A query for multiple terms is answered by **intersecting** the posting lists (AN
 
 where $`N` is the number of documents and $`n(t)` is the number of documents containing $`t`. A term that appears in few documents (large $`N/n(t)`) gets a high weight.
 
-**Step 3 — BM25.** TF-IDF has two problems: the term frequency grows without bound, and long documents are unfairly favored. **BM25** fixes both. It saturates the frequency with a parameter $`k_1` and normalizes by document length with a parameter $`b`:
+**BM25.** TF-IDF has two problems: the term frequency grows without bound, and long documents are unfairly favored. **BM25** fixes both. It saturates the frequency with a parameter $`k_1` and normalizes by document length with a parameter $`b`:
 
 ```math
 \mathrm{score}(D, Q) = \sum_{t \in Q} \mathrm{IDF}(t) \cdot \frac{f(t, D)\,(k_1 + 1)}{f(t, D) + k_1\left(1 - b + b\,\dfrac{|D|}{\mathrm{avgdl}}\right)}
@@ -325,7 +325,7 @@ Typical values are $`k_1 \in [1.2, 2.0]` and $`b \in [0.75, 1.0]`. The fraction 
 
 > **Authoritative source**: Robertson, S. E., & Spärck Jones, K. (1994). "Relevance weighting of search terms." *Journal of the American Society for Information Science*, 45(7), 520–536. [DOI: 10.5555/106765.106783](https://dl.acm.org/doi/10.5555/106765.106783).
 
-**Step 4 — n-grams and fuzzy matching.** To tolerate typos, index the words by their **n-grams** (substrings of length $`n`) and require a candidate to share enough n-grams with the query. The arithmetic: a word of length $`L` has $`L - 1` bigrams, and a single edit (insert, delete, or substitute) changes at most 2 bigrams. So a word within edit distance $`d` of the query shares at least $`(L - 1) - 2d` bigrams with it.
+**n-grams and fuzzy matching.** To tolerate typos, index the words by their **n-grams** (substrings of length $`n`) and require a candidate to share enough n-grams with the query. The arithmetic: a word of length $`L` has $`L - 1` bigrams, and a single edit (insert, delete, or substitute) changes at most 2 bigrams. So a word within edit distance $`d` of the query shares at least $`(L - 1) - 2d` bigrams with it.
 
 *Example*: the query **elephant** (length 8) has 7 bigrams: el, le, ep, ph, ha, an, nt. A candidate within edit distance 2 must share at least $`7 - 2\cdot 2 = 3` bigrams. The typo **elephat** (one deletion) shares el, le, ep, ph, ha = 5 bigrams ≥ 3, so it passes the filter. An unrelated word like **computer** shares 0 bigrams and is rejected before any expensive edit-distance computation. (Note: a string of length 10 has 9 bigrams, not $`\binom{10}{2}` — the latter counts 2-element subsets, not substrings.)
 
@@ -348,11 +348,11 @@ $`\mathrm{tf\text{-}idf} = f \cdot \log(N/n(t)) = 4 \cdot \ln(1000/10) = 4 \cdot
 
 **Terse definition:** a production inverted index is sharded across machines, with posting lists compressed and merged in parallel; at the top of the stack, keyword retrieval is increasingly complemented by **vector (semantic) search**, which ranks by embedding similarity rather than exact term overlap.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — Scaling the index.** A single machine cannot hold the inverted index of a web-scale corpus. The standard design **shards** the corpus: documents are partitioned (by document-ID hash) across nodes, and each node builds and serves the inverted index for its shard. A query is fanned out to all shards, which return their top-$`k` locally, and a coordinator **merges** the per-shard ranked lists into a global top-$`k`. Posting lists are compressed with delta encoding + variable-byte or bit-packing, and term dictionaries are stored in a [B-tree](./Key-Value-Stores.md) or a hash table for fast lookup.
+**Scaling the index.** A single machine cannot hold the inverted index of a web-scale corpus. The standard design **shards** the corpus: documents are partitioned (by document-ID hash) across nodes, and each node builds and serves the inverted index for its shard. A query is fanned out to all shards, which return their top-$`k` locally, and a coordinator **merges** the per-shard ranked lists into a global top-$`k`. Posting lists are compressed with delta encoding + variable-byte or bit-packing, and term dictionaries are stored in a [B-tree](./Key-Value-Stores.md) or a hash table for fast lookup.
 
-**Step 2 — Keyword vs. semantic search.** Keyword retrieval (the inverted index above) matches on *exact* terms: a query for "car" will not return documents that only say "automobile". **Vector / embedding-based (semantic) search** instead maps each document and the query to a high-dimensional dense vector (an *embedding*) and ranks by a similarity measure such as cosine similarity or inner product. This captures meaning and paraphrase but cannot do exact-term or positional matching, and the nearest-neighbor search over millions of vectors requires its own index (e.g. an approximate nearest-neighbor structure). Modern engines run **hybrid** search: the inverted index for precision and the vector index for recall, then fuse the two ranked lists.
+**Keyword vs. semantic search.** Keyword retrieval (the inverted index above) matches on *exact* terms: a query for "car" will not return documents that only say "automobile". **Vector / embedding-based (semantic) search** instead maps each document and the query to a high-dimensional dense vector (an *embedding*) and ranks by a similarity measure such as cosine similarity or inner product. This captures meaning and paraphrase but cannot do exact-term or positional matching, and the nearest-neighbor search over millions of vectors requires its own index (e.g. an approximate nearest-neighbor structure). Modern engines run **hybrid** search: the inverted index for precision and the vector index for recall, then fuse the two ranked lists.
 
 > **Authoritative source**: Zobel & Moffat, "Inverted files for text search engines" (2006).
 
@@ -376,15 +376,15 @@ The coordinator merges $`8 \times 5 = 40` candidates. Since each of the 8 lists 
 - **Backtracking engines** (PCRE, most language `re` modules): simple to write, support lookaheads, but can be $`O(2^n)` on adversarial input (catastrophic backtracking).
 - **Automaton engines** (Thompson NFA simulation, Pike VM, DFA): $`O(n)` per input character, no worst-case blowup; the basis of `grep` and `ripgrep`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
-**Step 1 — From regex to automaton.** The theoretical foundation is that every regular expression denotes a regular language accepted by a finite automaton (see [Computability and Complexity Classes](../Computability-and-Complexity-Classes.md) for the automata and decidability background). **Thompson's construction** builds an NFA for a regex in linear time, using only $`\varepsilon`-transitions (transitions that consume no input):
+**From regex to automaton.** The theoretical foundation is that every regular expression denotes a regular language accepted by a finite automaton (see [Theory of Computation](../Theory-of-Computation/Readme.md) for the automata and decidability background). **Thompson's construction** builds an NFA for a regex in linear time, using only $`\varepsilon`-transitions (transitions that consume no input):
 - A literal $`c`: a two-state NFA with a $`c`-labeled edge.
 - Concatenation $`AB`: wire the accept state of $`A` to the start of $`B` with an $`\varepsilon`-edge.
 - Alternation $`A|B`: a new start $`\varepsilon`-branches to $`A` and $`B`; both accept states $`\varepsilon`-merge into a new accept.
 - Repetition $`A*`: a new start $`\varepsilon`-branches into $`A` and directly to a new accept; $`A`'s accept $`\varepsilon`-loops back to its start and also $`\varepsilon`-exits.
 
-**Step 2 — The NFA for "ab\*".** The regex $`\texttt{ab*}` (an "a" followed by zero or more "b"s) compiles to:
+**The NFA for "ab\*".** The regex $`\texttt{ab*}` (an "a" followed by zero or more "b"s) compiles to:
 
 <svg viewBox="0 0 340 180" width="100%" style="max-width:360px;display:block;margin:8px auto" xmlns="http://www.w3.org/2000/svg" font-family="monospace">
   <defs>
@@ -415,9 +415,9 @@ The coordinator merges $`8 \times 5 = 40` candidates. Since each of the 8 lists 
   <text x="10" y="172" font-size="10" fill="#555">NFA for "ab*": 0→1 on 'a', then loop on 'b' (2→3→2), exit to accept 4.</text>
 </svg>
 
-**Step 3 — Running the NFA: Thompson simulation.** An NFA can be in many states at once. **Thompson's algorithm** keeps the set of *active* states and, for each input character, computes the next active set by following $`\varepsilon`-closures and character edges. This is $`O(n)` in the input length (each state is processed a bounded number of times). The **Pike VM** (used in `grep`) is a compiled, instruction-based version of the same idea.
+**Running the NFA: Thompson simulation.** An NFA can be in many states at once. **Thompson's algorithm** keeps the set of *active* states and, for each input character, computes the next active set by following $`\varepsilon`-closures and character edges. This is $`O(n)` in the input length (each state is processed a bounded number of times). The **Pike VM** (used in `grep`) is a compiled, instruction-based version of the same idea.
 
-**Step 4 — Backtracking vs. automata.** A **backtracking** engine walks the regex and the text together, and on a failed branch it *undoes* the last choice and tries the next. It is easy to implement and supports powerful features (lookaheads, backreferences), but a regex like $`\texttt{(a+)+b}` against the input $`\texttt{aaaa...a}` (no "b") explores an exponential number of ways to split the "a"s — **catastrophic backtracking**. Automaton engines have no such blowup because they track a set of states, not a single path. In practice, `grep`/`ripgrep` use automata for speed and safety, while language regex libraries often use backtracking for expressiveness.
+**Backtracking vs. automata.** A **backtracking** engine walks the regex and the text together, and on a failed branch it *undoes* the last choice and tries the next. It is easy to implement and supports powerful features (lookaheads, backreferences), but a regex like $`\texttt{(a+)+b}` against the input $`\texttt{aaaa...a}` (no "b") explores an exponential number of ways to split the "a"s — **catastrophic backtracking**. Automaton engines have no such blowup because they track a set of states, not a single path. In practice, `grep`/`ripgrep` use automata for speed and safety, while language regex libraries often use backtracking for expressiveness.
 
 > **Authoritative sources**: Thompson, "Regular expression search algorithm" (1968). Pike, "The Pike programming language" (1988).
 

@@ -24,7 +24,7 @@ A **relation** is a set of tuples over a schema: the notions of relation, tuple,
 
 The first seven operations (select, project, Cartesian product, union, difference, division, rename) form Codd's original algebra. **Join** is a *derived* operation — an abbreviation for a Cartesian product followed by a select, $`R \bowtie S \equiv \sigma_p(R \times S)` — listed in the table because of its overwhelming practical importance. So when a text speaks of "the seven core operations", join is not counted.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Set vs. bag semantics**: pure relational algebra operates on *sets* (no duplicates, no order). In practice, SQL uses *bag* (multiset) semantics: `SELECT` without `DISTINCT` preserves duplicates. The bag variant of project is written $`\pi^*`.
 
@@ -63,9 +63,9 @@ A **join** $`R \bowtie S` on attribute $`a` produces all pairs $`(r, s)` where $
 - **Full outer join** ($`\bowtie_{\text{full}}`): all rows of both; unmatched columns are NULL.
 - **Cross join** ($`\times`): Cartesian product (no join predicate).
 
-**How joins are executed** (nested loop, hash join, sort-merge join, and their complexities) is covered in [SQL & Query Planning](./SQL.md).
+**How joins are executed** (nested loop, hash join, sort-merge join, and their complexities) is covered in [SQL & Query Planning](./SQL-Query-Planning.md).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Join correctness**: the inner join $`R \bowtie_{R.a = S.a} S` is equivalent to $`\sigma_{R.a = S.a}(R \times S)`. The outer join extends this: a left outer join is $`(R \bowtie S) \cup (R - \pi_R(R \bowtie S))` with NULLs filled in the $`S` columns.
 
@@ -73,7 +73,7 @@ A **join** $`R \bowtie S` on attribute $`a` produces all pairs $`(r, s)` where $
 
 **Theta join**: the join predicate is any comparison ($`R.a < S.b`, $`R.a \neq S.b`). An equi-join is the special case where the predicate is equality.
 
-**Multi-way joins**: $`R \bowtie S \bowtie T` is ambiguous without parentheses. The query optimizer (see [SQL & Query Planning](./SQL.md)) chooses the join order that minimizes cost. Join is associative and commutative (for inner joins), so the optimizer is free to reorder.
+**Multi-way joins**: $`R \bowtie S \bowtie T` is ambiguous without parentheses. The query optimizer (see [SQL & Query Planning](./SQL-Query-Planning.md)) chooses the join order that minimizes cost. Join is associative and commutative (for inner joins), so the optimizer is free to reorder.
 
 **Semi-join** ($`R \ltimes S`): returns rows of $`R` that have a match in $`S`, without duplicating $`S` columns. Useful for `EXISTS` subqueries.
 
@@ -131,7 +131,7 @@ The simulation below walks through two scenarios step by step: a join query ("na
 
 Division $`R \div S` answers "all" queries: it returns the rows of $`R` that are associated with *every* row of $`S`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Formal definition**: let $`A` be the set of attributes of $`R` that do not appear in $`S`, and let $`r_A` denote the tuple $`r` restricted to the attributes $`A`. Then:
 
@@ -217,7 +217,7 @@ Answer: `{(Alice), (Carol)}`. Notice the answer grew relative to the three-cours
 
 Aggregation ($`\gamma`): groups rows by a set of attributes and computes a summary function (SUM, COUNT, AVG, MIN, MAX) over each group. This is an *extension* beyond pure relational algebra, but it is the most important one in practice — every practical SQL query that uses `GROUP BY` relies on it.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Notation**: $`\gamma_{a_1,\ldots,a_k;\; F_1(b_1),\ldots,F_m(b_m)}(R)` where $`a_1,\ldots,a_k` are the grouping attributes and $`F_i` are aggregate functions applied to attribute $`b_i`.
 
@@ -294,7 +294,7 @@ The algebraic laws of relational algebra are what make query optimization possib
 <tr><td>Absorption</td><td>R ∪ (R ∩ S) = R; R ∩ (R ∪ S) = R</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why these matter**: the distributivity of select over join is the basis of *predicate pushdown* — pushing a filter below a join reduces the number of rows entering the join. The commutativity and associativity of join let the optimizer reorder multi-way joins to find the cheapest plan. Together, these laws give the optimizer a search space of equivalent expressions from which it picks the most efficient one.
 
@@ -323,11 +323,11 @@ The algebraic laws of relational algebra are what make query optimization possib
 2. **Push the projection down** (distributivity of project over join): only `name` (from `customers`) and `cust_id` (the join column of `orders`) are needed:
    $`\pi_{\text{name}}\bigl(\pi_{\text{name},\text{id}}(\sigma_{\text{city}='Paris'}(\text{customers})) \bowtie \pi_{\text{cust\_id}}(\text{orders})\bigr)`.
 
-Both rewrites preserve the result exactly (they are instances of the laws in the table), but the second plan touches far fewer columns and rows — this is precisely the kind of transformation a query planner performs, as described in [SQL & Query Planning](./SQL.md).
+Both rewrites preserve the result exactly (they are instances of the laws in the table), but the second plan touches far fewer columns and rows — this is precisely the kind of transformation a query planner performs, as described in [SQL & Query Planning](./SQL-Query-Planning.md).
 
 </details>
 
-See [SQL & Query Planning](./SQL.md) for how these laws are applied in practice.
+See [SQL & Query Planning](./SQL-Query-Planning.md) for how these laws are applied in practice.
 
 </details>
 
@@ -355,7 +355,7 @@ JOIN orders o ON c.id = o.customer_id
 WHERE c.city = 'Paris' AND o.amount > 100;
 ```
 
-The optimizer may reorder these steps using the algebraic laws above; see [SQL & Query Planning](./SQL.md) for the execution strategies.
+The optimizer may reorder these steps using the algebraic laws above; see [SQL & Query Planning](./SQL-Query-Planning.md) for the execution strategies.
 
 </details>
 

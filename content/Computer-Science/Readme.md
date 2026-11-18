@@ -8,7 +8,7 @@ Computer science studies information, computation, and the design of systems tha
 - It chooses representations that make operations cheap and information compact.
 - It connects abstract models to hardware, languages, and distributed systems.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The five classes, ordered from most concrete to most abstract, span the full stack from running system to problem:
 
@@ -49,7 +49,7 @@ The table is ordered as an abstraction gradient, from the most concrete (compute
 <tr><td><a href="./Algorithmics/Readme.md">Algorithmics</a></td><td>What can be computed and at what cost</td><td>Computability, complexity, data structures, graphics, optimization</td></tr>
 </table>
 
-The boundary between [Interfaces and buses](./Computer-Hardware/Interfaces-and-Buses/Readme.md) (Computer Hardware) and **Networks** (Distributed Systems) is the machine boundary: interfaces and buses move data between components inside a single machine (on-chip, board-level, cabled, optical, and wireless links such as PCIe, USB, and the Ethernet cable), while networks move data between distinct machines and coordinate them (IP, TCP, HTTP, TLS). A PCIe link is an interface; a TCP connection carried over Ethernet is a network.
+The boundary between **Interfaces and buses** (Computer Hardware) and **Networks** (Distributed Systems) is the machine boundary: interfaces and buses move data between components inside a single machine (on-chip, board-level, cabled, optical, and wireless links such as PCIe, USB, and the Ethernet cable), while networks move data between distinct machines and coordinate them (IP, TCP, HTTP, TLS). A PCIe link is an interface; a TCP connection carried over Ethernet is a network.
 
 ### Cross-cutting concerns
 

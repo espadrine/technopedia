@@ -10,7 +10,7 @@ Distributions (generalized functions) extend the notion of a function so that di
 
 **Definition.** A **test function** is a smooth function with compact support, i.e. an element of $`\mathcal{D}(\mathbb{R}^n) = C_c^\infty(\mathbb{R}^n)`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why smooth and compactly supported
 
@@ -40,7 +40,7 @@ For $`x < 1`, $`\varphi` is a composition of smooth functions, hence smooth. At 
 
 **Definition.** A **distribution** on $`\mathbb{R}^n` is a continuous linear functional $`T : \mathcal{D}(\mathbb{R}^n) \to \mathbb{C}`. The space of all distributions is $`\mathcal{D}'(\mathbb{R}^n)`. Every locally integrable function $`f` defines one by $`T_f(\varphi) = \int_{\mathbb{R}^n} f(x)\,\varphi(x)\,dx`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Functions are distributions
 
@@ -70,7 +70,7 @@ $`f` is locally integrable because near $`0`, $`\int_{-1}^{1} |x|^{-1}\,|\varphi
 
 **Definition.** The **Dirac delta** $`\delta` is the distribution defined by $`\delta(\varphi) = \varphi(0)` for every test function $`\varphi`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### A point mass, not a function
 
@@ -108,7 +108,7 @@ Suppose such $`f` existed. Take a nonnegative test function $`\varphi \geq 0` wi
 
 **Definition.** The **derivative** of a distribution $`T` is the distribution $`T'` defined by $`T'(\varphi) = -T(\varphi')`. The **weak derivative** of a locally integrable function $`f` is a locally integrable function $`g` satisfying $`\int g\,\varphi = -\int f\,\varphi'` for all test functions $`\varphi`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Where the minus sign comes from
 
@@ -154,7 +154,7 @@ We have $`H' = \delta`. Differentiating again, $`H'' = \delta'`, where $`\delta'
 
 **Definition.** A **fundamental solution** of a linear differential operator $`L` is a distribution $`E` satisfying $`L E = \delta`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why fundamental solutions solve equations
 

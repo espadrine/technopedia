@@ -53,7 +53,7 @@ Each stage consumes the output of the previous one. Feature recognition extracts
 
 Given a part's geometry, material, tolerance, surface finish, and batch size, select the appropriate process for each feature.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 - **Decision criteria**: geometry complexity, material, batch size, tolerance, surface finish, cost, and lead time.
 - **Rule of thumb**: for a feature, choose the process that achieves the required tolerance and finish at the lowest cost per part for the given batch size.
@@ -119,7 +119,7 @@ The overarching principle: **design for the process, not against it**. A DFM rev
 
 The order in which operations are performed affects quality, cost, and feasibility.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Global rule.** Sequence operations so that every operation references a datum that already exists: roughing removes bulk material and stress first, thermal treatments that distort the part come next, and precision finishing comes last so that no later operation destroys the achieved accuracy.
 
@@ -153,7 +153,7 @@ The order in which operations are performed affects quality, cost, and feasibili
 
 The system-level tolerance is allocated to individual features and operations.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Worst-case (linear) stack-up**:
 
@@ -238,7 +238,7 @@ where $`C_i(T_i)` is the cost of achieving tolerance $`T_i` on feature $`i` (typ
 
 A fixture locates, clamps, and supports the workpiece during an operation. It is a major determinant of achievable tolerance, cycle time, and setup cost.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Global rule.** A rigid body in 3-D has 6 degrees of freedom (3 translations, 3 rotations). The fixture must remove all 6 with the minimum number of contact points, then clamp. The canonical scheme is 3-2-1:
 
@@ -298,7 +298,7 @@ $`F_{\text{clamp}} \geq (500 / 0.3) \times 2.5 \approx 4167` N ≈ 4.2 kN. A han
 
 The process plan is translated into machine-readable tool paths by CAM software.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — Global flow.** CAM takes the CAD model plus the process plan (which operations, which tools, which parameters) and generates the tool path: roughing passes that follow the stock boundary, finishing passes that follow the final geometry, then drilling cycles. The tool path determines cycle time, surface finish, and tool wear.
 
@@ -331,7 +331,7 @@ $`t_{\text{cut}} = 1200/900 = 1.333` min; $`t_{\text{rapid}} = 500/12000 = 0.042
 
 A process plan is a formal data object, not just informal notes. The ISO 10303 (STEP) standard family defines how process plans are structured and exchanged between CAD, CAM, and ERP systems.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — The standard.** **ISO 10303-224** (Application protocol: Mechanical product definition for process planning using machining features) defines the data model for machining process plans: operations, setups, tools, tolerances, and fixtures as structured entities.
 

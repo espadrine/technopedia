@@ -6,7 +6,7 @@ Quantum many-body physics describes systems of many identical particles where th
 
 **Definition.** For $`N` identical particles, the many-body wavefunction must be either symmetric (bosons, integer spin) or antisymmetric (fermions, half-integer spin) under exchange of any two particles: $`\psi(\ldots, x_i, \ldots, x_j, \ldots) = \pm\psi(\ldots, x_j, \ldots, x_i, \ldots)`. The plus sign gives Bose-Einstein statistics; the minus sign gives Fermi-Dirac statistics and the Pauli exclusion principle.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why indistinguishability matters
 
@@ -52,7 +52,7 @@ For fermions, the ground state would require three different states: $`E = \hbar
 
 **Definition.** Fock space $`\mathcal{F}` is the direct sum of $`N`-particle Hilbert spaces: $`\mathcal{F} = \mathbb{C}\oplus \mathcal{H}^{\otimes 1}\oplus \mathcal{H}^{\wedge 2}\oplus \cdots` (symmetric for bosons, antisymmetric for fermions). Creation operators $`\hat{a}_i^\dagger` add a particle in mode $`i`; annihilation operators $`\hat{a}_i` remove one. They satisfy $`[\hat{a}_i, \hat{a}_j^\dagger] = \delta_{ij}` (bosons) or $`\{\hat{a}_i, \hat{a}_j^\dagger\} = \delta_{ij}` (fermions).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From fixed $`N` to variable $`N`
 
@@ -134,7 +134,7 @@ So $`\hat{N}_1|\Psi\rangle = |\Psi\rangle`, meaning $`\langle\Psi|\hat{N}_1|\Psi
 
 The minus sign (bosons) allows unlimited occupation; the plus sign (fermions) enforces $`\bar{n}_i \leq 1` (Pauli exclusion). These distributions are the quantum generalization of the classical Maxwell-Boltzmann distribution.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From the grand canonical ensemble
 
@@ -180,7 +180,7 @@ This constant density of states is a distinctive feature of 2D systems and leads
 
 **Definition.** Mean-field theory replaces the many-body interaction by an average field: each particle moves in the potential created by all others. Examples include Hartree-Fock (for fermions), the Gross-Pitaevskii equation (for weakly interacting bosons), and density functional theory (DFT). The key approximation is $`\hat{a}_i^\dagger\hat{a}_j^\dagger\hat{a}_l\hat{a}_k \approx \langle\hat{a}_i^\dagger\hat{a}_k\rangle\hat{a}_j^\dagger\hat{a}_l + \cdots` (Wick's theorem / decoupling).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Taming the exponential complexity
 

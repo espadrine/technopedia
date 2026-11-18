@@ -15,7 +15,7 @@ For a system with $`W` accessible microstates (all equally probable in the micro
 S = k_B \ln W
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why the logarithm?** Entropy must be extensive: if you combine two independent systems A and B, the total number of microstates is $`W_{\text{tot}} = W_A \cdot W_B` (product, by the multiplication rule). Extensivity requires $`S_{\text{tot}} = S_A + S_B`. The only function satisfying $`f(W_A W_B) = f(W_A) + f(W_B)` is $`f(W) = k_B \ln W` (up to a constant).
 
@@ -86,7 +86,7 @@ In the microcanonical ensemble, temperature is defined by:
 \frac{1}{T} \equiv \left(\frac{\partial S}{\partial U}\right)_{V,N}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation.** Consider two systems A and B in thermal contact, with total energy $`U = U_A + U_B` fixed. The most probable energy division maximizes $`S_{\text{tot}} = S_A(U_A) + S_B(U_B)`:
 
@@ -169,7 +169,7 @@ Z(T,V,N) = \int_0^{\infty} \Omega(E)\, e^{-\beta E}\, dE
 
 For a discrete spectrum this reduces to the sum over individual levels.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Step 1 — from a shell to a density.** The microcanonical count $`W(E) = \Omega(E)\,\Delta E` is only meaningful for a *thin* shell. The density of states $`\Omega(E)` strips off the arbitrary shell width $`\Delta E` and gives the number of states per unit energy. For a system with a discrete spectrum, $`\Omega(E)` is a comb of delta peaks at each level; for a macroscopic system the levels are so dense that $`\Omega(E)` is a smooth function.
 
@@ -252,7 +252,7 @@ The Helmholtz free energy $`F` is the thermodynamic potential natural to the can
 
 <iframe src="./Statistical-Foundations-of-Thermodynamics.simulation.html" title="Two-level system: populations, mean energy, and Schottky heat-capacity peak"></iframe>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Ideal gas (key result).** For $`N` non-interacting, indistinguishable particles in volume $`V`:
 
@@ -286,7 +286,7 @@ For a macroscopic system ($`N \sim 10^{23}`), the relative fluctuation is:
 \frac{\sqrt{\langle(\Delta U)^2\rangle}}{\langle U \rangle} \sim \frac{1}{\sqrt{N}} \approx 10^{-12}
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why thermodynamics works.** The energy distribution $`P(E) = \Omega(E)e^{-\beta E}/Z` is a narrow peak around $`\langle E \rangle` with width $`\sigma_E = \sqrt{k_B T^2 C_V}`. In the thermodynamic limit ($`N \to \infty`, $`V \to \infty`, $`N/V` fixed), the relative width $`\sigma_E/\langle E \rangle \sim 1/\sqrt{N} \to 0`, so the peak becomes a delta function. This justifies treating $`U, S, T` as sharp, deterministic quantities: the first and second laws are not violated, they are the overwhelmingly probable behavior.
 
@@ -323,7 +323,7 @@ For a system with a **non-degenerate** ground state, the entropy vanishes as the
 T \to 0 \implies W \to 1 \implies S = k_B \ln 1 = 0
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Statistical statement of the third law.** In the canonical ensemble, the probability of a state of energy $`E` is $`e^{-\beta E}/Z`. As $`T \to 0` ($`\beta \to \infty`), the Boltzmann factor $`e^{-\beta E}` suppresses every state except the ground state. If the ground state is unique (non-degenerate, $`g_0 = 1`), then $`Z \to 1` and the system is certainly in that one state: $`W \to 1`, so $`S = k_B \ln W \to 0`.
 

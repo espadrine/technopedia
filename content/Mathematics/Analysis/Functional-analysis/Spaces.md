@@ -16,7 +16,7 @@ Spaces is the foundation of functional analysis: it classifies the infinite-dime
 
 A **normed space** is a vector space with a norm; a **Banach space** is a normed space in which every Cauchy sequence converges (i.e. it is *complete*).
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### From a number to a size
 
@@ -64,7 +64,7 @@ Take $`f_n(x) = \min(n x, 1)`. Each $`f_n` is continuous. For $`m > n`, $`\|f_m 
 
 **Definition.** A **Hilbert space** is a vector space $`H` equipped with an inner product $`\langle \cdot, \cdot \rangle` such that the induced norm $`\|x\| = \sqrt{\langle x, x \rangle}` makes $`H` a Banach space. Two vectors are **orthogonal** if $`\langle x, y \rangle = 0`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### The inner product adds geometry
 
@@ -115,7 +115,7 @@ Project onto the unit vector $`u = (1, 1)/\sqrt{2}`. The projection is $`m = \la
 
 **Definition.** The **dual** of a normed space $`X` is $`X^* = \{ \varphi : X \to \mathbb{F} \text{ continuous linear} \}`, with norm $`\|\varphi\| = \sup_{\|x\| \leq 1} |\varphi(x)|`. The **double dual** is $`(X^*)^*`.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### Why look at the dual
 
@@ -145,7 +145,7 @@ Any continuous linear functional is $`\varphi(a, b) = \alpha a + \beta b`. Its n
 
 **Definition.** A Banach space $`X` is **reflexive** if the canonical map $`J : X \to X^{**}`, $`J(x)(\varphi) = \varphi(x)`, is onto. Equivalently, $`X` is (isometrically) its own double dual.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 ### What reflexivity means
 

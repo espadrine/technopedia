@@ -2,7 +2,7 @@
 
 Oscillations are repeated variations of a quantity around an equilibrium; waves are the propagation of such a disturbance through space. They occur whenever inertia, a restoring force, and little dissipation combine, making systems exchange energy between motion and stored configuration. Oscillations and waves are relevant to clocks, vibration isolation, resonance, electrical filters, molecular vibration, sound, seismic activity, water waves, and string instruments. The fundamental building block is the [Harmonic oscillator](./Harmonic-oscillator.md), from which all other oscillation types derive.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 The baseline model is a mass $`m` displaced from equilibrium by $`x`. For small displacement, the restoring force is approximately linear: $`F = -kx`. Newton's law gives $`m\ddot{x} + kx = 0`, whose solution is $`x(t) = A\cos(\omega t + \phi)` with $`\omega = \sqrt{k/m}`.
 

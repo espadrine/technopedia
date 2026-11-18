@@ -18,7 +18,7 @@ Thermodynamic potentials (enthalpy, Helmholtz free energy, Gibbs free energy, gr
 <tr><td><i>Ω</i>(<i>T</i>,<i>V</i>,μ) = <i>F</i> − μN</td><td>Grand potential</td><td><i>T</i>, <i>V</i>, μ</td><td>Constant <i>T</i>, <i>V</i>, μ (system in contact with both a heat bath and a particle reservoir)</td></tr>
 </table>
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Why these combinations?** Each potential is a Legendre transform of $`U` that replaces an extensive variable with its conjugate intensive variable. For example, $`F = U - TS` replaces $`S` (extensive) with $`T` (intensive, its conjugate via $`T = (\partial U/\partial S)_{V,N}`). At fixed $`T, V`, minimizing $`F` is equivalent to maximizing $`S_{\text{total}}` (system + reservoir), which is the second law.
 
@@ -61,7 +61,7 @@ For a reaction $`\sum_i \nu_i A_i = 0` at constant $`T, P`:
 - $`\Delta_r G = 0`: equilibrium.
 - $`\Delta_r G > 0`: reaction proceeds in reverse.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Standard state and equilibrium constant.** Writing $`\mu_i = \mu_i^\circ + RT\ln a_i` (where $`a_i` is activity), at equilibrium:
 
@@ -89,7 +89,7 @@ For a system with $`C` components and $`P` phases, the Gibbs phase rule gives th
 F = C - P + 2
 ```
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **Derivation.** Each phase has $`C + 2` intensive variables ($`T, P`, and $`C` composition variables). At equilibrium, $`T` and $`P` are the same in all phases, and $`\mu_i^\alpha = \mu_i^\beta` for each component and each pair of phases. Counting constraints gives $`F = C - P + 2`.
 
@@ -120,7 +120,7 @@ From the equality of mixed partials of a potential, e.g. from $`dG = -S\,dT + V\
 
 The four Maxwell relations (one per potential) allow you to compute entropy changes from measurable $`P, V, T` data.
 
-<details><summary>Details</summary>
+<details><summary>EXPLANATION</summary>
 
 **All four (pure substance, $`N` fixed):**
 

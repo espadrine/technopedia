@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Key-Value Stores Simulation</title>
+<style>
+body { font-family: system-ui, sans-serif; margin: 20px; background: #fafafa; }
+h1 { font-size: 1.3em; margin-bottom: 10px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 0; }
+.tab { padding: 8px 16px; cursor: pointer; background: #e0e0e0; border: 1px solid #bbb; border-bottom: none; border-radius: 6px 6px 0 0; font-size: 0.9em; }
+.tab.active { background: #fff; font-weight: bold; border-color: #1565c0; }
+.panel { display: none; border: 1px solid #1565c0; border-radius: 0 6px 6px 6px; padding: 16px; background: #fff; min-height: 300px; }
+.panel.active { display: block; }
+.controls { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.controls input { padding: 4px 8px; width: 80px; }
+.controls button { padding: 5px 12px; cursor: pointer; background: #1565c0; color: #fff; border: none; border-radius: 4px; }
+.controls button:hover { background: #0d47a1; }
+svg { display: block; margin: 10px auto; }
+.info { font-size: 0.85em; color: #555; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Balanced BST</h1>
+<div class="panel active" id="panel1">
+<div class="controls">
+<label>Key: <input type="number" id="bst-key" value="5"></label>
+<button onclick="bstInsert()">Insert</button>
+<button onclick="bstSearch()">Search</button>
+<button onclick="bstReset()">Reset</button>
+<span class="info" id="bst-info">Balanced BST (AVL)</span>
+</div>
+<svg id="bst-svg" width="500" height="280"></svg>
+</div>
+<script>
+// BST
+let bstNodes = [];
+function bstInsert() {
+  let k = parseInt(document.getElementById('bst-key').value);
+  if (bstNodes.find(n => n.key === k)) return;
+  bstNodes.push({key: k, left: null, right: null});
+  bstNodes.sort((a,b) => a.key - b.key);
+  bstDraw();
+  document.getElementById('bst-info').textContent = `Keys: [${bstNodes.map(n=>n.key).join(', ')}]`;
+}
+function bstSearch() {
+  let k = parseInt(document.getElementById('bst-key').value);
+  let found = bstNodes.find(n => n.key === k);
+  document.getElementById('bst-info').textContent = found ? `Found ${k}!` : `${k} not in tree.`;
+}
+function bstReset() { bstNodes = []; bstDraw(); document.getElementById('bst-info').textContent = 'Balanced BST (AVL)'; }
+function bstDraw() {
+  let svg = document.getElementById('bst-svg');
+  if (bstNodes.length === 0) { svg.innerHTML = '<text x="250" y="140" text-anchor="middle" font-size="12" fill="#999">Empty tree. Insert keys to begin.</text>'; return; }
+  // Simple balanced layout
+  let n = bstNodes.length;
+  let s = '';
+  let positions = [];
+  function layout(idx, depth, x1, x2) {
+    if (idx >= n) return;
+    let x = (x1 + x2) / 2;
+    let y = 40 + depth * 70;
+    positions[idx] = {x, y};
+    let mid = Math.floor(n / 2);
+    if (idx === mid) {
+      layout(Math.floor(mid/2), depth+1, x1, x);
+      layout(mid+1, depth+1, x, x2);
+    }
+  }
+  // Just draw in a simple tree layout
+  let mid = Math.floor(n/2);
+  function drawNode(idx, depth, x1, x2) {
+    if (idx < 0 || idx >= n) return;
+    let x = (x1+x2)/2;
+    let y = 40 + depth*70;
+    let left = Math.floor((idx)/2);
+    let right = Math.ceil((idx)/2);
+    if (depth > 0) {
+      let px = (x1 + (x1+x2)/2) / 2;
+      let py = 40 + (depth-1)*70;
+      s += `<line x1="${px}" y1="${py}" x2="${x}" y2="${y}" stroke="#333"/>`;
+    }
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="bold">${bstNodes[idx].key}</text>`;
+    if (depth < 4) {
+      drawNode(idx-1, depth+1, x1, x);
+      drawNode(idx+1, depth+1, x, x2);
+    }
+  }
+  // Simplified: just draw sorted nodes in a balanced tree shape
+  function drawBalanced(arr, depth, x1, x2) {
+    if (arr.length === 0) return;
+    let mid = Math.floor(arr.length/2);
+    let x = (x1+x2)/2;
+    let y = 40 + depth*70;
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="bold">${arr[mid].key}</text>`;
+    if (depth > 0) {
+      let px = (x1+x2)/2;
+      let py = 40 + (depth-1)*70;
+      // Draw line from parent (approximate)
+    }
+    drawBalanced(arr.slice(0, mid), depth+1, x1, x);
+    drawBalanced(arr.slice(mid+1), depth+1, x, x2);
+  }
+  // Draw lines first, then nodes
+  function drawWithLines(arr, depth, x1, x2, parentX, parentY) {
+    if (arr.length === 0) return;
+    let mid = Math.floor(arr.length/2);
+    let x = (x1+x2)/2;
+    let y = 40 + depth*70;
+    if (depth > 0) {
+      s += `<line x1="${parentX}" y1="${parentY}" x2="${x}" y2="${y}" stroke="#333"/>`;
+    }
+    drawWithLines(arr.slice(0, mid), depth+1, x1, x, x, y);
+    drawWithLines(arr.slice(mid+1), depth+1, x, x2, x, y);
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#e3f2fd" stroke="#1565c0" stroke-width="2"/>`;
+    s += `<text x="${x}" y="${y+5}" text-anchor="middle" font-size="12" font-weight="bold">${arr[mid].key}</text>`;
+  }
+  drawWithLines(bstNodes, 0, 20, 480, 0, 0);
+  svg.innerHTML = s;
+}
+bstDraw();
+
+</script>
+</body>
+</html>

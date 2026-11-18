@@ -18,19 +18,19 @@ The five classes below are distinguished by the **engineering regime** in which 
 <table>
 <tr><th>Page</th><th>Engineering regime</th><th>Typical distance</th><th>Typical bandwidth</th><th>Topology</th><th>Representative examples</th></tr>
 <tr><td><a href="./On-chip-interconnects.md">On-chip interconnects</a></td><td>Metallic / polysilicon wires on a single die; RC-delay dominated</td><td>µm – mm (within a die)</td><td>Tb/s aggregate</td><td>Shared bus, crossbar, ring, mesh NoC</td><td>CPU bus, crossbar, mesh NoC, register file</td></tr>
-<tr><td><a href="./Board-level-interconnects.md">Board-level electrical interconnects</a></td><td>Copper traces on a PCB and through-hole / BGA package pins; impedance-matched transmission lines</td><td>cm (board or package)</td><td>Gb/s per lane</td><td>Point-to-point (PCIe, DDR), shared bus (I²C, SPI)</td><td>DDR5, HBM3, PCIe, SPI, I²C, UART, CAN</td></tr>
+<tr><td><a href="./Board-level-electrical-interconnects.md">Board-level electrical interconnects</a></td><td>Copper traces on a PCB and through-hole / BGA package pins; impedance-matched transmission lines</td><td>cm (board or package)</td><td>Gb/s per lane</td><td>Point-to-point (PCIe, DDR), shared bus (I²C, SPI)</td><td>DDR5, HBM3, PCIe, SPI, I²C, UART, CAN</td></tr>
 <tr><td><a href="./Cabled-external-interconnects.md">Cabled external interconnects</a></td><td>Shielded copper cable between systems; conductor loss + radiation dominate</td><td>m – 100 m</td><td>Gb/s – 80 Gb/s</td><td>Point-to-point</td><td>USB4, Thunderbolt 5, Ethernet (copper), SATA, HDMI/DisplayPort</td></tr>
 <tr><td><a href="./Optical-interconnects.md">Optical interconnects</a></td><td>Photons in glass fibre or free-space optics; attenuation and dispersion dominate</td><td>10 m – 1000 km</td><td>Tb/s per fibre</td><td>Point-to-point, WDM multiplexed</td><td>Fibre Ethernet, optical I/O, data-centre interconnect</td></tr>
 <tr><td><a href="./Wireless-interfaces.md">Wireless interfaces</a></td><td>Electromagnetic waves in free space; diffraction, multipath, and path loss dominate</td><td>cm – 10⁴ km</td><td>Mb/s – Gb/s</td><td>Shared medium (CSMA/OFDMA), point-to-point (satellite)</td><td>Wi-Fi, Bluetooth, NFC, Zigbee, 5G, satellite</td></tr>
 </table>
 
-Each class above has one explanation page per family. The cabled-external class in particular splits into five families, one page each: [USB](./USB.md) (peripheral tree), [Thunderbolt](./Thunderbolt.md) (docking & expansion), [Ethernet over copper](./Ethernet-copper.md) (peer LAN), [SATA](./SATA.md) (storage), and [DisplayPort & HDMI](./DisplayPort-and-HDMI.md) (display).
+Each class above has one explanation page per family. The cabled-external class in particular splits into five families, one page each: [USB](./USB.md) (peripheral tree), [Thunderbolt](./Thunderbolt.md) (docking & expansion), [Ethernet over copper](./Ethernet-over-copper-twisted-pair.md) (peer LAN), [SATA](./SATA.md) (storage), and [DisplayPort & HDMI](./DisplayPort-and-HDMI.md) (display).
 
 The boundary between "board-level" and "cabled external" is not a physics boundary—both are copper transmission lines governed by the same Maxwell equations—but a **system/packaging boundary**: on-board traces are designed as part of a PCB stackup (controlled impedance, ground planes, via transitions), while off-board cables are designed as discrete assemblies (connector pinout, shielding, hot-plug, EMI compliance). The dominant loss mechanism also shifts: dielectric loss at the cm scale gives way to conductor loss and radiation at the m scale.
 
 Memory interfaces (DDR5, HBM3, LPDDR5) appear in the board-level row, but the reader looking for latency and bandwidth context in the full memory hierarchy should consult [Memory Hierarchy](../../Computer-Hardware/Memory-Hierarchy.md).
 
-Die-to-die and chiplet interconnects (UCIe, AMD Infinity Fabric, Intel EMIB) operate at 1–10 mm distances through TSVs, microbumps, or organic substrate. They are subsumed under the board-level row in this table but are treated explicitly in [Board-level electrical interconnects](./Board-level-interconnects.md).
+Die-to-die and chiplet interconnects (UCIe, AMD Infinity Fabric, Intel EMIB) operate at 1–10 mm distances through TSVs, microbumps, or organic substrate. They are subsumed under the board-level row in this table but are treated explicitly in [Board-level electrical interconnects](./Board-level-electrical-interconnects.md).
 
 ### A single data path
 
@@ -40,7 +40,9 @@ CPU register → ALU → memory controller → DDR5 (board-level) → PCIe (boar
 
 Each arrow is a different interface class with its own physics, protocol, and engineering discipline. The interactive simulation below lets you trace a packet through the stack.
 
-<details><summary>Details: dominant physics per class</summary>
+<iframe src="./Interfaces-and-Buses.simulation.html" title="Interfaces and Buses: Data Path Simulation"></iframe>
+
+<details><summary>EXPLANATION: dominant physics per class</summary>
 
 The reason the physical medium is the right first-principles axis is that each regime is dominated by a different physical effect:
 
